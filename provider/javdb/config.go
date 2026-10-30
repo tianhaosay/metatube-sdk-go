@@ -3,6 +3,7 @@ package javdb
 import (
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 
@@ -63,14 +64,21 @@ var validFieldSources = map[string]struct{}{
 //
 // Keys (all optional, env: MT_PROVIDER_JAVDB__<KEY>):
 //
-//	field_sources     - comma-separated `field=provider` pairs; metadata
-//	                    fields listed here are taken from the given provider
-//	                    instead of JavDB itself, e.g. `images=fanza`.
+//	field_sources      - comma-separated `field=provider` pairs; metadata
+//	                     fields listed here are taken from the given provider
+//	                     instead of JavDB itself, e.g. `images=fanza`.
 //	mapping_actor_file - path to an MDC-style mapping_actor.xml; actor names
-//	                    are canonicalized through it (zh_cn output).
+//	                     are canonicalized through it (zh_cn output).
 //	mapping_info_file  - path to an MDC-style mapping_info.xml; tags/genres
-//	                    are translated (or deleted when the output is
-//	                    "删除") through it.
+//	                     are translated (or deleted when the output is
+//	                     "删除") through it.
+//	mapping_title_file - path to an MDC-style c_number.json (number ->
+//	                     Chinese title, i.e. the cached Sehuatang titles);
+//	                     when the movie number matches, the title is
+//	                     replaced by the Chinese one (applied after field
+//	                     merging, so it wins over merged titles).
+//	clean_summary      - collapse consecutive newlines in Summary into a
+//	                     single one (default true).
 func (db *JavDB) SetConfig(config provider.Config) error {
 	if config == nil {
 		return nil
@@ -124,6 +132,30 @@ func (db *JavDB) SetConfig(config provider.Config) error {
 			db.mu.Unlock()
 		}
 	}
+
+	// mapping_title_file: MDC-style c_number.json (number -> Chinese title,
+	// the cached Sehuatang titles). Applied after field merging so that the
+	// Chinese title wins when the number matches.
+	if config.Has("mapping_title_file") {
+		if v, err := config.GetString("mapping_title_file"); err == nil && v != "" {
+			m, err := mapping.LoadTitleFile(v)
+			if err != nil {
+				return fmt.Errorf("load title mapping file: %w", err)
+			}
+			db.mu.Lock()
+			db.titleMapping = m
+			db.mu.Unlock()
+		}
+	}
+
+	// clean_summary: collapse consecutive newlines in Summary (default true).
+	if config.Has("clean_summary") {
+		if v, err := config.GetBool("clean_summary"); err == nil {
+			db.mu.Lock()
+			db.cleanSummary = v
+			db.mu.Unlock()
+		}
+	}
 	return nil
 }
 
@@ -133,6 +165,8 @@ func (db *JavDB) postProcess(info *model.MovieInfo) {
 	fieldSources := db.fieldSources
 	actorMapping := db.actorMapping
 	infoMapping := db.infoMapping
+	titleMapping := db.titleMapping
+	cleanSummary := db.cleanSummary
 	db.mu.Unlock()
 
 	// 1. Mapping tables (actor canonicalization + tag translation/removal).
@@ -160,26 +194,47 @@ func (db *JavDB) postProcess(info *model.MovieInfo) {
 	}
 
 	// 2. Cross-provider field merging.
-	if len(fieldSources) == 0 {
-		return
+	if len(fieldSources) > 0 {
+		for field, source := range fieldSources {
+			if strings.EqualFold(source, Name) {
+				continue // merging from ourselves is a no-op.
+			}
+			secondary, err := db.getSecondaryProvider(source)
+			if err != nil {
+				log.Printf("[JavDB] field merge: provider %s not found: %v", source, err)
+				continue
+			}
+			secondaryInfo, err := secondary.GetMovieInfoByID(info.Number)
+			if err != nil || secondaryInfo == nil {
+				log.Printf("[JavDB] field merge: fetch %s info for %s from %s failed: %v",
+					field, info.Number, source, err)
+				continue
+			}
+			applyField(info, secondaryInfo, field)
+		}
 	}
-	for field, source := range fieldSources {
-		if strings.EqualFold(source, Name) {
-			continue // merging from ourselves is a no-op.
+
+	// 3. Number-mapped Chinese title override (applied after merging so it
+	//    takes priority over any merged title).
+	if titleMapping != nil {
+		if title, ok := titleMapping.Lookup(info.Number); ok && title != "" {
+			info.Title = title
 		}
-		secondary, err := db.getSecondaryProvider(source)
-		if err != nil {
-			log.Printf("[JavDB] field merge: provider %s not found: %v", source, err)
-			continue
-		}
-		secondaryInfo, err := secondary.GetMovieInfoByID(info.Number)
-		if err != nil || secondaryInfo == nil {
-			log.Printf("[JavDB] field merge: fetch %s info for %s from %s failed: %v",
-				field, info.Number, source, err)
-			continue
-		}
-		applyField(info, secondaryInfo, field)
 	}
+
+	// 4. Collapse consecutive newlines in Summary.
+	if cleanSummary {
+		info.Summary = collapseNewlines(info.Summary)
+	}
+}
+
+var newlinePattern = regexp.MustCompile(`\r?\n(\r?\n)+`)
+
+func collapseNewlines(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.TrimSpace(newlinePattern.ReplaceAllString(s, "\n"))
 }
 
 // getSecondaryProvider returns a cached MovieProvider instance by
