@@ -4,6 +4,7 @@ import (
 	"time"
 
 	mt "github.com/metatube-community/metatube-sdk-go/provider"
+	"github.com/metatube-community/metatube-sdk-go/translate"
 )
 
 type Option func(*Engine)
@@ -29,5 +30,25 @@ func WithActorProviderConfig(name string, config mt.Config) Option {
 func WithMovieProviderConfig(name string, config mt.Config) Option {
 	return func(e *Engine) {
 		e.movieProviderConfigs.Set(name, config)
+	}
+}
+
+func WithTranslator(translator translate.Translator) Option {
+	return func(e *Engine) {
+		e.translator = translator
+	}
+}
+
+func WithTranslateLang(lang string) Option {
+	return func(e *Engine) {
+		if lang != "" {
+			e.translateLang = lang
+		}
+	}
+}
+
+func WithDisableSummary(disable bool) Option {
+	return func(e *Engine) {
+		e.disableSummary = disable
 	}
 }

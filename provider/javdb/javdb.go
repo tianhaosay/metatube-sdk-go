@@ -56,7 +56,6 @@ type JavDB struct {
 	fieldSources map[string]string
 	actorMapping *mapping.ActorMap
 	infoMapping  *mapping.InfoMap
-	titleMapping *mapping.TitleMap
 	cleanSummary bool
 	// secProviders caches secondary provider instances for field merging.
 	secProviders map[string]provider.MovieProvider

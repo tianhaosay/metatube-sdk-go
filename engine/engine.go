@@ -15,6 +15,7 @@ import (
 	"github.com/metatube-community/metatube-sdk-go/common/fetch"
 	"github.com/metatube-community/metatube-sdk-go/database"
 	mt "github.com/metatube-community/metatube-sdk-go/provider"
+	"github.com/metatube-community/metatube-sdk-go/translate"
 )
 
 const (
@@ -42,6 +43,12 @@ type Engine struct {
 	// E.g., github.com -> [Gfriends, ...]
 	actorHostProviders *maps.CaseInsensitiveMap[[]mt.ActorProvider]
 	movieHostProviders *maps.CaseInsensitiveMap[[]mt.MovieProvider]
+	// Optional metadata translator (title/summary). nil disables translation.
+	translator translate.Translator
+	// translateLang is the target language for metadata translation.
+	translateLang string
+	// disableSummary clears movie summaries from all outputs.
+	disableSummary bool
 }
 
 func New(db *gorm.DB, opts ...Option) *Engine {

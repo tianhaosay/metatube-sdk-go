@@ -1,5 +1,10 @@
 FROM golang:alpine AS builder
 
+# GOPROXY is overridable via --build-arg GOPROXY=... ; goproxy.cn first for
+# networks where proxy.golang.org (GCS backend) is unreliable.
+ARG GOPROXY=https://goproxy.cn,https://proxy.golang.org,direct
+ENV GOPROXY=${GOPROXY}
+
 WORKDIR /src
 COPY . /src
 

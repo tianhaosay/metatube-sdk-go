@@ -72,13 +72,9 @@ var validFieldSources = map[string]struct{}{
 //	mapping_info_file  - path to an MDC-style mapping_info.xml; tags/genres
 //	                     are translated (or deleted when the output is
 //	                     "删除") through it.
-//	mapping_title_file - path to an MDC-style c_number.json (number ->
-//	                     Chinese title, i.e. the cached Sehuatang titles);
-//	                     when the movie number matches, the title is
-//	                     replaced by the Chinese one (applied after field
-//	                     merging, so it wins over merged titles).
-//	clean_summary      - collapse consecutive newlines in Summary into a
-//	                     single one (default true).
+//	clean_summary      - collapse consecutive newlines in Summary (default
+//	                     true). Title/summary translation is handled
+//	                     globally by the engine translator (MT_TRANSLATE_*).
 func (db *JavDB) SetConfig(config provider.Config) error {
 	if config == nil {
 		return nil
@@ -133,21 +129,6 @@ func (db *JavDB) SetConfig(config provider.Config) error {
 		}
 	}
 
-	// mapping_title_file: MDC-style c_number.json (number -> Chinese title,
-	// the cached Sehuatang titles). Applied after field merging so that the
-	// Chinese title wins when the number matches.
-	if config.Has("mapping_title_file") {
-		if v, err := config.GetString("mapping_title_file"); err == nil && v != "" {
-			m, err := mapping.LoadTitleFile(v)
-			if err != nil {
-				return fmt.Errorf("load title mapping file: %w", err)
-			}
-			db.mu.Lock()
-			db.titleMapping = m
-			db.mu.Unlock()
-		}
-	}
-
 	// clean_summary: collapse consecutive newlines in Summary (default true).
 	if config.Has("clean_summary") {
 		if v, err := config.GetBool("clean_summary"); err == nil {
@@ -160,12 +141,13 @@ func (db *JavDB) SetConfig(config provider.Config) error {
 }
 
 // postProcess applies mapping tables and cross-provider field merging.
+// Note: title/summary translation is handled globally by the engine-level
+// translator (see cmd config), not here.
 func (db *JavDB) postProcess(info *model.MovieInfo) {
 	db.mu.Lock()
 	fieldSources := db.fieldSources
 	actorMapping := db.actorMapping
 	infoMapping := db.infoMapping
-	titleMapping := db.titleMapping
 	cleanSummary := db.cleanSummary
 	db.mu.Unlock()
 
@@ -214,15 +196,7 @@ func (db *JavDB) postProcess(info *model.MovieInfo) {
 		}
 	}
 
-	// 3. Number-mapped Chinese title override (applied after merging so it
-	//    takes priority over any merged title).
-	if titleMapping != nil {
-		if title, ok := titleMapping.Lookup(info.Number); ok && title != "" {
-			info.Title = title
-		}
-	}
-
-	// 4. Collapse consecutive newlines in Summary.
+	// Collapse consecutive newlines in Summary.
 	if cleanSummary {
 		info.Summary = collapseNewlines(info.Summary)
 	}

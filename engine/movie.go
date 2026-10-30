@@ -16,6 +16,7 @@ import (
 	"github.com/metatube-community/metatube-sdk-go/engine/providerid"
 	"github.com/metatube-community/metatube-sdk-go/model"
 	mt "github.com/metatube-community/metatube-sdk-go/provider"
+	"github.com/metatube-community/metatube-sdk-go/translate"
 )
 
 func (e *Engine) searchMovieFromDB(keyword string, provider mt.MovieProvider, all bool) (results []*model.MovieSearchResult, err error) {
@@ -228,7 +229,56 @@ func (e *Engine) getMovieInfoWithCallback(provider mt.MovieProvider, id string, 
 			}).Create(info) // ignore error
 		}
 	}()
-	return callback()
+	info, err = callback()
+	if err == nil && info != nil && info.IsValid() {
+		// Translate metadata (and apply summary switch) before caching, so
+		// the DB stores the final (translated) result.
+		e.translateMovieInfo(info)
+	}
+	return
+}
+
+// translateMovieInfo translates movie title/summary via the configured
+// translator (failover-capable), and applies the disable-summary switch.
+// Errors never fail the metadata fetch: the original text is kept.
+func (e *Engine) translateMovieInfo(info *model.MovieInfo) {
+	if e.disableSummary {
+		info.Summary = ""
+	}
+	if e.translator == nil {
+		return
+	}
+	target := e.translateLang
+	if target == "" {
+		target = "zh-CN"
+	}
+	translateField := func(field, ref string) (string, bool) {
+		var (
+			translated string
+			err        error
+		)
+		if rt, ok := e.translator.(translate.RefTranslator); ok {
+			translated, err = rt.TranslateWithRef(field, "auto", target, ref)
+		} else {
+			translated, err = e.translator.Translate(field, "auto", target)
+		}
+		if err != nil || translated == "" {
+			// Keep original text; failure is already logged by the
+			// translator (with ref) when possible.
+			return field, false
+		}
+		return translated, true
+	}
+	if info.Title != "" {
+		if t, ok := translateField(info.Title, info.Number); ok {
+			info.Title = t
+		}
+	}
+	if info.Summary != "" {
+		if t, ok := translateField(info.Summary, info.Number); ok {
+			info.Summary = t
+		}
+	}
 }
 
 func (e *Engine) getMovieInfoByProviderID(provider mt.MovieProvider, id string, lazy bool) (*model.MovieInfo, error) {
