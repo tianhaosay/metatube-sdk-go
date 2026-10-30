@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -58,4 +59,30 @@ func RangeActorFactory(f func(string, ActorFactory) bool) {
 		}
 	}
 	factoryMu.RUnlock()
+}
+
+// GetMovieProviderByName returns a new MovieProvider instance by
+// (case-insensitive) registered name.
+func GetMovieProviderByName(name string) (MovieProvider, error) {
+	factoryMu.RLock()
+	defer factoryMu.RUnlock()
+	for n, factory := range movieFactories {
+		if strings.EqualFold(n, name) {
+			return factory(), nil
+		}
+	}
+	return nil, ErrProviderNotFound
+}
+
+// GetActorProviderByName returns a new ActorProvider instance by
+// (case-insensitive) registered name.
+func GetActorProviderByName(name string) (ActorProvider, error) {
+	factoryMu.RLock()
+	defer factoryMu.RUnlock()
+	for n, factory := range actorFactories {
+		if strings.EqualFold(n, name) {
+			return factory(), nil
+		}
+	}
+	return nil, ErrProviderNotFound
 }
