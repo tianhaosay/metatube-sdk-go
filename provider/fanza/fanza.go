@@ -99,6 +99,19 @@ func (fz *FANZA) SetRequestTimeout(timeout time.Duration) {
 	fz.Scraper.SetRequestTimeout(timeout)
 }
 
+// SetProxy sets the proxy for both the scraper and the internal video API
+// (graphql) HTTP client. The video API client does not share the scraper's
+// fetcher, so without this override the graphql requests bypass the proxy
+// and DMM returns null content for non-Japanese IPs.
+func (fz *FANZA) SetProxy(proxyURL string) error {
+	u, err := url.Parse(proxyURL)
+	if err != nil {
+		return err
+	}
+	fz.httpClient.Transport = &http.Transport{Proxy: http.ProxyURL(u)}
+	return fz.Scraper.SetProxy(proxyURL)
+}
+
 func (fz *FANZA) NormalizeMovieID(id string) string {
 	return strings.ToLower(id) /* FANZA uses lowercase ID */
 }
