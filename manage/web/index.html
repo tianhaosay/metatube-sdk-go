@@ -3,170 +3,328 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>metatube-plus · 演员管理</title>
+<title>metatube-plus 控制台</title>
 <style>
-  :root { --bg:#f5f6f8; --card:#fff; --line:#e5e7eb; --text:#1f2937; --muted:#6b7280; --brand:#2563eb; --ok:#16a34a; --warn:#d97706; --bad:#dc2626; }
+  :root { --bg:#f4f5f7; --card:#fff; --line:#e2e8f0; --text:#0f172a; --muted:#64748b; --brand:#2563eb; --ok:#16a34a; --warn:#d97706; --bad:#dc2626; }
   * { box-sizing:border-box; }
   body { margin:0; font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--text); }
-  .wrap { max-width:960px; margin:0 auto; padding:16px; }
-  h1 { font-size:20px; margin:8px 0 16px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
-  .card h2 { font-size:16px; margin:0 0 10px; }
+  .topbar { background:#1e293b; color:#fff; padding:10px 16px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; position:sticky; top:0; z-index:5; }
+  .topbar b { font-size:15px; margin-right:12px; }
+  .tab { padding:6px 12px; border-radius:6px; font-size:13px; color:#94a3b8; cursor:pointer; border:0; background:none; }
+  .tab.active { background:#334155; color:#e2e8f0; }
+  .status { margin-left:auto; font-size:12px; color:#94a3b8; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e; margin-right:4px; }
+  .wrap { max-width:980px; margin:0 auto; padding:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:14px; }
+  .card h2 { font-size:15px; margin:0 0 10px; }
   .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .kv { font-size:13px; color:var(--muted); margin:2px 0; }
   .kv b { color:var(--text); }
-  button { background:var(--brand); color:#fff; border:0; border-radius:8px; padding:8px 14px; font-size:14px; cursor:pointer; }
+  button { background:var(--brand); color:#fff; border:0; border-radius:8px; padding:7px 13px; font-size:13px; cursor:pointer; }
   button:disabled { opacity:.5; cursor:not-allowed; }
-  button.secondary { background:#e5e7eb; color:var(--text); }
+  button.secondary { background:#e2e8f0; color:var(--text); }
   button.danger { background:var(--bad); }
   button.ok { background:var(--ok); }
-  .bar { height:8px; background:#e5e7eb; border-radius:4px; overflow:hidden; margin:8px 0; }
+  input, select { padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:13px; background:#fff; }
+  .bar { height:8px; background:#e2e8f0; border-radius:4px; overflow:hidden; margin:8px 0; }
   .bar>div { height:100%; background:var(--brand); width:0; transition:width .4s; }
-  table { width:100%; border-collapse:collapse; font-size:13px; margin-top:8px; }
-  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; margin-top:8px; }
+  th,td { text-align:left; padding:5px 7px; border-bottom:1px solid var(--line); vertical-align:top; }
   th { color:var(--muted); font-weight:500; }
-  .pill { display:inline-block; padding:2px 8px; border-radius:10px; font-size:12px; }
+  .pill { display:inline-block; padding:1px 7px; border-radius:9px; font-size:11px; }
   .pill.ok { background:#dcfce7; color:var(--ok); }
   .pill.no { background:#fee2e2; color:var(--bad); }
   .pill.warn { background:#fef3c7; color:var(--warn); }
-  .muted { color:var(--muted); font-size:13px; }
-  select { padding:4px 6px; border:1px solid var(--line); border-radius:6px; }
+  .muted { color:var(--muted); font-size:12.5px; }
   .fail { color:var(--bad); font-size:12px; }
   details { margin-top:6px; }
   summary { cursor:pointer; font-size:13px; color:var(--muted); }
+  .logbox { background:#0f172a; border-radius:10px; padding:10px 12px; max-height:460px; overflow-y:auto; font-family:ui-monospace,Consolas,monospace; font-size:11.5px; line-height:1.7; }
+  .logbox .t { color:#64748b; }
+  .logbox .src { color:#7dd3fc; margin:0 6px; }
+  .logbox .num { color:#fbbf24; margin:0 6px; }
+  .logbox .lv-ERROR { color:#f87171; font-weight:bold; }
+  .logbox .lv-WARN { color:#f59e0b; }
+  .logbox .lv-INFO { color:#94a3b8; }
+  .msg { color:#cbd5e1; }
+  .chip { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; margin-right:4px; }
+  .chip.ok { background:#dcfce7; color:var(--ok); }
+  .chip.bad { background:#fee2e2; color:var(--bad); }
+  .hidden { display:none; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:700px){ .grid2{grid-template-columns:1fr;} }
+  label.fld { display:block; font-size:12px; color:var(--muted); margin:8px 0 3px; }
 </style>
 </head>
 <body>
+<div class="topbar">
+  <b>metatube-plus</b>
+  <button class="tab active" data-page="query">🔍 查询</button>
+  <button class="tab" data-page="logs">📜 日志自查</button>
+  <button class="tab" data-page="actors">👥 演员管理</button>
+  <button class="tab" data-page="settings">⚙️ 设置</button>
+  <span class="status"><span class="dot"></span><span id="statusMini">…</span></span>
+</div>
 <div class="wrap">
-  <h1>演员管理</h1>
+  <input id="token" class="hidden" type="password" placeholder="访问令牌（首次使用填写）">
+  <button id="tokenBtn" class="secondary hidden" onclick="saveToken()">保存令牌</button>
 
-  <div class="card">
-    <h2>状态</h2>
-    <div id="status"><span class="muted">加载中…</span></div>
-    <div class="row" style="margin-top:10px">
-      <input id="token" type="password" placeholder="访问令牌 Token（留空表示未启用）" style="flex:1;min-width:220px;padding:6px 8px;border:1px solid var(--line);border-radius:6px">
-      <button class="secondary" onclick="saveToken()">保存令牌</button>
+  <!-- ============ 查询 ============ -->
+  <div id="page-query" class="page">
+    <div class="card">
+      <div class="row">
+        <input id="qnum" placeholder="输入番号，如 START-015 / T-38027 / FLAV-359…" style="flex:1;min-width:240px;padding:8px 10px;border:1px solid var(--line);border-radius:8px" onkeydown="if(event.key=='Enter')query()">
+        <button onclick="query()">查询</button>
+      </div>
+      <div id="qresult" style="margin-top:12px"></div>
+    </div>
+    <div class="card">
+      <h2>来源耗时</h2>
+      <div id="qchips" class="muted">查询后显示各数据源状态…</div>
     </div>
   </div>
 
-  <div class="card">
-    <h2>演员映射表（在线源自动同步）</h2>
-    <div id="mappingInfo" class="kv">—</div>
-    <div class="row" style="margin-top:8px">
-      <button id="syncBtn" onclick="syncMapping()">立即同步</button>
-      <span id="syncMsg" class="muted"></span>
+  <!-- ============ 日志自查 ============ -->
+  <div id="page-logs" class="page hidden">
+    <div class="card">
+      <div class="row">
+        <input id="logNum" placeholder="按番号过滤，如 START-015" style="width:200px" onkeydown="if(event.key=='Enter')loadLogs()">
+        <select id="logLevel"><option value="">级别：全部</option><option value="ERROR">仅错误</option><option value="WARN">警告</option><option value="INFO">信息</option></select>
+        <select id="logSource"><option value="">数据源：全部</option><option value="FANZA">FANZA</option><option value="JavDB">JavDB</option><option value="TRANSLATE">翻译</option><option value="MERGE">字段合并</option><option value="ENGINE">引擎</option><option value="API">API</option></select>
+        <button onclick="loadLogs()">刷新</button>
+        <label class="muted"><input type="checkbox" id="logAuto" onchange="toggleAuto()">自动刷新</label>
+        <span id="logCount" class="muted"></span>
+      </div>
+      <div id="logbox" class="logbox" style="margin-top:10px"><span style="color:#64748b">输入番号或直接刷新查看日志…</span></div>
+      <p class="muted">💡 按番号过滤可查看该影片在 FANZA / JavDB / 翻译 / 字段合并各环节的完整处理时间线；红色为错误、橙色为警告（自动回落等）。</p>
     </div>
-    <p class="muted">数据源：li-peifeng/Jav-Actors-Mapping（与 avdb 相同的在线映射源，自动校验并热更新，每日定时同步）。</p>
   </div>
 
-  <div class="card">
-    <h2>重名演员管理</h2>
-    <p class="muted">检测演员映射后同一演员的多个重复条目（不同名字或同名不同人），确认后保留名称并合并重复演员。需要 Emby 已安装 <b>Avdb Magic Tools</b> 插件。</p>
-    <div class="row">
-      <button id="dupBtn" onclick="detectDuplicates()">开始检测</button>
-      <span id="dupMsg" class="muted"></span>
+  <!-- ============ 演员管理 ============ -->
+  <div id="page-actors" class="page hidden">
+    <div class="card">
+      <h2>演员映射表（在线源自动同步）</h2>
+      <div id="mappingInfo" class="kv">—</div>
+      <div class="row" style="margin-top:8px">
+        <button id="syncBtn" onclick="syncMapping()">立即同步</button>
+        <span id="syncMsg" class="muted"></span>
+      </div>
+      <p class="muted">数据源：li-peifeng/Jav-Actors-Mapping（与 avdb 相同），自动校验并热更新，每日定时同步。</p>
     </div>
-    <div id="dupResult"></div>
+    <div class="card">
+      <h2>重名演员管理</h2>
+      <p class="muted">同一演员的多个重复条目（不同艺名或同名不同人）检测与合并。需要 Emby 安装 <b>Avdb Magic Tools</b> 插件。</p>
+      <div class="row">
+        <button id="dupBtn" onclick="detectDuplicates()">开始检测</button>
+        <span id="dupMsg" class="muted"></span>
+      </div>
+      <div id="dupResult"></div>
+    </div>
+    <div class="card">
+      <h2>无头像演员管理</h2>
+      <p class="muted">扫描缺头像的演员并一键补全（Gfriends 头像库，自动经映射表匹配别名）。</p>
+      <div class="row">
+        <button id="scanBtn" onclick="scanMissing()">扫描</button>
+        <button id="compBtn" onclick="completeAvatars()">一键补全</button>
+        <span id="avaMsg" class="muted"></span>
+      </div>
+      <div class="bar"><div id="avaBar"></div></div>
+      <div id="avaProgress" class="kv"></div>
+      <div id="avaResult"></div>
+    </div>
   </div>
 
-  <div class="card">
-    <h2>无头像演员管理</h2>
-    <p class="muted">扫描缺头像的演员并一键补全（来源：Gfriends 头像库，自动经映射表匹配别名/日文名）。</p>
-    <div class="row">
-      <button id="scanBtn" onclick="scanMissing()">扫描</button>
-      <button id="compBtn" onclick="completeAvatars()">一键补全</button>
-      <span id="avaMsg" class="muted"></span>
+  <!-- ============ 设置 ============ -->
+  <div id="page-settings" class="page hidden">
+    <div class="card">
+      <h2>刮削限流（冷却）</h2>
+      <div class="grid2">
+        <div>
+          <label class="fld">FANZA (DMM) 冷却间隔</label>
+          <input id="sFanza" placeholder="0 = 关闭（默认）" style="width:100%">
+          <span class="muted">示例：3s、500ms；0 为不限。批量大刮削建议 3s。</span>
+        </div>
+        <div>
+          <label class="fld">JavDB 冷却间隔</label>
+          <input id="sJavdb" placeholder="10s（默认）" style="width:100%">
+          <span class="muted">JavDB 有真实限流，批量大刮削务必保留冷却。</span>
+        </div>
+      </div>
     </div>
-    <div class="bar"><div id="avaBar"></div></div>
-    <div id="avaProgress" class="kv"></div>
-    <div id="avaResult"></div>
+    <div class="card">
+      <h2>元数据翻译</h2>
+      <div class="row">
+        <label class="muted"><input type="checkbox" id="sTranslate"> 启用翻译</label>
+      </div>
+      <label class="fld">引擎（主,次）</label>
+      <input id="sEngines" placeholder="baidu,googlefree" style="width:100%">
+      <span class="muted">主引擎失败/超时自动由次引擎接管；连续 5 次接管自动晋升。</span>
+      <label class="fld">目标语言</label>
+      <input id="sLang" placeholder="zh-CN" style="width:200px">
+      <div class="row" style="margin-top:8px">
+        <label class="muted"><input type="checkbox" id="sNoSummary"> 隐藏作品简介（不刮削不翻译）</label>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row">
+        <button class="ok" onclick="saveSettings()">保存并立即生效</button>
+        <span id="setMsg" class="muted"></span>
+      </div>
+      <p class="muted">设置保存在映射表同目录（gui_settings.json），重启后仍生效。</p>
+    </div>
   </div>
 </div>
+
 <script>
 const $ = id => document.getElementById(id);
 let token = localStorage.getItem('mt_token') || '';
+let tokenAsked = false;
 $('token').value = token;
-function saveToken(){ token = $('token').value.trim(); localStorage.setItem('mt_token', token); alert('已保存'); }
+
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+  $('page-' + t.dataset.page).classList.remove('hidden');
+  if (t.dataset.page === 'query') loadStatus();
+  if (t.dataset.page === 'actors') refreshMappingInfo();
+  if (t.dataset.page === 'settings') loadSettings();
+});
+
+function saveToken(){ token = $('token').value.trim(); localStorage.setItem('mt_token', token); $('token').classList.add('hidden'); $('tokenBtn').classList.add('hidden'); loadStatus(); }
 
 async function api(path, opts={}) {
   const headers = {'Content-Type':'application/json'};
   if (token) headers['Authorization'] = 'Bearer ' + token;
   const res = await fetch(path, {...opts, headers});
+  if (res.status === 401 && !tokenAsked) {
+    tokenAsked = true; $('token').classList.remove('hidden'); $('tokenBtn').classList.remove('hidden');
+    throw new Error('需要访问令牌');
+  }
   const body = await res.json();
   if (!res.ok) throw new Error((body.error && body.error.message) || res.status);
   return body.data;
 }
-
 function esc(s){ return String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
+/* ---------- status ---------- */
 async function loadStatus(){
   try {
     const s = await api('/manage/api/status');
-    const emby = s.emby || {};
+    $('statusMini').textContent = s.emby && s.emby.connected ? '服务正常 · Emby 已连接' : '服务正常';
+  } catch(e){ $('statusMini').textContent = '状态未知'; }
+}
+loadStatus(); refreshMappingInfo();
+
+async function refreshMappingInfo(){
+  try {
+    const s = await api('/manage/api/status');
     const m = s.mapping || {};
-    $('status').innerHTML =
-      `<div class="kv">Emby：<b>${emby.connected ? '已连接' : '未连接'}</b>` +
-      (emby.connected ? `（演员 ${emby.person_count ?? '?'} 人）` : (emby.error ? `（${esc(emby.error)}）` : '（未配置）')) +
-      `　Magic Tools 插件：${emby.magic_tools === true ? '<span class="pill ok">已安装</span>' : (emby.magic_tools === false ? '<span class="pill no">未安装</span>' : '<span class="pill warn">未知</span>')}</div>`;
-    $('mappingInfo').innerHTML =
-      `路径：<b>${esc(m.path || '未配置')}</b>　条目：<b>${(m.entries||0).toLocaleString()}</b>` +
-      `　源版本：<b>${m.version ? esc(String(m.version).slice(0,10)) : '—'}</b>　在线同步：<b>${m.online ? '开' : '关'}</b>`;
-  } catch(e){ $('status').innerHTML = `<span class="fail">${esc(e.message)}</span>`; }
+    $('mappingInfo').innerHTML = `路径：<b>${esc(m.path||'未配置')}</b>　条目：<b>${(m.entries||0).toLocaleString()}</b>　源版本：<b>${m.version?esc(String(m.version).slice(0,10)):'—'}</b>　在线同步：<b>${m.online?'开':'关'}</b>`;
+  } catch(e){}
 }
 
 async function syncMapping(){
   $('syncBtn').disabled = true; $('syncMsg').textContent = '同步中…';
-  try {
-    const r = await api('/manage/api/mapping/sync', {method:'POST'});
-    $('syncMsg').textContent = r.message;
-    await loadStatus();
-  } catch(e){ $('syncMsg').textContent = '失败：' + e.message; }
+  try { const r = await api('/manage/api/mapping/sync', {method:'POST'}); $('syncMsg').textContent = r.message; refreshMappingInfo(); }
+  catch(e){ $('syncMsg').textContent = '失败：' + e.message; }
   $('syncBtn').disabled = false;
 }
 
+/* ---------- query ---------- */
+async function query(){
+  const n = $('qnum').value.trim().toUpperCase();
+  if (!n) return;
+  $('qresult').innerHTML = '<span class="muted">查询中…</span>'; $('qchips').innerHTML = '';
+  const chips = [];
+  let best = null, bestProv = '';
+  try {
+    for (const p of ['fanza','javdb','javbus']) {
+      try {
+        const t0 = performance.now();
+        const r = await api(`/v1/movies/search?provider=${p}&q=${encodeURIComponent(n)}`);
+        const dt = ((performance.now()-t0)/1000).toFixed(2);
+        const hit = r && r.length > 0;
+        chips.push(`<span class="chip ${hit?'ok':'bad'}">${p.toUpperCase()} ${hit?'✓ '+dt+'s':'无结果'}</span>`);
+        if (hit && !best) { best = r[0]; bestProv = p; }
+      } catch(e){ chips.push(`<span class="chip bad">${p.toUpperCase()} 错误</span>`); }
+    }
+    $('qchips').innerHTML = chips.join(' ');
+    if (!best) { $('qresult').innerHTML = '<span class="fail">所有数据源均未找到该番号</span>'; return; }
+    const info = await api(`/v1/movies/${bestProv}/${best.id}?lazy=true`);
+    $('qresult').innerHTML = `
+      <div class="card" style="margin:0">
+        <div class="row" style="align-items:flex-start">
+          <img src="${esc(info.cover_url||'')}" style="width:120px;border-radius:6px" onerror="this.style.display='none'">
+          <div style="flex:1;min-width:0">
+            <b style="font-size:14px">${esc(info.number||n)} · ${esc(info.title||'')}</b>
+            <div class="kv">演员：<b>${esc((info.actors||[]).join('、'))||'-'}</b></div>
+            <div class="kv">流派：${esc((info.genres||[]).join(' / '))||'-'}</div>
+            <div class="kv">发行：${esc(String(info.release_date||'-').slice(0,10))}　 maker：${esc(info.maker||'-')}</div>
+            <div class="kv" style="margin-top:6px">${esc((info.summary||'').slice(0,180))}${(info.summary||'').length>180?'…':''}</div>
+            <a class="muted" href="${esc(info.homepage||'#')}" target="_blank">数据源页面 ↗</a>
+          </div>
+        </div>
+      </div>`;
+  } catch(e){ $('qresult').innerHTML = `<span class="fail">${esc(e.message)}</span>`; }
+}
+
+/* ---------- logs ---------- */
+let autoTimer = null;
+function toggleAuto(){
+  if ($('logAuto').checked) { autoTimer = setInterval(loadLogs, 3000); loadLogs(); }
+  else if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+}
+async function loadLogs(){
+  const num = $('logNum').value.trim();
+  const lv = $('logLevel').value, src = $('logSource').value;
+  try {
+    const r = await api(`/manage/api/logs?number=${encodeURIComponent(num)}&level=${lv}&source=${src}&limit=300`);
+    const logs = r.logs || [];
+    $('logCount').textContent = logs.length + ' 条';
+    $('logbox').innerHTML = logs.length ? logs.map(l =>
+      `<div><span class="t">${esc(l.time)}</span><span class="lv-${l.level}"> ${String(l.level).padEnd(5)}</span><span class="src">[${esc(l.source)}]</span>${l.number?`<span class="num">${esc(l.number)}</span>`:''}<span class="msg">${esc(l.message)}</span></div>`
+    ).join('') : '<span style="color:#64748b">无匹配日志</span>';
+  } catch(e){ $('logbox').innerHTML = `<span class="fail">${esc(e.message)}</span>`; }
+}
+
+/* ---------- duplicates ---------- */
+let dupGroups = [];
 async function detectDuplicates(){
   $('dupBtn').disabled = true; $('dupMsg').textContent = '检测中（含影片计数，可能需要几分钟）…';
   $('dupResult').innerHTML = '';
   try {
     const r = await api('/manage/api/duplicates');
-    const groups = r.groups || [];
-    $('dupMsg').textContent = `扫描 ${r.scanned} 名演员，匹配 ${r.matched}，发现 ${groups.length} 组重名`;
-    if (!groups.length) { $('dupResult').innerHTML = '<p class="muted">未发现重名演员 🎉</p>'; return; }
+    dupGroups = r.groups || [];
+    $('dupMsg').textContent = `扫描 ${r.scanned} 名演员，匹配 ${r.matched}，发现 ${dupGroups.length} 组重名`;
+    if (!dupGroups.length) { $('dupResult').innerHTML = '<p class="muted">未发现重名演员 🎉</p>'; $('dupBtn').disabled = false; return; }
     let html = '';
-    groups.forEach((g, gi) => {
-      html += `<details open><summary><b>${esc(g.recommended_name)}</b>（${g.actors.length} 个重复条目，共 ${g.total_movies} 部影片）</summary>`;
-      html += `<table><tr><th>保留</th><th>Emby 名称</th><th>影片数</th><th>头像</th><th>演员 ID</th></tr>`;
+    dupGroups.forEach((g, gi) => {
+      html += `<details open><summary><b>${esc(g.recommended_name)}</b>（${g.actors.length} 个重复条目，共 ${g.total_movies} 部影片）</summary><table><tr><th>保留</th><th>名称</th><th>影片数</th><th>头像</th></tr>`;
       g.actors.forEach((a, ai) => {
-        html += `<tr><td><input type="radio" name="g${gi}" value="${esc(a.id)}" ${ai===0?'checked':''}></td>` +
-                `<td>${esc(a.name)}${ai===0?' <span class="pill ok">推荐</span>':''}</td>` +
-                `<td>${a.movie_count}</td>` +
-                `<td>${a.has_avatar?'<span class="pill ok">有</span>':'<span class="pill no">无</span>'}</td>` +
-                `<td class="muted">${esc(a.id)}</td></tr>`;
+        html += `<tr><td><input type="radio" name="g${gi}" value="${esc(a.id)}" ${ai===0?'checked':''}></td><td>${esc(a.name)}${ai===0?' <span class="pill ok">推荐</span>':''}</td><td>${a.movie_count}</td><td>${a.has_avatar?'<span class="pill ok">有</span>':'<span class="pill no">无</span>'}</td></tr>`;
       });
-      html += `</table><div class="row" style="margin-top:6px"><button class="danger" onclick="resolveGroup(${gi})">确认合并</button><span class="muted">将把其余条目的影片关联转移到所选演员，并删除空条目</span></div></details>`;
+      html += `</table><div class="row" style="margin-top:6px"><button class="danger" onclick="resolveGroup(${gi})">确认合并</button><span class="muted">将转移影片关联并删除未选中的重复演员</span></div></details>`;
     });
     $('dupResult').innerHTML = html;
-    window._dupGroups = groups;
   } catch(e){ $('dupMsg').textContent = '失败：' + e.message; }
   $('dupBtn').disabled = false;
 }
-
 async function resolveGroup(gi){
-  const g = window._dupGroups[gi];
+  const g = dupGroups[gi];
   const sel = document.querySelector(`input[name="g${gi}"]:checked`);
   if (!sel) { alert('请选择保留的演员'); return; }
-  if (!confirm(`确认合并「${g.recommended_name}」？该操作会转移影片关联并删除未选中的重复演员，且不可自动撤销。`)) return;
+  if (!confirm(`确认合并「${g.recommended_name}」？将转移影片关联并删除未选中的重复演员。`)) return;
   const sources = g.actors.map(a => a.id).filter(id => id !== sel.value);
   $('dupMsg').textContent = '合并中…';
   try {
     const r = await api('/manage/api/duplicates/resolve', {method:'POST', body: JSON.stringify({target_id: sel.value, source_ids: sources})});
-    let msg = `影片 ${r.movies} 部，转移 ${r.transferred}，失败 ${r.failed}，删除 ${r.deleted} 个重复演员`;
-    if ((r.failures||[]).length || (r.delete_failures||[]).length) msg += '（部分失败，详见服务端日志）';
-    $('dupMsg').textContent = msg;
+    $('dupMsg').textContent = `影片 ${r.movies} 部，转移 ${r.transferred}，失败 ${r.failed}，删除 ${r.deleted}`;
     detectDuplicates();
   } catch(e){ $('dupMsg').textContent = '失败：' + e.message; }
 }
 
+/* ---------- avatars ---------- */
 let missingPersons = [];
 async function scanMissing(){
   $('scanBtn').disabled = true; $('avaMsg').textContent = '扫描中…';
@@ -180,38 +338,46 @@ async function scanMissing(){
   } catch(e){ $('avaMsg').textContent = '失败：' + e.message; }
   $('scanBtn').disabled = false;
 }
-
 async function completeAvatars(){
   $('compBtn').disabled = true;
   try {
     await api('/manage/api/avatars/complete', {method:'POST', body: JSON.stringify({persons: missingPersons})});
-    pollProgress();
+    let poll = setInterval(async () => {
+      try {
+        const p = await api('/manage/api/avatars/progress');
+        $('avaBar').style.width = (p.total ? Math.round(p.done/p.total*100) : 0) + '%';
+        $('avaProgress').textContent = p.running ? `进行中：${p.done}/${p.total}，成功 ${p.updated}，失败 ${p.failed}，当前：${esc(p.current||'')}` : `完成：成功 ${p.result?.updated??0}，失败 ${p.result?.failed??0}`;
+        if (!p.running) { clearInterval(poll); $('compBtn').disabled = false; scanMissing(); }
+      } catch(e){}
+    }, 1500);
   } catch(e){ $('avaMsg').textContent = '失败：' + e.message; $('compBtn').disabled = false; }
 }
 
-let polling = null;
-function pollProgress(){
-  if (polling) clearInterval(polling);
-  polling = setInterval(async () => {
-    try {
-      const p = await api('/manage/api/avatars/progress');
-      $('avaBar').style.width = (p.total ? Math.round(p.done / p.total * 100) : 0) + '%';
-      $('avaProgress').textContent = p.running
-        ? `进行中：${p.done}/${p.total}，成功 ${p.updated}，失败 ${p.failed}，当前：${esc(p.current||'')}`
-        : `完成：成功 ${p.result?.updated ?? 0}，失败 ${p.result?.failed ?? 0}` + (p.result?.elapsed ? `，用时 ${p.result.elapsed}` : '');
-      if (!p.running) {
-        clearInterval(polling); polling = null;
-        $('compBtn').disabled = false;
-        if ((p.result?.fails||[]).length) {
-          $('avaResult').innerHTML = '<details><summary>失败名单</summary><ul>' + p.result.fails.map(f=>`<li class="fail">${esc(f)}</li>`).join('') + '</ul></details>';
-        }
-        loadStatus();
-      }
-    } catch(e){}
-  }, 1500);
+/* ---------- settings ---------- */
+async function loadSettings(){
+  try {
+    const s = await api('/manage/api/settings');
+    $('sFanza').value = s.fanza_rate_limit || '0';
+    $('sJavdb').value = s.javdb_rate_limit || '10s';
+    $('sTranslate').checked = !!s.translate;
+    $('sEngines').value = s.translate_engines || 'baidu,googlefree';
+    $('sLang').value = s.translate_lang || 'zh-CN';
+    $('sNoSummary').checked = !!s.disable_summary;
+  } catch(e){ $('setMsg').textContent = '读取失败：' + e.message; }
 }
-
-loadStatus();
+async function saveSettings(){
+  try {
+    await api('/manage/api/settings', {method:'POST', body: JSON.stringify({
+      fanza_rate_limit: $('sFanza').value.trim() || '0',
+      javdb_rate_limit: $('sJavdb').value.trim() || '10s',
+      translate: $('sTranslate').checked,
+      translate_engines: $('sEngines').value.trim() || 'baidu,googlefree',
+      translate_lang: $('sLang').value.trim() || 'zh-CN',
+      disable_summary: $('sNoSummary').checked,
+    })});
+    $('setMsg').textContent = '已保存并生效 ✓';
+  } catch(e){ $('setMsg').textContent = '失败：' + e.message; }
+}
 </script>
 </body>
 </html>

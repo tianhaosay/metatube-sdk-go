@@ -39,3 +39,7 @@ func waitJavdbCooldown() {
 	}
 	cooldown.last = time.Now()
 }
+
+// SetRateLimit adjusts the javdb cooldown at runtime (GUI settings).
+// A zero or negative duration disables the cooldown.
+func SetRateLimit(d time.Duration) { setJavdbRateLimit(d) }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -44,11 +45,14 @@ type Engine struct {
 	actorHostProviders *maps.CaseInsensitiveMap[[]mt.ActorProvider]
 	movieHostProviders *maps.CaseInsensitiveMap[[]mt.MovieProvider]
 	// Optional metadata translator (title/summary). nil disables translation.
+	// Guarded by cfgMu — swappable at runtime from the manage console.
 	translator translate.Translator
 	// translateLang is the target language for metadata translation.
 	translateLang string
 	// disableSummary clears movie summaries from all outputs.
 	disableSummary bool
+	// cfgMu guards translator/translateLang/disableSummary runtime swaps.
+	cfgMu sync.RWMutex
 }
 
 func New(db *gorm.DB, opts ...Option) *Engine {

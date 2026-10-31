@@ -185,10 +185,15 @@ func Router(names ...string) *gin.Engine {
 	// engine options
 	var opts []engine.Option
 
+	// Mirror standard/engine/gin logs into the manage console ring buffer.
+	// Must run before engine.New and route.New.
+	engineLogger := manage.InstallLogCapture()
+
 	// timeout must >= 1 second
 	if Config.RequestTimeout >= time.Second {
 		opts = append(opts, engine.WithRequestTimeout(Config.RequestTimeout))
 	}
+	opts = append(opts, engine.WithLogger(engineLogger))
 
 	// specify engine name
 	for _, name := range names {
@@ -240,6 +245,9 @@ func Router(names ...string) *gin.Engine {
 	if app.DBDriver() == database.Sqlite {
 		Config.DBAutoMigrate = true
 	}
+
+	// manage console runtime settings (translator swap etc.)
+	manage.SetTranslateApp(app)
 	if err = app.DBAutoMigrate(Config.DBAutoMigrate); err != nil {
 		log.Fatal(err)
 	}

@@ -60,6 +60,7 @@ func Setup(c *Config) {
 			mu.Unlock()
 		}
 	}
+	initSettings()
 	if c.MappingOnline {
 		go func() {
 			// Initial sync shortly after startup.

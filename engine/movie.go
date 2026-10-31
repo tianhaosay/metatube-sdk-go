@@ -242,13 +242,15 @@ func (e *Engine) getMovieInfoWithCallback(provider mt.MovieProvider, id string, 
 // translator (failover-capable), and applies the disable-summary switch.
 // Errors never fail the metadata fetch: the original text is kept.
 func (e *Engine) translateMovieInfo(info *model.MovieInfo) {
-	if e.disableSummary {
+	e.cfgMu.RLock()
+	disableSummary, translator, target := e.disableSummary, e.translator, e.translateLang
+	e.cfgMu.RUnlock()
+	if disableSummary {
 		info.Summary = ""
 	}
-	if e.translator == nil {
+	if translator == nil {
 		return
 	}
-	target := e.translateLang
 	if target == "" {
 		target = "zh-CN"
 	}
@@ -257,10 +259,10 @@ func (e *Engine) translateMovieInfo(info *model.MovieInfo) {
 			translated string
 			err        error
 		)
-		if rt, ok := e.translator.(translate.RefTranslator); ok {
+		if rt, ok := translator.(translate.RefTranslator); ok {
 			translated, err = rt.TranslateWithRef(field, "auto", target, ref)
 		} else {
-			translated, err = e.translator.Translate(field, "auto", target)
+			translated, err = translator.Translate(field, "auto", target)
 		}
 		if err != nil || translated == "" {
 			// Keep original text; failure is already logged by the

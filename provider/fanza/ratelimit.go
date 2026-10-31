@@ -42,3 +42,7 @@ func waitFanzaCooldown() {
 	}
 	cooldown.last = time.Now()
 }
+
+// SetRateLimit adjusts the DMM cooldown at runtime (GUI settings).
+// A zero or negative duration disables the cooldown.
+func SetRateLimit(d time.Duration) { setFanzaRateLimit(d) }

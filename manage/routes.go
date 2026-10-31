@@ -3,6 +3,7 @@ package manage
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,7 +24,34 @@ func RegisterRoutes(r gin.IRouter) {
 		api.GET("/avatars/missing", getMissingAvatars)
 		api.POST("/avatars/complete", postCompleteAvatars)
 		api.GET("/avatars/progress", getAvatarProgress)
+		api.GET("/logs", getLogs)
+		api.GET("/settings", getSettings)
+		api.POST("/settings", postSettings)
 	}
+}
+
+func getLogs(c *gin.Context) {
+	number := c.Query("number")
+	level := c.Query("level")
+	source := c.Query("source")
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "300"))
+	jsonOK(c, gin.H{
+		"logs":  QueryLogs(number, level, source, limit),
+		"total": len(QueryLogs(number, level, source, 5000)),
+	})
+}
+
+func getSettings(c *gin.Context) {
+	jsonOK(c, GetSettings())
+}
+
+func postSettings(c *gin.Context) {
+	var s Settings
+	if err := c.ShouldBindJSON(&s); err != nil {
+		jsonErr(c, err)
+		return
+	}
+	jsonOK(c, UpdateSettings(s))
 }
 
 func uiHandler(c *gin.Context) {
