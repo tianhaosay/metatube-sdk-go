@@ -1,4 +1,4 @@
-﻿package manage
+package manage
 
 import (
 	"encoding/json"
@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/metatube-community/metatube-sdk-go/common/enrich"
 	"github.com/metatube-community/metatube-sdk-go/common/throttle"
 	"github.com/metatube-community/metatube-sdk-go/provider/fanza"
 	"github.com/metatube-community/metatube-sdk-go/provider/javdb"
@@ -53,7 +52,6 @@ var (
 	settings     Settings
 	settingsFile string
 )
-
 
 // parseDurationOr handles "" / "0" as disabled (0).
 func parseDurationOr(s string) (time.Duration, bool) {
@@ -187,7 +185,7 @@ func settingsFilePath() string {
 }
 
 // initSettings loads persisted settings once at startup (before the engine
-// is wired; translator application happens in SetTranslateApp).
+// is wired; translator application happens in SetPipeline).
 func initSettings() {
 	settingsMu.Lock()
 	settingsFile = settingsFilePath()

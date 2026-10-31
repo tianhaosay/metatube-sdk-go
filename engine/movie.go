@@ -1,4 +1,4 @@
-﻿package engine
+package engine
 
 import (
 	"fmt"
@@ -236,6 +236,7 @@ func (e *Engine) getMovieInfoWithCallback(provider mt.MovieProvider, id string, 
 	}
 	return
 }
+
 
 func (e *Engine) getMovieInfoByProviderID(provider mt.MovieProvider, id string, lazy bool) (*model.MovieInfo, error) {
 	if id = provider.NormalizeMovieID(id); id == "" {

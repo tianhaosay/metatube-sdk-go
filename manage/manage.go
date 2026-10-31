@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/metatube-community/metatube-sdk-go/common/enrich"
 	"github.com/metatube-community/metatube-sdk-go/common/mapping"
 )
 
@@ -164,23 +165,9 @@ func MappingStatus() map[string]any {
 	return status
 }
 
-// ActorMapping returns the current actor mapping, loading it lazily.
+// ActorMapping returns the shared actor mapping table (nil when not loaded).
 func ActorMapping() *mapping.ActorMap {
-	if m := getActorMap(); m != nil {
-		return m
-	}
-	c := getConfig()
-	if c == nil || c.ActorMappingPath == "" {
-		return nil
-	}
-	m, err := mapping.LoadActorFile(c.ActorMappingPath)
-	if err != nil {
-		return nil
-	}
-	mu.Lock()
-	actorMap = m
-	mu.Unlock()
-	return m
+	return getActorMap()
 }
 
 // jobStatus is a simple one-slot background job status holder.

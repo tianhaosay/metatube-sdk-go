@@ -1,4 +1,4 @@
-﻿package cmd
+package cmd
 
 import (
 	goflag "flag"
@@ -11,9 +11,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/peterbourgon/ff/v3"
 
+	"github.com/metatube-community/metatube-sdk-go/common/enrich"
 	"github.com/metatube-community/metatube-sdk-go/database"
 	"github.com/metatube-community/metatube-sdk-go/engine"
-	"github.com/metatube-community/metatube-sdk-go/common/enrich"
 	"github.com/metatube-community/metatube-sdk-go/internal/envconfig"
 	"github.com/metatube-community/metatube-sdk-go/manage"
 	"github.com/metatube-community/metatube-sdk-go/route"
@@ -55,7 +55,7 @@ var Config = &struct {
 	// ManageEmbyLibraries is a CSV of Emby library ids to scope scanning.
 	ManageEmbyLibraries string
 
-	// actor mapping table (shared by every provider via the enrich pipeline)
+	// mapping tables (applied to every provider by the enrich pipeline)
 	MappingActorFile    string
 	MappingInfoFile     string
 	MappingOnline       bool
@@ -216,8 +216,8 @@ func Router(names ...string) *gin.Engine {
 		opts = append(opts, engine.WithMovieProviderConfig(provider, config))
 	}
 
-	// One metadata pipeline for every provider: mapping tables, summary
-	// handling, and translation are applied centrally before caching.
+	// One metadata pipeline for every provider: actor/genre mapping, summary
+	// handling and translation are applied centrally, before caching.
 	pipe := buildEnrichPipeline()
 	opts = append(opts, engine.WithEnrich(pipe))
 
@@ -272,9 +272,9 @@ func Router(names ...string) *gin.Engine {
 }
 
 // buildEnrichPipeline assembles the single post-processing pipeline used by
-// every provider. Mapping files are loaded lazily: a missing table (e.g.
-// before the first online sync) only disables that step until the file
-// appears, instead of disabling it until the next restart.
+// every provider. Mapping tables load lazily: a missing file (e.g. before the
+// first online sync) only disables that step until the table appears, instead
+// of staying off until the next restart.
 func buildEnrichPipeline() *enrich.Pipeline {
 	cfg := enrich.Config{
 		TranslateLang:  Config.TranslateLang,

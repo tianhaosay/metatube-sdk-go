@@ -1,4 +1,4 @@
-﻿package javdb
+package javdb
 
 import (
 	"fmt"
@@ -152,28 +152,28 @@ func (db *JavDB) GetMovieInfoByURL(rawURL string) (info *model.MovieInfo, err er
 			valueLink = v
 		}
 		switch label {
-		case "閻ｎ亣娅?, "閻ｎ亜褰?, "id":
+		case "番號", "番号", "id":
 			if v := strings.ReplaceAll(value, " ", ""); v != "" {
 				info.Number = v
 			}
-		case "閺冦儲婀?, "閻ц壈顢戦弮銉︽埂", "released date", "released":
+		case "日期", "發行日期", "released date", "released":
 			info.ReleaseDate = parser.ParseDate(value)
-		case "閺呭倿鏆?, "length":
+		case "時長", "length":
 			info.Runtime = parser.ParseRuntime(value)
-		case "鐏忓孩绱?, "director":
+		case "導演", "director":
 			info.Director = orDefault(valueLink, value)
-		case "閻楀洤鏅?, "鐟佹垝缍?, "maker", "studio":
+		case "片商", "製作", "maker", "studio":
 			info.Maker = orDefault(valueLink, value)
-		case "閻ц壈顢?, "閻ц壈顢戦崯?, "publisher", "label":
+		case "發行", "發行商", "publisher", "label":
 			info.Label = orDefault(valueLink, value)
-		case "缁鍨?, "series":
+		case "系列", "series":
 			info.Series = orDefault(valueLink, value)
-		case "鐟洖鍨?, "rating", "score":
+		case "評分", "rating", "score":
 			info.Score = parser.ParseScore(value)
 		}
 	})
 
-	// Genres: <a href="/tags?...">TAG</a> inside the 妞ょ偛鍨?panel block.
+	// Genres: <a href="/tags?...">TAG</a> inside the 類別 panel block.
 	c.OnXML(`//nav[contains(@class,"movie-panel-info")]//span[contains(@class,"value")]/a[starts-with(@href,"/tags")]`, func(e *colly.XMLElement) {
 		if t := strings.TrimSpace(e.Text); t != "" {
 			info.Genres = append(info.Genres, t)
@@ -244,7 +244,7 @@ func (db *JavDB) SearchMovie(keyword string) (results []*model.MovieSearchResult
 		// Date lives in the first .meta line.
 		dateText := strings.TrimSpace(e.ChildText(`.//div[contains(@class,"meta")]//span[1]`))
 		result.ReleaseDate = parser.ParseDate(dateText)
-		// Score: "4.41閸? / "4.41閸? 閻?43娴滈缚顭抽崓?.
+		// Score: "4.41分" / "4.41分, 由443人評價".
 		scoreText := strings.TrimSpace(e.ChildText(`.//div[contains(@class,"score")]//span[contains(@class,"value")]`))
 		result.Score = parser.ParseScore(scoreText)
 		if result.IsValid() {
