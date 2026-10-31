@@ -9,14 +9,18 @@ import (
 )
 
 // RegisterRoutes mounts the manage UI and its JSON API on the given router.
-// API routes expect the same server token as the rest of metatube
-// (Authorization: Bearer <token>); the UI itself is public.
-func RegisterRoutes(r gin.IRouter) {
+// apiMiddleware is applied to the JSON API only (the HTML shell stays public
+// so the UI can prompt for a token); pass route.RequireToken(token) to make
+// the console respect the server token.
+func RegisterRoutes(r gin.IRouter, apiMiddleware ...gin.HandlerFunc) {
 	r.GET("/manage/", uiHandler)
 	r.GET("/manage", uiHandler)
 
 	api := r.Group("/manage/api")
 	api.Use(corsMiddleware)
+	if len(apiMiddleware) > 0 {
+		api.Use(apiMiddleware...)
+	}
 	{
 		api.GET("/status", getStatus)
 		api.POST("/mapping/sync", postSyncMapping)

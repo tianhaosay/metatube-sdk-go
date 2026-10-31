@@ -1,4 +1,4 @@
-package engine
+﻿package engine
 
 import (
 	"fmt"
@@ -16,7 +16,6 @@ import (
 	"github.com/metatube-community/metatube-sdk-go/engine/providerid"
 	"github.com/metatube-community/metatube-sdk-go/model"
 	mt "github.com/metatube-community/metatube-sdk-go/provider"
-	"github.com/metatube-community/metatube-sdk-go/translate"
 )
 
 func (e *Engine) searchMovieFromDB(keyword string, provider mt.MovieProvider, all bool) (results []*model.MovieSearchResult, err error) {
@@ -230,57 +229,12 @@ func (e *Engine) getMovieInfoWithCallback(provider mt.MovieProvider, id string, 
 		}
 	}()
 	info, err = callback()
-	if err == nil && info != nil && info.IsValid() {
-		// Translate metadata (and apply summary switch) before caching, so
-		// the DB stores the final (translated) result.
-		e.translateMovieInfo(info)
+	if err == nil && info != nil && info.IsValid() && e.enrich != nil {
+		// Enrich (mapping + translation) before caching, so the DB stores
+		// the final result and later reads never re-translate.
+		e.enrich.Apply(info)
 	}
 	return
-}
-
-// translateMovieInfo translates movie title/summary via the configured
-// translator (failover-capable), and applies the disable-summary switch.
-// Errors never fail the metadata fetch: the original text is kept.
-func (e *Engine) translateMovieInfo(info *model.MovieInfo) {
-	e.cfgMu.RLock()
-	disableSummary, translator, target := e.disableSummary, e.translator, e.translateLang
-	e.cfgMu.RUnlock()
-	if disableSummary {
-		info.Summary = ""
-	}
-	if translator == nil {
-		return
-	}
-	if target == "" {
-		target = "zh-CN"
-	}
-	translateField := func(field, ref string) (string, bool) {
-		var (
-			translated string
-			err        error
-		)
-		if rt, ok := translator.(translate.RefTranslator); ok {
-			translated, err = rt.TranslateWithRef(field, "auto", target, ref)
-		} else {
-			translated, err = translator.Translate(field, "auto", target)
-		}
-		if err != nil || translated == "" {
-			// Keep original text; failure is already logged by the
-			// translator (with ref) when possible.
-			return field, false
-		}
-		return translated, true
-	}
-	if info.Title != "" {
-		if t, ok := translateField(info.Title, info.Number); ok {
-			info.Title = t
-		}
-	}
-	if info.Summary != "" {
-		if t, ok := translateField(info.Summary, info.Number); ok {
-			info.Summary = t
-		}
-	}
 }
 
 func (e *Engine) getMovieInfoByProviderID(provider mt.MovieProvider, id string, lazy bool) (*model.MovieInfo, error) {

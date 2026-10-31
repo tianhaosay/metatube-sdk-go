@@ -1,4 +1,4 @@
-package manage
+﻿package manage
 
 import (
 	"encoding/json"
@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/metatube-community/metatube-sdk-go/common/enrich"
+	"github.com/metatube-community/metatube-sdk-go/common/throttle"
 	"github.com/metatube-community/metatube-sdk-go/provider/fanza"
 	"github.com/metatube-community/metatube-sdk-go/provider/javdb"
 	"github.com/metatube-community/metatube-sdk-go/translate"
@@ -46,28 +48,12 @@ type Settings struct {
 	DisableSummary bool `json:"disable_summary"`
 }
 
-type translateApp interface {
-	SetTranslator(t translate.Translator)
-	SetTranslateLang(lang string)
-	SetDisableSummary(v bool)
-}
-
 var (
 	settingsMu   sync.Mutex
 	settings     Settings
 	settingsFile string
-	settingsApp  translateApp
 )
 
-// SetTranslateApp wires the engine so settings can swap the translator at
-// runtime. Called from cmd.Router after the engine is created.
-func SetTranslateApp(app translateApp) {
-	settingsMu.Lock()
-	settingsApp = app
-	settingsMu.Unlock()
-	// Re-apply persisted settings now that the engine is available.
-	applySettings(settings)
-}
 
 // parseDurationOr handles "" / "0" as disabled (0).
 func parseDurationOr(s string) (time.Duration, bool) {
@@ -85,13 +71,13 @@ func parseDurationOr(s string) (time.Duration, bool) {
 // applySettings pushes the given settings onto live components.
 func applySettings(s Settings) {
 	if d, ok := parseDurationOr(s.FanzaRateLimit); ok {
-		fanza.SetRateLimit(d)
+		throttle.Set(fanza.Name, d)
 	}
 	if d, ok := parseDurationOr(s.JavdbRateLimit); ok {
-		javdb.SetRateLimit(d)
+		throttle.Set(javdb.Name, d)
 	}
 	settingsMu.Lock()
-	app := settingsApp
+	app := getPipeline()
 	settingsMu.Unlock()
 	if app == nil {
 		return
@@ -249,11 +235,9 @@ func UpdateSettings(s Settings) Settings {
 	settingsMu.Lock()
 	settings = s
 	saveSettingsFile(s)
-	app := settingsApp
 	settingsMu.Unlock()
 	applySettings(s)
 	log.Printf("[manage] settings updated: fanza_limit=%q javdb_limit=%q translate=%v engines=%q summary_off=%v",
 		s.FanzaRateLimit, s.JavdbRateLimit, s.Translate, s.TranslateEngines, s.DisableSummary)
-	_ = app
 	return s
 }

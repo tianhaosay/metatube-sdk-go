@@ -1,4 +1,4 @@
-package javdb
+﻿package javdb
 
 import (
 	"fmt"
@@ -7,15 +7,15 @@ import (
 	"path"
 	"regexp"
 	"strings"
-	"sync"
+	"time"
 
 	"github.com/gocolly/colly/v2"
 	"golang.org/x/text/language"
 
 	"github.com/metatube-community/metatube-sdk-go/common/fetch"
-	"github.com/metatube-community/metatube-sdk-go/common/mapping"
 	"github.com/metatube-community/metatube-sdk-go/common/number"
 	"github.com/metatube-community/metatube-sdk-go/common/parser"
+	"github.com/metatube-community/metatube-sdk-go/common/throttle"
 	"github.com/metatube-community/metatube-sdk-go/model"
 	"github.com/metatube-community/metatube-sdk-go/provider"
 	"github.com/metatube-community/metatube-sdk-go/provider/internal/scraper"
@@ -31,8 +31,13 @@ var (
 )
 
 const (
-	Name     = "JavDB"
-	Priority = 1000 - 6
+	Name = "JavDB"
+	// Priority 0 disables JavDB by default. It is Cloudflare-throttled (10s
+	// between requests) and was dropped as a primary source; enable it only
+	// as a long-tail fallback with MT_PROVIDER_JAVDB__PRIORITY=900.
+	Priority = 0
+	// defaultCool is the empirically safe interval for the javdb domain.
+	defaultCool = 10 * time.Second
 )
 
 const (
@@ -48,21 +53,6 @@ var numberPattern = regexp.MustCompile(`(?i)^[a-z]{2,10}[-_ ]?\d{1,6}(?:[-_ ]?\d
 type JavDB struct {
 	*fetch.Fetcher
 	*scraper.Scraper
-
-	// mu guards the runtime-configurable fields below.
-	mu sync.Mutex
-	// fieldSources maps metadata field group -> provider name
-	// (e.g. "images" -> "Fanza"). See SetConfig.
-	fieldSources map[string]string
-	// mappingPath is the actor mapping file path; the file may not exist at
-	// startup (e.g. before the first online sync), so it is loaded lazily.
-	mappingPath    string
-	actorMapping   *mapping.ActorMap
-	infoMapping    *mapping.InfoMap
-	secondaryProxy string
-	cleanSummary   bool
-	// secProviders caches secondary provider instances for field merging.
-	secProviders map[string]provider.MovieProvider
 }
 
 func New() *JavDB {
@@ -80,9 +70,6 @@ func New() *JavDB {
 				// Age verification.
 				{Name: "over18", Value: "1"},
 			})),
-		fieldSources: map[string]string{},
-		secProviders: map[string]provider.MovieProvider{},
-		cleanSummary: true,
 	}
 }
 
@@ -121,7 +108,7 @@ func (db *JavDB) GetMovieInfoByID(id string) (info *model.MovieInfo, err error) 
 }
 
 func (db *JavDB) GetMovieInfoByURL(rawURL string) (info *model.MovieInfo, err error) {
-	waitJavdbCooldown()
+	throttle.Wait(Name)
 	id, err := db.ParseMovieIDFromURL(rawURL)
 	if err != nil {
 		return
@@ -165,28 +152,28 @@ func (db *JavDB) GetMovieInfoByURL(rawURL string) (info *model.MovieInfo, err er
 			valueLink = v
 		}
 		switch label {
-		case "番號", "番号", "id":
+		case "閻ｎ亣娅?, "閻ｎ亜褰?, "id":
 			if v := strings.ReplaceAll(value, " ", ""); v != "" {
 				info.Number = v
 			}
-		case "日期", "發行日期", "released date", "released":
+		case "閺冦儲婀?, "閻ц壈顢戦弮銉︽埂", "released date", "released":
 			info.ReleaseDate = parser.ParseDate(value)
-		case "時長", "length":
+		case "閺呭倿鏆?, "length":
 			info.Runtime = parser.ParseRuntime(value)
-		case "導演", "director":
+		case "鐏忓孩绱?, "director":
 			info.Director = orDefault(valueLink, value)
-		case "片商", "製作", "maker", "studio":
+		case "閻楀洤鏅?, "鐟佹垝缍?, "maker", "studio":
 			info.Maker = orDefault(valueLink, value)
-		case "發行", "發行商", "publisher", "label":
+		case "閻ц壈顢?, "閻ц壈顢戦崯?, "publisher", "label":
 			info.Label = orDefault(valueLink, value)
-		case "系列", "series":
+		case "缁鍨?, "series":
 			info.Series = orDefault(valueLink, value)
-		case "評分", "rating", "score":
+		case "鐟洖鍨?, "rating", "score":
 			info.Score = parser.ParseScore(value)
 		}
 	})
 
-	// Genres: <a href="/tags?...">TAG</a> inside the 類別 panel block.
+	// Genres: <a href="/tags?...">TAG</a> inside the 妞ょ偛鍨?panel block.
 	c.OnXML(`//nav[contains(@class,"movie-panel-info")]//span[contains(@class,"value")]/a[starts-with(@href,"/tags")]`, func(e *colly.XMLElement) {
 		if t := strings.TrimSpace(e.Text); t != "" {
 			info.Genres = append(info.Genres, t)
@@ -217,8 +204,6 @@ func (db *JavDB) GetMovieInfoByURL(rawURL string) (info *model.MovieInfo, err er
 	info.Genres = dedupe(info.Genres)
 	info.Actors = dedupe(info.Actors)
 
-	// Post-process: mapping tables + cross-provider field merge.
-	db.postProcess(info)
 	return
 }
 
@@ -233,7 +218,7 @@ func (db *JavDB) NormalizeMovieKeyword(keyword string) string {
 }
 
 func (db *JavDB) SearchMovie(keyword string) (results []*model.MovieSearchResult, err error) {
-	waitJavdbCooldown()
+	throttle.Wait(Name)
 	c := db.ClonedCollector()
 
 	c.OnXML(`//div[contains(@class,"movie-list")]//div[contains(@class,"item")]//a[contains(@class,"box")]`, func(e *colly.XMLElement) {
@@ -259,7 +244,7 @@ func (db *JavDB) SearchMovie(keyword string) (results []*model.MovieSearchResult
 		// Date lives in the first .meta line.
 		dateText := strings.TrimSpace(e.ChildText(`.//div[contains(@class,"meta")]//span[1]`))
 		result.ReleaseDate = parser.ParseDate(dateText)
-		// Score: "4.41分" / "4.41分, 由443人評價".
+		// Score: "4.41閸? / "4.41閸? 閻?43娴滈缚顭抽崓?.
 		scoreText := strings.TrimSpace(e.ChildText(`.//div[contains(@class,"score")]//span[contains(@class,"value")]`))
 		result.Score = parser.ParseScore(scoreText)
 		if result.IsValid() {
@@ -300,5 +285,6 @@ func normalizeNumber(n string) string {
 }
 
 func init() {
+	throttle.Set(Name, defaultCool)
 	provider.Register(Name, New)
 }

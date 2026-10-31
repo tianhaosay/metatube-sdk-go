@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -15,8 +14,8 @@ import (
 	"github.com/metatube-community/metatube-sdk-go/collection/maps"
 	"github.com/metatube-community/metatube-sdk-go/common/fetch"
 	"github.com/metatube-community/metatube-sdk-go/database"
+	"github.com/metatube-community/metatube-sdk-go/common/enrich"
 	mt "github.com/metatube-community/metatube-sdk-go/provider"
-	"github.com/metatube-community/metatube-sdk-go/translate"
 )
 
 const (
@@ -44,15 +43,10 @@ type Engine struct {
 	// E.g., github.com -> [Gfriends, ...]
 	actorHostProviders *maps.CaseInsensitiveMap[[]mt.ActorProvider]
 	movieHostProviders *maps.CaseInsensitiveMap[[]mt.MovieProvider]
-	// Optional metadata translator (title/summary). nil disables translation.
-	// Guarded by cfgMu — swappable at runtime from the manage console.
-	translator translate.Translator
-	// translateLang is the target language for metadata translation.
-	translateLang string
-	// disableSummary clears movie summaries from all outputs.
-	disableSummary bool
-	// cfgMu guards translator/translateLang/disableSummary runtime swaps.
-	cfgMu sync.RWMutex
+	// enrich is the metadata post-processing pipeline applied to every movie
+	// info before caching (actor/genre mapping, summary cleanup, translation).
+	// Swappable at runtime from the manage console.
+	enrich *enrich.Pipeline
 }
 
 func New(db *gorm.DB, opts ...Option) *Engine {

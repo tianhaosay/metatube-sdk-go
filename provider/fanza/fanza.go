@@ -1,4 +1,4 @@
-package fanza
+﻿package fanza
 
 import (
 	"bytes"
@@ -23,6 +23,7 @@ import (
 
 	"github.com/metatube-community/metatube-sdk-go/collection/sets"
 	"github.com/metatube-community/metatube-sdk-go/common/comparer"
+	"github.com/metatube-community/metatube-sdk-go/common/throttle"
 	"github.com/metatube-community/metatube-sdk-go/common/js"
 	"github.com/metatube-community/metatube-sdk-go/common/number"
 	"github.com/metatube-community/metatube-sdk-go/common/parser"
@@ -117,7 +118,7 @@ func (fz *FANZA) SetProxy(proxyURL string) error {
 func (fz *FANZA) SetConfig(config provider.Config) error {
 	if config.Has("rate_limit") {
 		if v, err := config.GetDuration("rate_limit"); err == nil {
-			setFanzaRateLimit(v)
+			throttle.Set(Name, v)
 		}
 	}
 	return nil
@@ -183,7 +184,7 @@ func (fz *FANZA) GetMovieInfoByID(id string) (info *model.MovieInfo, err error) 
 	}
 	// Fallback: the number may map to a DMM cid with a studio-specific
 	// prefix (T-38027 -> 55t38027, START-015 -> 1start00015, ...). Search
-	// by the original number and pick the exact-number match — this is the
+	// by the original number and pick the exact-number match 鈥?this is the
 	// same resolution path the plugin uses (search first, then fetch).
 	if results, serr := fz.SearchMovie(original); serr == nil {
 		want := normNumber(original)
@@ -223,7 +224,7 @@ func (fz *FANZA) ParseMovieIDFromURL(rawURL string) (id string, err error) {
 }
 
 func (fz *FANZA) GetMovieInfoByURL(rawURL string) (*model.MovieInfo, error) {
-	waitFanzaCooldown()
+	throttle.Wait(Name)
 	if IsDigitalVideoURL(rawURL) {
 		return fz.getDigitalMovieInfoByURL(rawURL)
 	}
@@ -366,26 +367,26 @@ func (fz *FANZA) getMonoMovieInfoByURL(rawURL string) (info *model.MovieInfo, er
 	// Fields
 	c.OnXML(`//tr`, func(e *colly.XMLElement) {
 		switch e.ChildText(`.//td[1]`) {
-		case "品番：":
+		case "鍝佺暘锛?:
 			info.ID = e.ChildText(`.//td[2]`)
 			info.Number = ParseNumber(info.ID)
-		case "シリーズ：":
+		case "銈枫儶銉笺偤锛?:
 			info.Series = strings.Trim(e.ChildText(`.//td[2]`), "-")
-		case "メーカー：":
+		case "銉°兗銈兗锛?:
 			info.Maker = strings.Trim(e.ChildText(`.//td[2]`), "-")
-		case "レーベル：":
+		case "銉兗銉欍儷锛?:
 			info.Label = strings.Trim(e.ChildText(`.//td[2]`), "-")
-		case "ジャンル：":
+		case "銈搞儯銉炽儷锛?:
 			info.Genres = e.ChildTexts(`.//td[2]/a`)
-		case "名前：":
+		case "鍚嶅墠锛?:
 			info.Actors = e.ChildTexts(`.//td[2]`)
-		case "平均評価：":
+		case "骞冲潎瑭曚尽锛?:
 			info.Score = fz.parseScoreFromURL(e.ChildAttr(`.//td[2]/img`, "src"))
-		case "収録時間：":
+		case "鍙庨尣鏅傞枔锛?:
 			info.Runtime = parser.ParseRuntime(e.ChildText(`.//td[2]`))
-		case "監督：":
+		case "鐩ｇ潱锛?:
 			info.Director = strings.Trim(e.ChildText(`.//td[2]`), "-")
-		case "配信開始日：", "商品発売日：", "発売日：", "貸出開始日：":
+		case "閰嶄俊闁嬪鏃ワ細", "鍟嗗搧鐧哄２鏃ワ細", "鐧哄２鏃ワ細", "璨稿嚭闁嬪鏃ワ細":
 			if time.Time(info.ReleaseDate).IsZero() {
 				info.ReleaseDate = parser.ParseDate(e.ChildText(`.//td[2]`))
 			}
@@ -524,10 +525,10 @@ func (fz *FANZA) getMonoMovieInfoByURL(rawURL string) (info *model.MovieInfo, er
 
 	// Preview Video (/digital/video*/)
 	c.OnXML(`//script[@type="text/javascript"]`, func(e *colly.XMLElement) {
-		// // プレイヤー呼び出し
-		// if (autoPlayerMovieFlg) { // 通常プレイヤー
+		// // 銉椼儸銈ゃ儰銉煎懠銇冲嚭銇?
+		// if (autoPlayerMovieFlg) { // 閫氬父銉椼儸銈ゃ儰銉?
 		// 	sampleplay(`/digital/${autoPlayerFloor}/-/detail/ajax-movie/=/cid=${gaContentId}/`);
-		// } else { // VRプレイヤー
+		// } else { // VR銉椼儸銈ゃ儰銉?
 		// 	vrsampleplay(`/digital/-/vr-sample-player/=/cid=${gaContentId}/`);
 		// }
 		if jsCodes := regexp.MustCompile(`const\s+.+?\s*=.*?;`).FindAllString(e.Text, -1); len(jsCodes) > 0 {
@@ -654,7 +655,7 @@ func (fz *FANZA) NormalizeMovieKeyword(keyword string) string {
 }
 
 func (fz *FANZA) SearchMovie(keyword string) ([]*model.MovieSearchResult, error) {
-	waitFanzaCooldown()
+	throttle.Wait(Name)
 	if strings.Contains(keyword, "-") {
 		if results, err := fz.searchMovieNext(strings.Replace(keyword,
 			/* FANZA cannot search hyphened number */
@@ -704,10 +705,10 @@ func (fz *FANZA) searchMovieNext(keyword string) (results []*model.MovieSearchRe
 
 	for _, product := range resp.BackendResponse.Contents.Data {
 		if !filter(product.DetailURL) {
-			continue // ignore non-digital/mono results, e.g.: 月額動画
+			continue // ignore non-digital/mono results, e.g.: 鏈堥鍕曠敾
 		}
 		var releaseDate string
-		if re := regexp.MustCompile(`(配信日|発売日|貸出日)：\s*`); re.MatchString(product.ReleaseAnnouncement) {
+		if re := regexp.MustCompile(`(閰嶄俊鏃鐧哄２鏃璨稿嚭鏃?锛歕s*`); re.MatchString(product.ReleaseAnnouncement) {
 			releaseDate = re.ReplaceAllString(product.ReleaseAnnouncement, "")
 		}
 		results = append(results, &model.MovieSearchResult{
@@ -720,7 +721,7 @@ func (fz *FANZA) searchMovieNext(keyword string) (results []*model.MovieSearchRe
 			ThumbURL:    product.ThumbnailImageURL,
 			CoverURL:    PreviewSrc(product.ThumbnailImageURL),
 			Score:       product.Rate,
-			ReleaseDate: parser.ParseDate(releaseDate /* 発売日：2022/07/21 */),
+			ReleaseDate: parser.ParseDate(releaseDate /* 鐧哄２鏃ワ細2022/07/21 */),
 		})
 	}
 	return
@@ -752,7 +753,7 @@ func (fz *FANZA) searchMovie(keyword string) (results []*model.MovieSearchResult
 
 		var releaseDate string
 		rate := e.ChildText(`.//p[@class="rate"]`)
-		if re := regexp.MustCompile(`(配信日|発売日|貸出日)：\s*`); re.MatchString(rate) {
+		if re := regexp.MustCompile(`(閰嶄俊鏃鐧哄２鏃璨稿嚭鏃?锛歕s*`); re.MatchString(rate) {
 			releaseDate = re.ReplaceAllString(rate, "")
 			rate = "" // reset rate.
 		}
@@ -765,7 +766,7 @@ func (fz *FANZA) searchMovie(keyword string) (results []*model.MovieSearchResult
 			ThumbURL:    e.Request.AbsoluteURL(thumb),
 			CoverURL:    e.Request.AbsoluteURL(PreviewSrc(thumb)),
 			Score:       parser.ParseScore(rate /* float or a dash (-) */),
-			ReleaseDate: parser.ParseDate(releaseDate /* 発売日：2022/07/21 */),
+			ReleaseDate: parser.ParseDate(releaseDate /* 鐧哄２鏃ワ細2022/07/21 */),
 		})
 	})
 
@@ -809,7 +810,7 @@ func (fz *FANZA) GetMovieReviewsByID(id string) (reviews []*model.MovieReviewDet
 }
 
 func (fz *FANZA) GetMovieReviewsByURL(rawURL string) (reviews []*model.MovieReviewDetail, err error) {
-	waitFanzaCooldown()
+	throttle.Wait(Name)
 	if IsDigitalVideoURL(rawURL) {
 		return fz.getDigitalMovieReviewsByURL(rawURL)
 	}
@@ -853,7 +854,7 @@ func (fz *FANZA) getMonoMovieReviewsByURL(rawURL string) (reviews []*model.Movie
 			}
 		}
 		if name == "" /* fallback */ {
-			name = strings.TrimSpace(regexp.MustCompile(`(さん)?(のレビュー)?`).ReplaceAllString(
+			name = strings.TrimSpace(regexp.MustCompile(`(銇曘倱)?(銇儸銉撱儱銉??`).ReplaceAllString(
 				e.ChildText(`.//div[2]/p/span[ends-with(@class, 'review__unit__reviewer')]`), ""))
 		}
 
@@ -1074,7 +1075,7 @@ func ParseNumber(s string) string {
 // PreviewSrc maximize the preview image.
 // Ref: https://digstatic.dmm.com/js/digital/preview_jquery.js#652
 // JS Code:
-// // 画像パスの正規化
+// // 鐢诲儚銉戙偣銇瑕忓寲
 // function preview_src(src)
 //
 //	{

@@ -1,4 +1,4 @@
-package cmd
+﻿package cmd
 
 import (
 	goflag "flag"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/metatube-community/metatube-sdk-go/database"
 	"github.com/metatube-community/metatube-sdk-go/engine"
+	"github.com/metatube-community/metatube-sdk-go/common/enrich"
 	"github.com/metatube-community/metatube-sdk-go/internal/envconfig"
 	"github.com/metatube-community/metatube-sdk-go/manage"
 	"github.com/metatube-community/metatube-sdk-go/route"
@@ -54,9 +55,10 @@ var Config = &struct {
 	// ManageEmbyLibraries is a CSV of Emby library ids to scope scanning.
 	ManageEmbyLibraries string
 
-	// actor mapping table (shared by JavDB provider and manage module)
-	MappingActorFile     string
-	MappingOnline        bool
+	// actor mapping table (shared by every provider via the enrich pipeline)
+	MappingActorFile    string
+	MappingInfoFile     string
+	MappingOnline       bool
 	MappingSyncInterval time.Duration
 
 	// version flag
@@ -98,8 +100,9 @@ func init() {
 	flag.StringVar(&Config.ManageEmbyUserID, "manage-emby-user-id", "", "Emby user id for the manage module")
 	flag.StringVar(&Config.ManageEmbyLibraries, "manage-emby-libraries", "", "CSV of Emby library ids to scope actor scans")
 
-	// Shared actor mapping table.
+	// Mapping tables (applied to every provider by the enrich pipeline).
 	flag.StringVar(&Config.MappingActorFile, "mapping-actor-file", "", "Local actor mapping table path (synced from the online source when enabled)")
+	flag.StringVar(&Config.MappingInfoFile, "mapping-info-file", "", "Local genre/tag mapping table path (mdc mapping_info.xml format)")
 	flag.BoolVar(&Config.MappingOnline, "mapping-online", true, "Enable online actor-mapping source sync")
 	flag.DurationVar(&Config.MappingSyncInterval, "mapping-sync-interval", 24*time.Hour, "Online mapping sync interval")
 
@@ -158,6 +161,9 @@ func applyMetaTubeEnvOverrides() {
 	if v := os.Getenv("MT_MAPPING_ACTOR_FILE"); v != "" {
 		Config.MappingActorFile = v
 	}
+	if v := os.Getenv("MT_MAPPING_INFO_FILE"); v != "" {
+		Config.MappingInfoFile = v
+	}
 	if v := os.Getenv("MT_MAPPING_ONLINE"); v != "" {
 		if b, err := strconv.ParseBool(v); err == nil {
 			Config.MappingOnline = b
@@ -205,39 +211,15 @@ func Router(names ...string) *gin.Engine {
 		opts = append(opts, engine.WithActorProviderConfig(provider, config))
 	}
 
-	// Inject the shared actor mapping table into the JavDB provider config
-	// when the provider doesn't have its own path configured. This MUST run
-	// before the configs are turned into engine options below, otherwise a
-	// freshly created JavDB config would miss the engine options entirely.
-	if Config.MappingActorFile != "" {
-		if config, ok := envconfig.MovieProviderConfigs.Get("JavDB"); ok {
-			if !config.Has("mapping_actor_file") {
-				config.Set("mapping_actor_file", Config.MappingActorFile)
-			}
-		} else {
-			config := envconfig.NewConfig()
-			config.Set("mapping_actor_file", Config.MappingActorFile)
-			envconfig.MovieProviderConfigs.Set("JavDB", config)
-		}
-	}
-
 	// set movie provider configs if any
 	for provider, config := range envconfig.MovieProviderConfigs.Iterator() {
 		opts = append(opts, engine.WithMovieProviderConfig(provider, config))
 	}
 
-	// metadata translation with primary/secondary failover.
-	if Config.Translate && Config.TranslateEngines != "" {
-		if tr := buildTranslator(); tr != nil {
-			opts = append(opts, engine.WithTranslator(tr))
-		}
-	}
-	if Config.TranslateLang != "" {
-		opts = append(opts, engine.WithTranslateLang(Config.TranslateLang))
-	}
-	if Config.DisableSummary {
-		opts = append(opts, engine.WithDisableSummary(true))
-	}
+	// One metadata pipeline for every provider: mapping tables, summary
+	// handling, and translation are applied centrally before caching.
+	pipe := buildEnrichPipeline()
+	opts = append(opts, engine.WithEnrich(pipe))
 
 	app := engine.New(db, opts...)
 
@@ -246,8 +228,8 @@ func Router(names ...string) *gin.Engine {
 		Config.DBAutoMigrate = true
 	}
 
-	// manage console runtime settings (translator swap etc.)
-	manage.SetTranslateApp(app)
+	// The manage console mutates the same pipeline at runtime.
+	manage.SetPipeline(pipe)
 	if err = app.DBAutoMigrate(Config.DBAutoMigrate); err != nil {
 		log.Fatal(err)
 	}
@@ -276,7 +258,7 @@ func Router(names ...string) *gin.Engine {
 			MappingOnline:       Config.MappingOnline && Config.MappingActorFile != "",
 			MappingSyncInterval: Config.MappingSyncInterval,
 		})
-		manage.RegisterRoutes(ginApp)
+		manage.RegisterRoutes(ginApp, route.RequireToken(token))
 	} else if Config.MappingOnline && Config.MappingActorFile != "" {
 		// Mapping sync without the manage UI still runs in the background.
 		manage.Setup(&manage.Config{
@@ -287,6 +269,28 @@ func Router(names ...string) *gin.Engine {
 	}
 
 	return ginApp
+}
+
+// buildEnrichPipeline assembles the single post-processing pipeline used by
+// every provider. Mapping files are loaded lazily: a missing table (e.g.
+// before the first online sync) only disables that step until the file
+// appears, instead of disabling it until the next restart.
+func buildEnrichPipeline() *enrich.Pipeline {
+	cfg := enrich.Config{
+		TranslateLang:  Config.TranslateLang,
+		DisableSummary: Config.DisableSummary,
+		CleanSummary:   true,
+	}
+	if Config.MappingActorFile != "" {
+		cfg.Actors = enrich.NewLazyActor(Config.MappingActorFile)
+	}
+	if Config.MappingInfoFile != "" {
+		cfg.Info = enrich.NewLazyInfo(Config.MappingInfoFile)
+	}
+	if Config.Translate && Config.TranslateEngines != "" {
+		cfg.Translator = buildTranslator()
+	}
+	return enrich.New(cfg)
 }
 
 // buildTranslator creates a failover-capable metadata translator from the

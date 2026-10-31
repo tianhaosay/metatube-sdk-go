@@ -4,8 +4,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/metatube-community/metatube-sdk-go/common/enrich"
 	mt "github.com/metatube-community/metatube-sdk-go/provider"
-	"github.com/metatube-community/metatube-sdk-go/translate"
 )
 
 type Option func(*Engine)
@@ -34,23 +34,11 @@ func WithMovieProviderConfig(name string, config mt.Config) Option {
 	}
 }
 
-func WithTranslator(translator translate.Translator) Option {
+// WithEnrich installs the metadata post-processing pipeline. Without it the
+// engine serves provider output untouched.
+func WithEnrich(p *enrich.Pipeline) Option {
 	return func(e *Engine) {
-		e.SetTranslator(translator)
-	}
-}
-
-func WithTranslateLang(lang string) Option {
-	return func(e *Engine) {
-		if lang != "" {
-			e.translateLang = lang
-		}
-	}
-}
-
-func WithDisableSummary(disable bool) Option {
-	return func(e *Engine) {
-		e.disableSummary = disable
+		e.enrich = p
 	}
 }
 
@@ -62,25 +50,9 @@ func WithLogger(logger *log.Logger) Option {
 	}
 }
 
-// SetTranslator swaps the metadata translator at runtime (GUI settings).
-func (e *Engine) SetTranslator(t translate.Translator) {
-	e.cfgMu.Lock()
-	e.translator = t
-	e.cfgMu.Unlock()
-}
-
-// SetDisableSummary toggles the summary switch at runtime (GUI settings).
-func (e *Engine) SetDisableSummary(v bool) {
-	e.cfgMu.Lock()
-	e.disableSummary = v
-	e.cfgMu.Unlock()
-}
-
-// SetTranslateLang updates the translation target language at runtime.
-func (e *Engine) SetTranslateLang(lang string) {
-	e.cfgMu.Lock()
-	if lang != "" {
-		e.translateLang = lang
-	}
-	e.cfgMu.Unlock()
+// SetEnrich swaps the pipeline at runtime (GUI settings). The pipeline object
+// itself is shared with the manage module, so callers normally mutate its
+// configuration instead of replacing it.
+func (e *Engine) SetEnrich(p *enrich.Pipeline) {
+	e.enrich = p
 }

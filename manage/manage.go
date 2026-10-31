@@ -39,11 +39,26 @@ type Config struct {
 }
 
 var (
-	mu sync.RWMutex
-	cfg *Config
-	actorMap *mapping.ActorMap
+	mu       sync.RWMutex
+	cfg      *Config
+	pipeline *enrich.Pipeline // shared with the engine; single mapping owner
 	syncState = jobStatus{}
 )
+
+// SetPipeline attaches the shared enrich pipeline (which owns the actor
+// mapping table) and re-applies persisted settings. Called from cmd.Router.
+func SetPipeline(p *enrich.Pipeline) {
+	mu.Lock()
+	pipeline = p
+	mu.Unlock()
+	applySettings(GetSettings())
+}
+
+func getPipeline() *enrich.Pipeline {
+	mu.RLock()
+	defer mu.RUnlock()
+	return pipeline
+}
 
 // Setup initializes the manage module and starts the mapping sync loop.
 func Setup(c *Config) {
@@ -51,15 +66,6 @@ func Setup(c *Config) {
 	cfg = c
 	mu.Unlock()
 
-	if c.ActorMappingPath != "" {
-		if m, err := mapping.LoadActorFile(c.ActorMappingPath); err != nil {
-			log.Printf("[manage] actor mapping load failed: %v", err)
-		} else {
-			mu.Lock()
-			actorMap = m
-			mu.Unlock()
-		}
-	}
 	initSettings()
 	if c.MappingOnline {
 		go func() {
@@ -94,9 +100,10 @@ func getConfig() *Config {
 
 // getActorMap returns the loaded actor mapping (nil when unavailable).
 func getActorMap() *mapping.ActorMap {
-	mu.RLock()
-	defer mu.RUnlock()
-	return actorMap
+	if p := getPipeline(); p != nil {
+		return p.ActorMap()
+	}
+	return nil
 }
 
 // isJavdbMappingActive reports whether the shared avdb actor mapping table
@@ -123,15 +130,11 @@ func SyncMappingNow() (*mapping.SyncResult, error) {
 		"records": res.Records,
 		"message": res.Message,
 	})
-	// Hot reload the table after a successful sync.
+	// The mapping table reloads itself on mtime change (see
+	// mapping.baseMap.reloadIfChanged), so the shared pipeline picks up the
+	// freshly synced file on its next lookup — no swap needed here.
 	if res.Updated {
-		if m, err := mapping.LoadActorFile(c.ActorMappingPath); err != nil {
-			log.Printf("[manage] mapping reload failed: %v", err)
-		} else {
-			mu.Lock()
-			actorMap = m
-			mu.Unlock()
-		}
+		log.Printf("[manage] mapping table replaced: %s (%d records)", res.Version, res.Records)
 	}
 	return res, nil
 }
