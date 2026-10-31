@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>metatube-plus · 演员管理</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --line:#e5e7eb; --text:#1f2937; --muted:#6b7280; --brand:#2563eb; --ok:#16a34a; --warn:#d97706; --bad:#dc2626; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--text); }
+  .wrap { max-width:960px; margin:0 auto; padding:16px; }
+  h1 { font-size:20px; margin:8px 0 16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
+  .card h2 { font-size:16px; margin:0 0 10px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .kv { font-size:13px; color:var(--muted); margin:2px 0; }
+  .kv b { color:var(--text); }
+  button { background:var(--brand); color:#fff; border:0; border-radius:8px; padding:8px 14px; font-size:14px; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  button.secondary { background:#e5e7eb; color:var(--text); }
+  button.danger { background:var(--bad); }
+  button.ok { background:var(--ok); }
+  .bar { height:8px; background:#e5e7eb; border-radius:4px; overflow:hidden; margin:8px 0; }
+  .bar>div { height:100%; background:var(--brand); width:0; transition:width .4s; }
+  table { width:100%; border-collapse:collapse; font-size:13px; margin-top:8px; }
+  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:500; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:10px; font-size:12px; }
+  .pill.ok { background:#dcfce7; color:var(--ok); }
+  .pill.no { background:#fee2e2; color:var(--bad); }
+  .pill.warn { background:#fef3c7; color:var(--warn); }
+  .muted { color:var(--muted); font-size:13px; }
+  select { padding:4px 6px; border:1px solid var(--line); border-radius:6px; }
+  .fail { color:var(--bad); font-size:12px; }
+  details { margin-top:6px; }
+  summary { cursor:pointer; font-size:13px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>演员管理</h1>
+
+  <div class="card">
+    <h2>状态</h2>
+    <div id="status"><span class="muted">加载中…</span></div>
+    <div class="row" style="margin-top:10px">
+      <input id="token" type="password" placeholder="访问令牌 Token（留空表示未启用）" style="flex:1;min-width:220px;padding:6px 8px;border:1px solid var(--line);border-radius:6px">
+      <button class="secondary" onclick="saveToken()">保存令牌</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>演员映射表（在线源自动同步）</h2>
+    <div id="mappingInfo" class="kv">—</div>
+    <div class="row" style="margin-top:8px">
+      <button id="syncBtn" onclick="syncMapping()">立即同步</button>
+      <span id="syncMsg" class="muted"></span>
+    </div>
+    <p class="muted">数据源：li-peifeng/Jav-Actors-Mapping（与 avdb 相同的在线映射源，自动校验并热更新，每日定时同步）。</p>
+  </div>
+
+  <div class="card">
+    <h2>重名演员管理</h2>
+    <p class="muted">检测演员映射后同一演员的多个重复条目（不同名字或同名不同人），确认后保留名称并合并重复演员。需要 Emby 已安装 <b>Avdb Magic Tools</b> 插件。</p>
+    <div class="row">
+      <button id="dupBtn" onclick="detectDuplicates()">开始检测</button>
+      <span id="dupMsg" class="muted"></span>
+    </div>
+    <div id="dupResult"></div>
+  </div>
+
+  <div class="card">
+    <h2>无头像演员管理</h2>
+    <p class="muted">扫描缺头像的演员并一键补全（来源：Gfriends 头像库，自动经映射表匹配别名/日文名）。</p>
+    <div class="row">
+      <button id="scanBtn" onclick="scanMissing()">扫描</button>
+      <button id="compBtn" onclick="completeAvatars()">一键补全</button>
+      <span id="avaMsg" class="muted"></span>
+    </div>
+    <div class="bar"><div id="avaBar"></div></div>
+    <div id="avaProgress" class="kv"></div>
+    <div id="avaResult"></div>
+  </div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+let token = localStorage.getItem('mt_token') || '';
+$('token').value = token;
+function saveToken(){ token = $('token').value.trim(); localStorage.setItem('mt_token', token); alert('已保存'); }
+
+async function api(path, opts={}) {
+  const headers = {'Content-Type':'application/json'};
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  const res = await fetch(path, {...opts, headers});
+  const body = await res.json();
+  if (!res.ok) throw new Error((body.error && body.error.message) || res.status);
+  return body.data;
+}
+
+function esc(s){ return String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+async function loadStatus(){
+  try {
+    const s = await api('/manage/api/status');
+    const emby = s.emby || {};
+    const m = s.mapping || {};
+    $('status').innerHTML =
+      `<div class="kv">Emby：<b>${emby.connected ? '已连接' : '未连接'}</b>` +
+      (emby.connected ? `（演员 ${emby.person_count ?? '?'} 人）` : (emby.error ? `（${esc(emby.error)}）` : '（未配置）')) +
+      `　Magic Tools 插件：${emby.magic_tools === true ? '<span class="pill ok">已安装</span>' : (emby.magic_tools === false ? '<span class="pill no">未安装</span>' : '<span class="pill warn">未知</span>')}</div>`;
+    $('mappingInfo').innerHTML =
+      `路径：<b>${esc(m.path || '未配置')}</b>　条目：<b>${(m.entries||0).toLocaleString()}</b>` +
+      `　源版本：<b>${m.version ? esc(String(m.version).slice(0,10)) : '—'}</b>　在线同步：<b>${m.online ? '开' : '关'}</b>`;
+  } catch(e){ $('status').innerHTML = `<span class="fail">${esc(e.message)}</span>`; }
+}
+
+async function syncMapping(){
+  $('syncBtn').disabled = true; $('syncMsg').textContent = '同步中…';
+  try {
+    const r = await api('/manage/api/mapping/sync', {method:'POST'});
+    $('syncMsg').textContent = r.message;
+    await loadStatus();
+  } catch(e){ $('syncMsg').textContent = '失败：' + e.message; }
+  $('syncBtn').disabled = false;
+}
+
+async function detectDuplicates(){
+  $('dupBtn').disabled = true; $('dupMsg').textContent = '检测中（含影片计数，可能需要几分钟）…';
+  $('dupResult').innerHTML = '';
+  try {
+    const r = await api('/manage/api/duplicates');
+    const groups = r.groups || [];
+    $('dupMsg').textContent = `扫描 ${r.scanned} 名演员，匹配 ${r.matched}，发现 ${groups.length} 组重名`;
+    if (!groups.length) { $('dupResult').innerHTML = '<p class="muted">未发现重名演员 🎉</p>'; return; }
+    let html = '';
+    groups.forEach((g, gi) => {
+      html += `<details open><summary><b>${esc(g.recommended_name)}</b>（${g.actors.length} 个重复条目，共 ${g.total_movies} 部影片）</summary>`;
+      html += `<table><tr><th>保留</th><th>Emby 名称</th><th>影片数</th><th>头像</th><th>演员 ID</th></tr>`;
+      g.actors.forEach((a, ai) => {
+        html += `<tr><td><input type="radio" name="g${gi}" value="${esc(a.id)}" ${ai===0?'checked':''}></td>` +
+                `<td>${esc(a.name)}${ai===0?' <span class="pill ok">推荐</span>':''}</td>` +
+                `<td>${a.movie_count}</td>` +
+                `<td>${a.has_avatar?'<span class="pill ok">有</span>':'<span class="pill no">无</span>'}</td>` +
+                `<td class="muted">${esc(a.id)}</td></tr>`;
+      });
+      html += `</table><div class="row" style="margin-top:6px"><button class="danger" onclick="resolveGroup(${gi})">确认合并</button><span class="muted">将把其余条目的影片关联转移到所选演员，并删除空条目</span></div></details>`;
+    });
+    $('dupResult').innerHTML = html;
+    window._dupGroups = groups;
+  } catch(e){ $('dupMsg').textContent = '失败：' + e.message; }
+  $('dupBtn').disabled = false;
+}
+
+async function resolveGroup(gi){
+  const g = window._dupGroups[gi];
+  const sel = document.querySelector(`input[name="g${gi}"]:checked`);
+  if (!sel) { alert('请选择保留的演员'); return; }
+  if (!confirm(`确认合并「${g.recommended_name}」？该操作会转移影片关联并删除未选中的重复演员，且不可自动撤销。`)) return;
+  const sources = g.actors.map(a => a.id).filter(id => id !== sel.value);
+  $('dupMsg').textContent = '合并中…';
+  try {
+    const r = await api('/manage/api/duplicates/resolve', {method:'POST', body: JSON.stringify({target_id: sel.value, source_ids: sources})});
+    let msg = `影片 ${r.movies} 部，转移 ${r.transferred}，失败 ${r.failed}，删除 ${r.deleted} 个重复演员`;
+    if ((r.failures||[]).length || (r.delete_failures||[]).length) msg += '（部分失败，详见服务端日志）';
+    $('dupMsg').textContent = msg;
+    detectDuplicates();
+  } catch(e){ $('dupMsg').textContent = '失败：' + e.message; }
+}
+
+let missingPersons = [];
+async function scanMissing(){
+  $('scanBtn').disabled = true; $('avaMsg').textContent = '扫描中…';
+  try {
+    const r = await api('/manage/api/avatars/missing');
+    missingPersons = r.missing || [];
+    $('avaMsg').textContent = `扫描 ${r.scanned} 名演员，${missingPersons.length} 人缺头像`;
+    $('avaResult').innerHTML = missingPersons.length
+      ? `<table><tr><th>演员</th><th>演员 ID</th></tr>${missingPersons.map(p=>`<tr><td>${esc(p.name)}</td><td class="muted">${esc(p.id)}</td></tr>`).join('')}</table>`
+      : '<p class="muted">所有演员都有头像 🎉</p>';
+  } catch(e){ $('avaMsg').textContent = '失败：' + e.message; }
+  $('scanBtn').disabled = false;
+}
+
+async function completeAvatars(){
+  $('compBtn').disabled = true;
+  try {
+    await api('/manage/api/avatars/complete', {method:'POST', body: JSON.stringify({persons: missingPersons})});
+    pollProgress();
+  } catch(e){ $('avaMsg').textContent = '失败：' + e.message; $('compBtn').disabled = false; }
+}
+
+let polling = null;
+function pollProgress(){
+  if (polling) clearInterval(polling);
+  polling = setInterval(async () => {
+    try {
+      const p = await api('/manage/api/avatars/progress');
+      $('avaBar').style.width = (p.total ? Math.round(p.done / p.total * 100) : 0) + '%';
+      $('avaProgress').textContent = p.running
+        ? `进行中：${p.done}/${p.total}，成功 ${p.updated}，失败 ${p.failed}，当前：${esc(p.current||'')}`
+        : `完成：成功 ${p.result?.updated ?? 0}，失败 ${p.result?.failed ?? 0}` + (p.result?.elapsed ? `，用时 ${p.result.elapsed}` : '');
+      if (!p.running) {
+        clearInterval(polling); polling = null;
+        $('compBtn').disabled = false;
+        if ((p.result?.fails||[]).length) {
+          $('avaResult').innerHTML = '<details><summary>失败名单</summary><ul>' + p.result.fails.map(f=>`<li class="fail">${esc(f)}</li>`).join('') + '</ul></details>';
+        }
+        loadStatus();
+      }
+    } catch(e){}
+  }, 1500);
+}
+
+loadStatus();
+</script>
+</body>
+</html>

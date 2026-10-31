@@ -54,6 +54,9 @@ type JavDB struct {
 	// fieldSources maps metadata field group -> provider name
 	// (e.g. "images" -> "Fanza"). See SetConfig.
 	fieldSources map[string]string
+	// mappingPath is the actor mapping file path; the file may not exist at
+	// startup (e.g. before the first online sync), so it is loaded lazily.
+	mappingPath  string
 	actorMapping *mapping.ActorMap
 	infoMapping  *mapping.InfoMap
 	cleanSummary bool

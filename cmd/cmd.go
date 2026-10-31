@@ -14,6 +14,7 @@ import (
 	"github.com/metatube-community/metatube-sdk-go/database"
 	"github.com/metatube-community/metatube-sdk-go/engine"
 	"github.com/metatube-community/metatube-sdk-go/internal/envconfig"
+	"github.com/metatube-community/metatube-sdk-go/manage"
 	"github.com/metatube-community/metatube-sdk-go/route"
 	"github.com/metatube-community/metatube-sdk-go/route/auth"
 	"github.com/metatube-community/metatube-sdk-go/translate"
@@ -44,6 +45,19 @@ var Config = &struct {
 
 	// summary switch
 	DisableSummary bool
+
+	// manage module (actor management web UI)
+	Manage           bool
+	ManageEmbyURL    string
+	ManageEmbyAPIKey string
+	ManageEmbyUserID string
+	// ManageEmbyLibraries is a CSV of Emby library ids to scope scanning.
+	ManageEmbyLibraries string
+
+	// actor mapping table (shared by JavDB provider and manage module)
+	MappingActorFile     string
+	MappingOnline        bool
+	MappingSyncInterval time.Duration
 
 	// version flag
 	VersionFlag bool
@@ -76,6 +90,18 @@ func init() {
 
 	// Summary switch.
 	flag.BoolVar(&Config.DisableSummary, "disable-summary", false, "Disable movie summaries (no scrape output, no translation)")
+
+	// Manage module (actor management web UI).
+	flag.BoolVar(&Config.Manage, "manage", false, "Enable the actor management web UI (/manage/)")
+	flag.StringVar(&Config.ManageEmbyURL, "manage-emby-url", "", "Emby server base URL for the manage module")
+	flag.StringVar(&Config.ManageEmbyAPIKey, "manage-emby-api-key", "", "Emby API key for the manage module")
+	flag.StringVar(&Config.ManageEmbyUserID, "manage-emby-user-id", "", "Emby user id for the manage module")
+	flag.StringVar(&Config.ManageEmbyLibraries, "manage-emby-libraries", "", "CSV of Emby library ids to scope actor scans")
+
+	// Shared actor mapping table.
+	flag.StringVar(&Config.MappingActorFile, "mapping-actor-file", "", "Local actor mapping table path (synced from the online source when enabled)")
+	flag.BoolVar(&Config.MappingOnline, "mapping-online", true, "Enable online actor-mapping source sync")
+	flag.DurationVar(&Config.MappingSyncInterval, "mapping-sync-interval", 24*time.Hour, "Online mapping sync interval")
 
 	flag.BoolVar(&Config.VersionFlag, "version", false, "Show version")
 	ff.Parse(flag, os.Args[1:], ff.WithEnvVars())
@@ -110,6 +136,36 @@ func applyMetaTubeEnvOverrides() {
 	if v := os.Getenv("MT_DISABLE_SUMMARY"); v != "" {
 		if b, err := strconv.ParseBool(v); err == nil {
 			Config.DisableSummary = b
+		}
+	}
+	if v := os.Getenv("MT_MANAGE"); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			Config.Manage = b
+		}
+	}
+	if v := os.Getenv("MT_MANAGE_EMBY_URL"); v != "" {
+		Config.ManageEmbyURL = v
+	}
+	if v := os.Getenv("MT_MANAGE_EMBY_API_KEY"); v != "" {
+		Config.ManageEmbyAPIKey = v
+	}
+	if v := os.Getenv("MT_MANAGE_EMBY_USER_ID"); v != "" {
+		Config.ManageEmbyUserID = v
+	}
+	if v := os.Getenv("MT_MANAGE_EMBY_LIBRARIES"); v != "" {
+		Config.ManageEmbyLibraries = v
+	}
+	if v := os.Getenv("MT_MAPPING_ACTOR_FILE"); v != "" {
+		Config.MappingActorFile = v
+	}
+	if v := os.Getenv("MT_MAPPING_ONLINE"); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			Config.MappingOnline = b
+		}
+	}
+	if v := os.Getenv("MT_MAPPING_SYNC_INTERVAL"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			Config.MappingSyncInterval = d
 		}
 	}
 }
@@ -162,6 +218,20 @@ func Router(names ...string) *gin.Engine {
 		opts = append(opts, engine.WithDisableSummary(true))
 	}
 
+	// Inject the shared actor mapping table into the JavDB provider config
+	// when the provider doesn't have its own path configured.
+	if Config.MappingActorFile != "" {
+		if config, ok := envconfig.MovieProviderConfigs.Get("JavDB"); ok {
+			if !config.Has("mapping_actor_file") {
+				config.Set("mapping_actor_file", Config.MappingActorFile)
+			}
+		} else {
+			config := envconfig.NewConfig()
+			config.Set("mapping_actor_file", Config.MappingActorFile)
+			envconfig.MovieProviderConfigs.Set("JavDB", config)
+		}
+	}
+
 	app := engine.New(db, opts...)
 
 	// always enable auto migrate for sqlite DB
@@ -177,7 +247,36 @@ func Router(names ...string) *gin.Engine {
 		token = auth.Token(Config.Token)
 	}
 
-	return route.New(app, token)
+	ginApp := route.New(app, token)
+
+	// Manage module (actor management web UI).
+	if Config.Manage && Config.ManageEmbyURL != "" {
+		var libraries []string
+		for _, lib := range strings.Split(Config.ManageEmbyLibraries, ",") {
+			if lib = strings.TrimSpace(lib); lib != "" {
+				libraries = append(libraries, lib)
+			}
+		}
+		manage.Setup(&manage.Config{
+			EmbyURL:             Config.ManageEmbyURL,
+			EmbyAPIKey:          Config.ManageEmbyAPIKey,
+			EmbyUserID:          Config.ManageEmbyUserID,
+			EmbyLibraryIDs:      libraries,
+			ActorMappingPath:    Config.MappingActorFile,
+			MappingOnline:       Config.MappingOnline && Config.MappingActorFile != "",
+			MappingSyncInterval: Config.MappingSyncInterval,
+		})
+		manage.RegisterRoutes(ginApp)
+	} else if Config.MappingOnline && Config.MappingActorFile != "" {
+		// Mapping sync without the manage UI still runs in the background.
+		manage.Setup(&manage.Config{
+			ActorMappingPath:    Config.MappingActorFile,
+			MappingOnline:       true,
+			MappingSyncInterval: Config.MappingSyncInterval,
+		})
+	}
+
+	return ginApp
 }
 
 // buildTranslator creates a failover-capable metadata translator from the

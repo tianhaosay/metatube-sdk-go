@@ -106,12 +106,8 @@ func (db *JavDB) SetConfig(config provider.Config) error {
 	// mapping_actor_file.
 	if config.Has("mapping_actor_file") {
 		if v, err := config.GetString("mapping_actor_file"); err == nil && v != "" {
-			m, err := mapping.LoadActorFile(v)
-			if err != nil {
-				return fmt.Errorf("load actor mapping file: %w", err)
-			}
 			db.mu.Lock()
-			db.actorMapping = m
+			db.mappingPath = v
 			db.mu.Unlock()
 		}
 	}
@@ -140,6 +136,27 @@ func (db *JavDB) SetConfig(config provider.Config) error {
 	return nil
 }
 
+// getActorMapping lazily loads the actor mapping table; a missing file (e.g.
+// before the first online sync) only logs a warning and returns nil, and the
+// next request retries (the online sync may have created the file by then).
+func (db *JavDB) getActorMapping() *mapping.ActorMap {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	if db.actorMapping != nil {
+		return db.actorMapping
+	}
+	if db.mappingPath == "" {
+		return nil
+	}
+	m, err := mapping.LoadActorFile(db.mappingPath)
+	if err != nil {
+		log.Printf("[JavDB] actor mapping not loaded yet: %v", err)
+		return nil
+	}
+	db.actorMapping = m
+	return m
+}
+
 // postProcess applies mapping tables and cross-provider field merging.
 // Note: title/summary translation is handled globally by the engine-level
 // translator (see cmd config), not here.
@@ -150,6 +167,9 @@ func (db *JavDB) postProcess(info *model.MovieInfo) {
 	infoMapping := db.infoMapping
 	cleanSummary := db.cleanSummary
 	db.mu.Unlock()
+	if actorMapping == nil {
+		actorMapping = db.getActorMapping()
+	}
 
 	// 1. Mapping tables (actor canonicalization + tag translation/removal).
 	if actorMapping != nil {

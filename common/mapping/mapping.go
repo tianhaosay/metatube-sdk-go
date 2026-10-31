@@ -41,11 +41,14 @@ import (
 const DeleteMark = "删除"
 
 type xmlEntry struct {
-	ZhCn    string `xml:"zh_cn,attr"`
-	ZhTw    string `xml:"zh_tw,attr"`
-	Jp      string `xml:"jp,attr"`
-	Keyword string `xml:"keyword,attr"`
-	Href    string `xml:"href,attr"`
+	ZhCn      string `xml:"zh_cn,attr"`
+	ZhTw      string `xml:"zh_tw,attr"`
+	Jp        string `xml:"jp,attr"`
+	Keyword   string `xml:"keyword,attr"`
+	Href      string `xml:"href,attr"`
+	TmdbID    string `xml:"tmdb_id,attr"`
+	BioGraphy string `xml:"bio_graphy,attr"`
+	Verified  string `xml:"verified,attr"`
 }
 
 func (e xmlEntry) aliases() []string {
@@ -60,11 +63,13 @@ func (e xmlEntry) aliases() []string {
 
 // ActorEntry is one canonical actor record.
 type ActorEntry struct {
-	Name    string   // zh_cn canonical name.
-	Jp      string   // jp canonical name (may be empty).
-	ZhTw    string   // zh_tw canonical name (may be empty).
-	Href    string   // actor homepage, e.g. javdb actor URL (may be empty).
-	Aliases []string // raw keyword list.
+	Name      string   // zh_cn canonical name.
+	Jp        string   // jp canonical name (may be empty).
+	ZhTw      string   // zh_tw canonical name (may be empty).
+	Href      string   // actor homepage, e.g. javdb actor URL (may be empty).
+	TmdbID    string   // TMDB person id (avdb online table, may be empty).
+	BioGraphy string   // actor biography (avdb online table, may be empty).
+	Aliases   []string // raw keyword list.
 }
 
 // InfoEntry is one canonical tag/word record.
@@ -107,16 +112,27 @@ func (m *baseMap[T]) load() (err error) {
 	if err != nil {
 		return err
 	}
+	// Both root layouts are supported:
+	//   mdc style:      <actor><a .../></actor>
+	//   avdb online:    <actor-mapping><actor><a .../></actor></actor-mapping>
 	var root struct {
-		Entries []xmlEntry `xml:"a"`
+		A      []xmlEntry `xml:"a"`
+		Actors []struct {
+			A []xmlEntry `xml:"a"`
+		} `xml:"actor"`
 	}
 	if err = xml.Unmarshal(content, &root); err != nil {
 		return err
 	}
-	entries := make(map[string]*T, len(root.Entries)*2)
+	entries := make(map[string]*T, len(root.A)*2)
 	nAlias := 0
-	for i := range root.Entries {
-		e := root.Entries[i]
+	var all []xmlEntry
+	all = append(all, root.A...)
+	for _, actor := range root.Actors {
+		all = append(all, actor.A...)
+	}
+	for i := range all {
+		e := all[i]
 		item, ok := m.build(&e)
 		if !ok {
 			continue
@@ -136,22 +152,22 @@ func (m *baseMap[T]) load() (err error) {
 			}
 		}
 	}
-	if m.minEntry > 0 && len(root.Entries) < m.minEntry {
+	if m.minEntry > 0 && len(all) < m.minEntry {
 		return ErrTooFewEntries
 	}
 	// Anti-truncation guard: refuse to swap to a much smaller table.
 	m.mu.RLock()
 	old := m.nEntry
 	m.mu.RUnlock()
-	if old > 0 && len(root.Entries) < old/2 {
+	if old > 0 && len(all) < old/2 {
 		return ErrTooFewEntries
 	}
 	m.mu.Lock()
 	m.entries = entries
-	m.nEntry = len(root.Entries)
+	m.nEntry = len(all)
 	m.nAlias = nAlias
 	m.mu.Unlock()
-	log.Printf("[mapping] loaded %s: %d entries, %d aliases", m.path, len(root.Entries), nAlias)
+	log.Printf("[mapping] loaded %s: %d entries, %d aliases", m.path, len(all), nAlias)
 	return nil
 }
 
@@ -199,11 +215,13 @@ func (m *ActorMap) build(e *xmlEntry) (*ActorEntry, bool) {
 		return nil, false
 	}
 	return &ActorEntry{
-		Name:    name,
-		Jp:      strings.TrimSpace(e.Jp),
-		ZhTw:    strings.TrimSpace(e.ZhTw),
-		Href:    strings.TrimSpace(e.Href),
-		Aliases: e.aliases(),
+		Name:      name,
+		Jp:        strings.TrimSpace(e.Jp),
+		ZhTw:      strings.TrimSpace(e.ZhTw),
+		Href:      strings.TrimSpace(e.Href),
+		TmdbID:    strings.TrimSpace(e.TmdbID),
+		BioGraphy: strings.TrimSpace(e.BioGraphy),
+		Aliases:   e.aliases(),
 	}, true
 }
 
