@@ -36,6 +36,7 @@ func (db *JavDB) GetActorInfoByID(id string) (info *model.ActorInfo, err error) 
 }
 
 func (db *JavDB) GetActorInfoByURL(rawURL string) (info *model.ActorInfo, err error) {
+	waitJavdbCooldown()
 	id, err := db.ParseActorIDFromURL(rawURL)
 	if err != nil {
 		return
@@ -106,6 +107,7 @@ func (db *JavDB) GetActorInfoByURL(rawURL string) (info *model.ActorInfo, err er
 
 // SearchActor searches actors by keyword.
 func (db *JavDB) SearchActor(keyword string) (results []*model.ActorSearchResult, err error) {
+	waitJavdbCooldown()
 	c := db.ClonedCollector()
 
 	c.OnXML(`//div[contains(@class,"actor-list")]//div[contains(@class,"item")]//a[contains(@class,"box")]`, func(e *colly.XMLElement) {

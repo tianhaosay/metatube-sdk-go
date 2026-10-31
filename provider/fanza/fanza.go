@@ -132,7 +132,27 @@ func (fz *FANZA) getHomepagesByID(id string) []string {
 	return homepages
 }
 
+var numberPrefixRe = regexp.MustCompile(`(?i)^([a-z]+)-?(\d+)$`)
+
+// toFanzaID converts a movie number (e.g. "FLAV-302") into the DMM content
+// id format (e.g. "flav00302": lowercase letters + zero-padded 5-digit
+// number). Numbers that already look like a DMM id are returned as-is.
+func toFanzaID(number string) string {
+	number = strings.TrimSpace(number)
+	if m := numberPrefixRe.FindStringSubmatch(number); m != nil {
+		digits := m[2]
+		for len(digits) < 5 {
+			digits = "0" + digits
+		}
+		return strings.ToLower(m[1]) + digits
+	}
+	return strings.ToLower(number)
+}
+
 func (fz *FANZA) GetMovieInfoByID(id string) (info *model.MovieInfo, err error) {
+	// Accept plain movie numbers (e.g. "FLAV-302") in addition to real DMM
+	// content ids: convert to the DMM id format before building URLs.
+	id = toFanzaID(id)
 	for _, homepage := range fz.getHomepagesByID(id) {
 		if info, err = fz.GetMovieInfoByURL(homepage); errors.Is(err, ErrRegionNotAvailable) || err == nil && info.IsValid() {
 			return

@@ -133,6 +133,25 @@ func (db *JavDB) SetConfig(config provider.Config) error {
 			db.mu.Unlock()
 		}
 	}
+
+	// rate_limit: minimum interval between consecutive javdb requests
+	// (single-flight + cooldown, default 10s; <=0 disables). Applies only
+	// to the javdb domain — other providers are unaffected.
+	if config.Has("rate_limit") {
+		if v, err := config.GetDuration("rate_limit"); err == nil {
+			setJavdbRateLimit(v)
+		}
+	}
+
+	// secondary_proxy: proxy applied to secondary provider instances created
+	// for field merging (e.g. fanza needs a proxy to reach DMM from CN).
+	if config.Has("secondary_proxy") {
+		if v, err := config.GetString("secondary_proxy"); err == nil && v != "" {
+			db.mu.Lock()
+			db.secondaryProxy = v
+			db.mu.Unlock()
+		}
+	}
 	return nil
 }
 
@@ -232,7 +251,8 @@ func collapseNewlines(s string) string {
 }
 
 // getSecondaryProvider returns a cached MovieProvider instance by
-// case-insensitive name.
+// case-insensitive name. Freshly created instances are unconfigured, so the
+// configured secondary proxy (and nothing else) is applied to them.
 func (db *JavDB) getSecondaryProvider(name string) (provider.MovieProvider, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -242,6 +262,13 @@ func (db *JavDB) getSecondaryProvider(name string) (provider.MovieProvider, erro
 	p, err := provider.GetMovieProviderByName(name)
 	if err != nil {
 		return nil, err
+	}
+	if db.secondaryProxy != "" {
+		if ps, ok := p.(provider.ProxySetter); ok {
+			if err := ps.SetProxy(db.secondaryProxy); err != nil {
+				log.Printf("[JavDB] field merge: set proxy for secondary %s: %v", name, err)
+			}
+		}
 	}
 	db.secProviders[strings.ToLower(name)] = p
 	return p, nil

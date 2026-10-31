@@ -56,10 +56,11 @@ type JavDB struct {
 	fieldSources map[string]string
 	// mappingPath is the actor mapping file path; the file may not exist at
 	// startup (e.g. before the first online sync), so it is loaded lazily.
-	mappingPath  string
-	actorMapping *mapping.ActorMap
-	infoMapping  *mapping.InfoMap
-	cleanSummary bool
+	mappingPath    string
+	actorMapping   *mapping.ActorMap
+	infoMapping    *mapping.InfoMap
+	secondaryProxy string
+	cleanSummary   bool
 	// secProviders caches secondary provider instances for field merging.
 	secProviders map[string]provider.MovieProvider
 }
@@ -120,6 +121,7 @@ func (db *JavDB) GetMovieInfoByID(id string) (info *model.MovieInfo, err error) 
 }
 
 func (db *JavDB) GetMovieInfoByURL(rawURL string) (info *model.MovieInfo, err error) {
+	waitJavdbCooldown()
 	id, err := db.ParseMovieIDFromURL(rawURL)
 	if err != nil {
 		return
@@ -231,6 +233,7 @@ func (db *JavDB) NormalizeMovieKeyword(keyword string) string {
 }
 
 func (db *JavDB) SearchMovie(keyword string) (results []*model.MovieSearchResult, err error) {
+	waitJavdbCooldown()
 	c := db.ClonedCollector()
 
 	c.OnXML(`//div[contains(@class,"movie-list")]//div[contains(@class,"item")]//a[contains(@class,"box")]`, func(e *colly.XMLElement) {
