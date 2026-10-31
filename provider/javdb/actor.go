@@ -8,6 +8,7 @@ import (
 
 	"github.com/gocolly/colly/v2"
 
+	"github.com/metatube-community/metatube-sdk-go/common/throttle"
 	"github.com/metatube-community/metatube-sdk-go/model"
 	"github.com/metatube-community/metatube-sdk-go/provider"
 )
@@ -36,7 +37,7 @@ func (db *JavDB) GetActorInfoByID(id string) (info *model.ActorInfo, err error) 
 }
 
 func (db *JavDB) GetActorInfoByURL(rawURL string) (info *model.ActorInfo, err error) {
-	waitJavdbCooldown()
+	throttle.Wait(Name)
 	id, err := db.ParseActorIDFromURL(rawURL)
 	if err != nil {
 		return
@@ -107,7 +108,7 @@ func (db *JavDB) GetActorInfoByURL(rawURL string) (info *model.ActorInfo, err er
 
 // SearchActor searches actors by keyword.
 func (db *JavDB) SearchActor(keyword string) (results []*model.ActorSearchResult, err error) {
-	waitJavdbCooldown()
+	throttle.Wait(Name)
 	c := db.ClonedCollector()
 
 	c.OnXML(`//div[contains(@class,"actor-list")]//div[contains(@class,"item")]//a[contains(@class,"box")]`, func(e *colly.XMLElement) {
