@@ -148,6 +148,9 @@ var numberPrefixRe = regexp.MustCompile(`(?i)^([a-z]+)-?(\d+)$`)
 // toFanzaID converts a movie number (e.g. "FLAV-302") into the DMM content
 // id format (e.g. "flav00302": lowercase letters + zero-padded 5-digit
 // number). Numbers that already look like a DMM id are returned as-is.
+// Note: many studios use prefixed cids (START-015 -> 1start00015,
+// T-38027 -> 55t38027, some -> h_086xxxxx); those are handled by the
+// search fallback in GetMovieInfoByID instead.
 func toFanzaID(number string) string {
 	number = strings.TrimSpace(number)
 	if m := numberPrefixRe.FindStringSubmatch(number); m != nil {
@@ -160,13 +163,36 @@ func toFanzaID(number string) string {
 	return strings.ToLower(number)
 }
 
+// normNumber normalizes a number/cid for exact comparison: uppercase, strip
+// everything except letters and digits (prefixes and hyphens removed).
+var normNumberRe = regexp.MustCompile(`[^A-Z0-9]`)
+
+func normNumber(s string) string {
+	return normNumberRe.ReplaceAllString(strings.ToUpper(s), "")
+}
+
 func (fz *FANZA) GetMovieInfoByID(id string) (info *model.MovieInfo, err error) {
+	original := id
 	// Accept plain movie numbers (e.g. "FLAV-302") in addition to real DMM
 	// content ids: convert to the DMM id format before building URLs.
 	id = toFanzaID(id)
 	for _, homepage := range fz.getHomepagesByID(id) {
 		if info, err = fz.GetMovieInfoByURL(homepage); errors.Is(err, ErrRegionNotAvailable) || err == nil && info.IsValid() {
 			return
+		}
+	}
+	// Fallback: the number may map to a DMM cid with a studio-specific
+	// prefix (T-38027 -> 55t38027, START-015 -> 1start00015, ...). Search
+	// by the original number and pick the exact-number match — this is the
+	// same resolution path the plugin uses (search first, then fetch).
+	if results, serr := fz.SearchMovie(original); serr == nil {
+		want := normNumber(original)
+		for _, r := range results {
+			if normNumber(r.ID) == want || normNumber(r.Number) == want {
+				if info, err = fz.GetMovieInfoByURL(r.Homepage); err == nil && info.IsValid() {
+					return
+				}
+			}
 		}
 	}
 	if err != nil && err.Error() == http.StatusText(http.StatusNotFound) {
