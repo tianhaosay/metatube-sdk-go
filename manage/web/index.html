@@ -153,16 +153,48 @@
     </div>
     <div class="card">
       <h2>元数据翻译</h2>
+      <p class="muted" style="margin:0 0 8px"><b>翻译统归后端管理</b>：引擎、凭据、目标语言都在这里配置；Emby 插件的「翻译模式」保持 Disabled 即可（插件页会自动检测冲突）。</p>
       <div class="row">
         <label class="muted"><input type="checkbox" id="sTranslate"> 启用翻译</label>
       </div>
       <label class="fld">引擎（主,次）</label>
       <input id="sEngines" placeholder="baidu,googlefree" style="width:100%">
-      <span class="muted">主引擎失败/超时自动由次引擎接管；连续 5 次接管自动晋升。</span>
+      <span class="muted">主引擎失败/超时自动由次引擎接管；连续 5 次接管自动晋升。可用引擎：baidu、deepl、google、googlefree、openai。</span>
       <label class="fld">目标语言</label>
       <input id="sLang" placeholder="zh-CN" style="width:200px">
       <div class="row" style="margin-top:8px">
         <label class="muted"><input type="checkbox" id="sNoSummary"> 隐藏作品简介（不刮削不翻译）</label>
+      </div>
+    </div>
+    <div class="card">
+      <h2>翻译引擎凭据</h2>
+      <p class="muted" style="margin:0 0 8px">留空的项沿用环境变量（MT_TRANSLATE_&lt;引擎&gt;__&lt;参数&gt;）；此处填写后以这里为准，保存立即生效。</p>
+      <div class="grid2">
+        <div>
+          <label class="fld">百度 App ID</label>
+          <input id="sBaiduID" style="width:100%">
+          <label class="fld" style="margin-top:6px">百度 App Key</label>
+          <input id="sBaiduKey" type="password" style="width:100%">
+        </div>
+        <div>
+          <label class="fld">DeepL API Key</label>
+          <input id="sDeepLKey" type="password" style="width:100%">
+          <label class="fld" style="margin-top:6px">DeepL API 地址（可选，兼容 API）</label>
+          <input id="sDeepLUrl" placeholder="http://…/v2" style="width:100%">
+        </div>
+        <div>
+          <label class="fld">OpenAI API Key</label>
+          <input id="sOpenAiKey" type="password" style="width:100%">
+          <label class="fld" style="margin-top:6px">OpenAI API 地址 / 模型</label>
+          <input id="sOpenAiUrl" placeholder="http://…/v1" style="width:100%">
+          <input id="sOpenAiModel" placeholder="模型名" style="width:100%;margin-top:6px">
+        </div>
+        <div>
+          <label class="fld">Google API Key</label>
+          <input id="sGoogleKey" type="password" style="width:100%">
+          <label class="fld" style="margin-top:6px">Google API 地址（可选）</label>
+          <input id="sGoogleUrl" style="width:100%">
+        </div>
       </div>
     </div>
     <div class="card">
@@ -171,6 +203,14 @@
         <span id="setMsg" class="muted"></span>
       </div>
       <p class="muted">设置保存在映射表同目录（gui_settings.json），重启后仍生效。</p>
+    </div>
+    <div class="card">
+      <strong>与 Emby 插件的一致性</strong>
+      <p class="muted" style="margin:6px 0 0">
+        ① <b>翻译归后端管</b>：引擎与凭据在此配置（凭据留空则沿用环境变量）。此处开启翻译后，Emby 插件「翻译模式」保持 <b>Disabled</b>，插件页顶部会实时显示后端状态并检测冲突。<br>
+        ② 后端已加载 avdb 演员映射表时，Emby 插件的「数据源过滤器」需包含 <b>javdb</b>（或关闭过滤器），否则演员归一不会触发。<br>
+        ③ 冷却限流、字段来源合并均为纯后端行为，与插件设置无冲突。
+      </p>
     </div>
   </div>
 </div>
@@ -363,6 +403,15 @@ async function loadSettings(){
     $('sEngines').value = s.translate_engines || 'baidu,googlefree';
     $('sLang').value = s.translate_lang || 'zh-CN';
     $('sNoSummary').checked = !!s.disable_summary;
+    $('sBaiduID').value = s.baidu_app_id || '';
+    $('sBaiduKey').value = s.baidu_app_key || '';
+    $('sDeepLKey').value = s.deepl_api_key || '';
+    $('sDeepLUrl').value = s.deepl_api_url || '';
+    $('sOpenAiKey').value = s.openai_api_key || '';
+    $('sOpenAiUrl').value = s.openai_api_url || '';
+    $('sOpenAiModel').value = s.openai_model || '';
+    $('sGoogleKey').value = s.google_api_key || '';
+    $('sGoogleUrl').value = s.google_api_url || '';
   } catch(e){ $('setMsg').textContent = '读取失败：' + e.message; }
 }
 async function saveSettings(){
@@ -374,6 +423,15 @@ async function saveSettings(){
       translate_engines: $('sEngines').value.trim() || 'baidu,googlefree',
       translate_lang: $('sLang').value.trim() || 'zh-CN',
       disable_summary: $('sNoSummary').checked,
+      baidu_app_id: $('sBaiduID').value.trim(),
+      baidu_app_key: $('sBaiduKey').value.trim(),
+      deepl_api_key: $('sDeepLKey').value.trim(),
+      deepl_api_url: $('sDeepLUrl').value.trim(),
+      openai_api_key: $('sOpenAiKey').value.trim(),
+      openai_api_url: $('sOpenAiUrl').value.trim(),
+      openai_model: $('sOpenAiModel').value.trim(),
+      google_api_key: $('sGoogleKey').value.trim(),
+      google_api_url: $('sGoogleUrl').value.trim(),
     })});
     $('setMsg').textContent = '已保存并生效 ✓';
   } catch(e){ $('setMsg').textContent = '失败：' + e.message; }

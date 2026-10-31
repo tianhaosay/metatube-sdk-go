@@ -16,6 +16,7 @@ func RegisterRoutes(r gin.IRouter) {
 	r.GET("/manage", uiHandler)
 
 	api := r.Group("/manage/api")
+	api.Use(corsMiddleware)
 	{
 		api.GET("/status", getStatus)
 		api.POST("/mapping/sync", postSyncMapping)
@@ -27,7 +28,37 @@ func RegisterRoutes(r gin.IRouter) {
 		api.GET("/logs", getLogs)
 		api.GET("/settings", getSettings)
 		api.POST("/settings", postSettings)
+		api.GET("/consistency", getConsistency)
 	}
+}
+
+// corsMiddleware allows cross-origin GETs so that the Emby/Jellyfin plugin
+// configuration page (served from the media server origin) can query the
+// backend's consistency status. Preflight requests are answered directly.
+func corsMiddleware(c *gin.Context) {
+	c.Header("Access-Control-Allow-Origin", "*")
+	if c.Request.Method == http.MethodOptions {
+		c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		c.AbortWithStatus(http.StatusNoContent)
+		return
+	}
+	c.Next()
+}
+
+// getConsistency reports backend state that overlaps plugin-side settings,
+// used by the plugin config page to warn about conflicts.
+func getConsistency(c *gin.Context) {
+	s := GetSettings()
+	jsonOK(c, gin.H{
+		"translate":             s.Translate,
+		"translate_engines":     s.TranslateEngines,
+		"disable_summary":       s.DisableSummary,
+		"fanza_rate_limit":      s.FanzaRateLimit,
+		"javdb_rate_limit":      s.JavdbRateLimit,
+		"javdb_mapping_active":  isJavdbMappingActive(),
+		"mapping_entries":       MappingStatus()["entries"],
+	})
 }
 
 func getLogs(c *gin.Context) {

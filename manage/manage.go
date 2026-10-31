@@ -99,6 +99,13 @@ func getActorMap() *mapping.ActorMap {
 	return actorMap
 }
 
+// isJavdbMappingActive reports whether the shared avdb actor mapping table
+// is loaded, i.e. the backend will canonicalize actor names on JavDB data.
+func isJavdbMappingActive() bool {
+	m := getActorMap()
+	return m != nil && m.Len() > 0
+}
+
 // SyncMappingNow runs one online mapping sync and hot-reloads the table.
 func SyncMappingNow() (*mapping.SyncResult, error) {
 	c := getConfig()

@@ -23,10 +23,24 @@ type Settings struct {
 	FanzaRateLimit string `json:"fanza_rate_limit"`
 	JavdbRateLimit string `json:"javdb_rate_limit"`
 
-	// Metadata translation.
+	// Metadata translation. Translation is owned by the backend: engines
+	// and credentials are configured here; the Emby/Jellyfin plugin keeps
+	// its own translation disabled.
 	Translate        bool   `json:"translate"`
 	TranslateEngines string `json:"translate_engines"` // primary,secondary
 	TranslateLang    string `json:"translate_lang"`
+
+	// Translation engine credentials. Empty values fall back to the
+	// MT_TRANSLATE_<ENGINE>__<PARAM> environment variables.
+	BaiduAppID   string `json:"baidu_app_id,omitempty"`
+	BaiduAppKey  string `json:"baidu_app_key,omitempty"`
+	DeepLAPIKey  string `json:"deepl_api_key,omitempty"`
+	DeepLAPIUrl  string `json:"deepl_api_url,omitempty"`
+	OpenAiAPIKey string `json:"openai_api_key,omitempty"`
+	OpenAiAPIUrl string `json:"openai_api_url,omitempty"`
+	OpenAiModel  string `json:"openai_model,omitempty"`
+	GoogleAPIKey string `json:"google_api_key,omitempty"`
+	GoogleAPIUrl string `json:"google_api_url,omitempty"`
 
 	// Summary switch.
 	DisableSummary bool `json:"disable_summary"`
@@ -34,6 +48,7 @@ type Settings struct {
 
 type translateApp interface {
 	SetTranslator(t translate.Translator)
+	SetTranslateLang(lang string)
 	SetDisableSummary(v bool)
 }
 
@@ -82,17 +97,44 @@ func applySettings(s Settings) {
 		return
 	}
 	if s.Translate && strings.TrimSpace(s.TranslateEngines) != "" {
-		app.SetTranslator(buildFailoverTranslator(s.TranslateEngines))
+		app.SetTranslator(buildFailoverTranslator(s.TranslateEngines, s))
 	} else {
 		app.SetTranslator(nil)
 	}
+	app.SetTranslateLang(s.TranslateLang)
 	app.SetDisableSummary(s.DisableSummary)
+}
+
+// translateCredentialOverlay maps GUI credential fields onto the engine
+// param keys (the JSON tags used by translate.Build). Empty GUI values are
+// skipped so environment variables keep working as fallbacks.
+func translateCredentialOverlay(s Settings) map[string]map[string]string {
+	overlay := map[string]map[string]string{}
+	set := func(engine, key, value string) {
+		if strings.TrimSpace(value) == "" {
+			return
+		}
+		if overlay[engine] == nil {
+			overlay[engine] = map[string]string{}
+		}
+		overlay[engine][key] = strings.TrimSpace(value)
+	}
+	set("BAIDU", "baidu-app-id", s.BaiduAppID)
+	set("BAIDU", "baidu-app-key", s.BaiduAppKey)
+	set("DEEPL", "deepl-api-key", s.DeepLAPIKey)
+	set("DEEPL", "deepl-api-url", s.DeepLAPIUrl)
+	set("OPENAI", "openai-api-key", s.OpenAiAPIKey)
+	set("OPENAI", "openai-api-url", s.OpenAiAPIUrl)
+	set("OPENAI", "openai-model", s.OpenAiModel)
+	set("GOOGLE", "google-api-key", s.GoogleAPIKey)
+	set("GOOGLE", "google-api-url", s.GoogleAPIUrl)
+	return overlay
 }
 
 // buildFailoverTranslator creates a failover translator from a CSV engine
 // list. Engine params are read from the environment
 // (MT_TRANSLATE_<ENGINE>__<PARAM>), the same source cmd uses at startup.
-func buildFailoverTranslator(enginesCSV string) translate.Translator {
+func buildFailoverTranslator(enginesCSV string, s Settings) translate.Translator {
 	names := strings.Split(enginesCSV, ",")
 	for i := range names {
 		names[i] = strings.TrimSpace(names[i])
@@ -101,6 +143,15 @@ func buildFailoverTranslator(enginesCSV string) translate.Translator {
 		return nil
 	}
 	params := parseTranslateEnvParams()
+	// GUI-configured credentials take precedence over env vars.
+	for eng, kv := range translateCredentialOverlay(s) {
+		if params[eng] == nil {
+			params[eng] = map[string]string{}
+		}
+		for k, v := range kv {
+			params[eng][k] = v
+		}
+	}
 	build := func(name string) (translate.Translator, string) {
 		if name == "" || !translate.Exists(name) {
 			return nil, ""
