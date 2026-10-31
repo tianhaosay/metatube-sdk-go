@@ -200,6 +200,22 @@ func Router(names ...string) *gin.Engine {
 		opts = append(opts, engine.WithActorProviderConfig(provider, config))
 	}
 
+	// Inject the shared actor mapping table into the JavDB provider config
+	// when the provider doesn't have its own path configured. This MUST run
+	// before the configs are turned into engine options below, otherwise a
+	// freshly created JavDB config would miss the engine options entirely.
+	if Config.MappingActorFile != "" {
+		if config, ok := envconfig.MovieProviderConfigs.Get("JavDB"); ok {
+			if !config.Has("mapping_actor_file") {
+				config.Set("mapping_actor_file", Config.MappingActorFile)
+			}
+		} else {
+			config := envconfig.NewConfig()
+			config.Set("mapping_actor_file", Config.MappingActorFile)
+			envconfig.MovieProviderConfigs.Set("JavDB", config)
+		}
+	}
+
 	// set movie provider configs if any
 	for provider, config := range envconfig.MovieProviderConfigs.Iterator() {
 		opts = append(opts, engine.WithMovieProviderConfig(provider, config))
@@ -216,20 +232,6 @@ func Router(names ...string) *gin.Engine {
 	}
 	if Config.DisableSummary {
 		opts = append(opts, engine.WithDisableSummary(true))
-	}
-
-	// Inject the shared actor mapping table into the JavDB provider config
-	// when the provider doesn't have its own path configured.
-	if Config.MappingActorFile != "" {
-		if config, ok := envconfig.MovieProviderConfigs.Get("JavDB"); ok {
-			if !config.Has("mapping_actor_file") {
-				config.Set("mapping_actor_file", Config.MappingActorFile)
-			}
-		} else {
-			config := envconfig.NewConfig()
-			config.Set("mapping_actor_file", Config.MappingActorFile)
-			envconfig.MovieProviderConfigs.Set("JavDB", config)
-		}
 	}
 
 	app := engine.New(db, opts...)

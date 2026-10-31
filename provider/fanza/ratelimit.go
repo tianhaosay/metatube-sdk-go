@@ -8,18 +8,20 @@ import (
 // fanzaCooldown enforces a minimum interval between consecutive requests to
 // the DMM domain (single-flight + cooldown). It applies only to FANZA
 // provider requests (movie search/info/reviews); other providers are
-// unaffected. The DMM search page silently returns an empty result page when
-// hit too frequently (anti-scraping), which previously made bulk scraping
-// lose results after the first few items. Default cooldown is 3 seconds;
-// it can be changed (or disabled with a negative value) via the
-// `rate_limit` config key (MT_PROVIDER_FANZA__RATE_LIMIT).
+// unaffected.
+//
+// Default is DISABLED (0), matching upstream metatube behaviour: DMM's
+// anti-scraping on the search page is intermittent, and the cooldown trades
+// scrape speed for long-tail reliability. Users can enable it (e.g. 3s) via
+// the `rate_limit` config key (MT_PROVIDER_FANZA__RATE_LIMIT) or from a
+// future GUI setting; a negative value also disables it.
 type fanzaCooldown struct {
 	mu       sync.Mutex
 	interval time.Duration
 	last     time.Time
 }
 
-var cooldown = &fanzaCooldown{interval: 3 * time.Second}
+var cooldown = &fanzaCooldown{interval: 0}
 
 func setFanzaRateLimit(d time.Duration) {
 	cooldown.mu.Lock()
