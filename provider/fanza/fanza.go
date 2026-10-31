@@ -112,6 +112,17 @@ func (fz *FANZA) SetProxy(proxyURL string) error {
 	return fz.Scraper.SetProxy(proxyURL)
 }
 
+// SetConfig implements provider.ConfigSetter. Currently supports the
+// `rate_limit` key (cooldown between consecutive DMM requests).
+func (fz *FANZA) SetConfig(config provider.Config) error {
+	if config.Has("rate_limit") {
+		if v, err := config.GetDuration("rate_limit"); err == nil {
+			setFanzaRateLimit(v)
+		}
+	}
+	return nil
+}
+
 func (fz *FANZA) NormalizeMovieID(id string) string {
 	return strings.ToLower(id) /* FANZA uses lowercase ID */
 }
@@ -186,6 +197,7 @@ func (fz *FANZA) ParseMovieIDFromURL(rawURL string) (id string, err error) {
 }
 
 func (fz *FANZA) GetMovieInfoByURL(rawURL string) (*model.MovieInfo, error) {
+	waitFanzaCooldown()
 	if IsDigitalVideoURL(rawURL) {
 		return fz.getDigitalMovieInfoByURL(rawURL)
 	}
@@ -616,6 +628,7 @@ func (fz *FANZA) NormalizeMovieKeyword(keyword string) string {
 }
 
 func (fz *FANZA) SearchMovie(keyword string) ([]*model.MovieSearchResult, error) {
+	waitFanzaCooldown()
 	if strings.Contains(keyword, "-") {
 		if results, err := fz.searchMovieNext(strings.Replace(keyword,
 			/* FANZA cannot search hyphened number */
@@ -770,6 +783,7 @@ func (fz *FANZA) GetMovieReviewsByID(id string) (reviews []*model.MovieReviewDet
 }
 
 func (fz *FANZA) GetMovieReviewsByURL(rawURL string) (reviews []*model.MovieReviewDetail, err error) {
+	waitFanzaCooldown()
 	if IsDigitalVideoURL(rawURL) {
 		return fz.getDigitalMovieReviewsByURL(rawURL)
 	}
