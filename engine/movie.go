@@ -220,10 +220,15 @@ func (e *Engine) getMovieInfoWithCallback(provider mt.MovieProvider, id string, 
 		if info, err = e.getMovieInfoFromDB(provider, id); err == nil && info.IsValid() {
 			// Cached rows may still hold untranslated metadata; enrich once and
 			// persist so a library refresh fixes them without re-scraping.
-			if e.enrich != nil && enrich.NeedsWork(info) {
-				e.enrich.Apply(info)
-				e.db.Clauses(clause.OnConflict{UpdateAll: true}).Create(info)
-				e.logger.Printf("enriched cached entry %s/%s on read", provider.Name(), id)
+			if e.enrich != nil {
+				cfg := e.enrich.Snapshot()
+				// Also re-run when summaries are meant to be hidden: an old row
+				// keeps its summary until the pipeline clears it once.
+				if enrich.NeedsWork(info) || (cfg.DisableSummary && strings.TrimSpace(info.Summary) != "") {
+					e.enrich.Apply(info)
+					e.db.Clauses(clause.OnConflict{UpdateAll: true}).Create(info)
+					e.logger.Printf("enriched cached entry %s/%s on read", provider.Name(), id)
+				}
 			}
 			return // ignore DB query error.
 		}

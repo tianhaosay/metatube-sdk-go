@@ -160,6 +160,13 @@
             <button class="sec" onclick="resetRefresh()">重置进度</button>
             <span class="muted" id="rfMsg"></span>
           </div>
+          <label class="f" style="margin-top:10px">
+            <input type="checkbox" id="rfReplace" style="width:auto"> 覆盖已有元数据（推荐）
+          </label>
+          <p class="muted" style="margin:2px 0 0">
+            不勾：只补空白字段，已有的标题/简介/演员/流派一律不动（旧日文不会消失、隐藏简介也不会清空）。<br>
+            勾上：用后端结果覆盖已有字段。后端已做中文映射与翻译，所以覆盖后是中文；「隐藏作品简介」也才会真正清空简介。
+          </p>
           <div class="bar" style="margin-top:10px"><i id="rfBar"></i></div>
           <div class="muted" id="rfText">空闲</div>
         </div>
@@ -435,7 +442,7 @@ async function refreshSelected(){
   const ids=[].slice.call(document.querySelectorAll('.auditPick:checked')).map(c=>c.value);
   if(!ids.length) return toast('先选择要重刮的条目');
   try{
-    const r=await api('/manage/api/fix',{method:'POST',body:JSON.stringify({action:'refresh',ids:ids,limit:ids.length})});
+    const r=await api('/manage/api/fix',{method:'POST',body:JSON.stringify({action:'refresh',ids:ids,limit:ids.length,replace_all:!!($('rfReplace')&&$('rfReplace').checked)})});
     toast('已触发重刮：成功 '+r.ok+'，失败 '+r.failed);
   }catch(e){ toast('失败：'+e.message); }
 }
@@ -547,6 +554,7 @@ let settings=null;
 async function startRefresh(){
   const body={
     scope: $('rfScope').value,
+    replace_all: $('rfReplace')?$('rfReplace').checked:false,
     path_prefix: $('pathSel')?$('pathSel').value:'',
     limit: parseInt($('rfLimit').value||'0',10)||0,
     item_delay_ms: parseInt($('rfDelay').value||'200',10)||200,

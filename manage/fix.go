@@ -9,6 +9,9 @@ import (
 
 // FixRequest is one batch repair.
 type FixRequest struct {
+	// ReplaceAll lets provider output overwrite existing values (needed to
+	// clear a summary or replace a stale Japanese title).
+	ReplaceAll bool `json:"replace_all"`
 	// Action: "refresh" (re-scrape given items) or "rename_actors"
 	// (canonicalize actor names through the mapping table).
 	Action string   `json:"action"`
@@ -71,7 +74,7 @@ func fixRefresh(client *EmbyClient, ids []string, limit int) (*FixResult, error)
 	}
 	res := &FixResult{Action: "refresh", Total: len(ids)}
 	for _, id := range ids {
-		if err := client.RefreshMetadata(id); err != nil {
+		if err := client.RefreshMetadata(id, req.ReplaceAll); err != nil {
 			res.Failed++
 			res.Details = append(res.Details, fmt.Sprintf("%s: %v", id, err))
 			continue

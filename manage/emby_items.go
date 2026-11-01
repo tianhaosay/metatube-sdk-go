@@ -31,13 +31,15 @@ func (c *EmbyClient) FetchMovies(libraryID string, start, limit int) ([]embyItem
 
 // RefreshMetadata asks Emby to re-scrape one item.
 //
-// ReplaceAllMetadata/ReplaceAllImages are pinned to false: "replace all" is
-// the mode that overwrote local (Chinese) metadata with provider output.
-func (c *EmbyClient) RefreshMetadata(itemID string) error {
+// replaceAll=false only fills gaps: Emby keeps every value that already exists,
+// so a title/overview/person left in Japanese (or a summary that should now be
+// hidden) stays as it is. replaceAll=true lets the provider output win, which
+// is safe here because the backend already translates before answering.
+func (c *EmbyClient) RefreshMetadata(itemID string, replaceAll bool) error {
 	q := url.Values{}
 	q.Set("MetadataRefreshMode", "FullRefresh")
 	q.Set("ImageRefreshMode", "Default")
-	q.Set("ReplaceAllMetadata", "false")
+	q.Set("ReplaceAllMetadata", fmt.Sprint(replaceAll))
 	q.Set("ReplaceAllImages", "false")
 	q.Set("Recursive", "false")
 	return c.do(http.MethodPost, "/Items/"+url.PathEscape(itemID)+"/Refresh", q, nil, nil)

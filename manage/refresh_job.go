@@ -39,6 +39,9 @@ type RefreshOptions struct {
 	// BatchSize / BatchPauseSec insert a longer pause every N items.
 	BatchSize     int `json:"batch_size"`
 	BatchPauseSec int `json:"batch_pause_sec"`
+	// ReplaceAll lets provider output overwrite existing metadata (needed to
+	// refresh a stale Japanese title or clear a summary).
+	ReplaceAll bool `json:"replace_all"`
 	// PathPrefix limits the run to one folder subtree (e.g. .../JAV/JAV2).
 	PathPrefix string `json:"path_prefix"`
 }
@@ -201,7 +204,7 @@ func runRefresh(client *EmbyClient, ids []string, opts RefreshOptions, key strin
 		refreshJob.current = id
 		refreshJob.mu.Unlock()
 
-		err := client.RefreshMetadata(id)
+		err := client.RefreshMetadata(id, opts.ReplaceAll)
 		refreshJob.mu.Lock()
 		refreshJob.done++
 		if err != nil {
