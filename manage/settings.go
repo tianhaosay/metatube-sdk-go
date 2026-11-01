@@ -51,6 +51,9 @@ var (
 	settingsMu   sync.Mutex
 	settings     Settings
 	settingsFile string
+	// settingsFromFile is true once a persisted settings file was loaded (or
+	// saved). Until then the startup/env configuration must win.
+	settingsFromFile bool
 )
 
 // parseDurationOr handles "" / "0" as disabled (0).
@@ -68,6 +71,14 @@ func parseDurationOr(s string) (time.Duration, bool) {
 
 // applySettings pushes the given settings onto live components.
 func applySettings(s Settings) {
+	settingsMu.Lock()
+	fromFile := settingsFromFile
+	settingsMu.Unlock()
+	if !fromFile {
+		// Nothing persisted yet: the startup/env configuration wins. Applying
+		// an empty Settings here would wipe the env-built translator.
+		return
+	}
 	if d, ok := parseDurationOr(s.FanzaRateLimit); ok {
 		throttle.Set(fanza.Name, d)
 	}
@@ -189,25 +200,36 @@ func settingsFilePath() string {
 func initSettings() {
 	settingsMu.Lock()
 	settingsFile = settingsFilePath()
-	settings = loadSettingsFile()
+	s, loaded := loadSettingsFileWithStatus()
+	settings = s
+	settingsFromFile = loaded
 	settingsMu.Unlock()
 	// Apply provider-level settings immediately (rate limits).
 	applySettings(settings)
-	log.Printf("[manage] settings loaded: fanza_limit=%q javdb_limit=%q translate=%v engines=%q",
-		settings.FanzaRateLimit, settings.JavdbRateLimit, settings.Translate, settings.TranslateEngines)
+	log.Printf("[manage] settings loaded: file=%v fanza_limit=%q javdb_limit=%q translate=%v engines=%q",
+		loaded, settings.FanzaRateLimit, settings.JavdbRateLimit, settings.Translate, settings.TranslateEngines)
 }
 
-func loadSettingsFile() Settings {
+// loadSettingsFileWithStatus reports whether a settings file actually existed,
+// so callers can distinguish "no settings yet" from "settings say: off".
+func loadSettingsFileWithStatus() (Settings, bool) {
 	var s Settings
 	path := settingsFilePath()
 	if path == "" {
-		return s
+		return s, false
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return s
+		return s, false
 	}
-	_ = json.Unmarshal(data, &s)
+	if err := json.Unmarshal(data, &s); err != nil {
+		return s, false
+	}
+	return s, true
+}
+
+func loadSettingsFile() Settings {
+	s, _ := loadSettingsFileWithStatus()
 	return s
 }
 
