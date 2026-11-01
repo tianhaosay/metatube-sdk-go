@@ -196,10 +196,12 @@ func InstallLogCapture() *log.Logger {
 //   [SCRAPE] number=START-015 provider=FANZA result=ok ms=812 actors=4 genres=8
 var structuredRe = regexp.MustCompile(`^\[(SCRAPE|FALLBACK)\]\s+(.*)$`)
 var kvRe = regexp.MustCompile(`(\w+)=("([^"]*)"|\S+)`)
+var structuredDateRe = regexp.MustCompile(`^\d{4}/\d{2}/\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?\s+`)
 
 // parseStructured turns a key=value log line into a readable Chinese message.
 func parseStructured(line string) (LogEntry, bool) {
-	m := structuredRe.FindStringSubmatch(strings.TrimSpace(line))
+	trimmed := strings.TrimSpace(structuredDateRe.ReplaceAllString(strings.TrimSpace(line), ""))
+	m := structuredRe.FindStringSubmatch(trimmed)
 	if m == nil {
 		return LogEntry{}, false
 	}
