@@ -13,8 +13,8 @@ import (
 // mergeRecord is the rollback log of one merge batch: for every movie it
 // stores the original People list, so a wrong merge can be undone exactly.
 type mergeRecord struct {
-	Time   string        `json:"time"`
-	Groups []mergeGroup  `json:"groups"`
+	Time   string       `json:"time"`
+	Groups []mergeGroup `json:"groups"`
 }
 
 type mergeGroup struct {

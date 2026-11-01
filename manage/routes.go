@@ -61,13 +61,13 @@ func corsMiddleware(c *gin.Context) {
 func getConsistency(c *gin.Context) {
 	s := GetSettings()
 	jsonOK(c, gin.H{
-		"translate":             s.Translate,
-		"translate_engines":     s.TranslateEngines,
-		"disable_summary":       s.DisableSummary,
-		"fanza_rate_limit":      s.FanzaRateLimit,
-		"javdb_rate_limit":      s.JavdbRateLimit,
-		"javdb_mapping_active":  isJavdbMappingActive(),
-		"mapping_entries":       MappingStatus()["entries"],
+		"translate":            s.Translate,
+		"translate_engines":    s.TranslateEngines,
+		"disable_summary":      s.DisableSummary,
+		"fanza_rate_limit":     s.FanzaRateLimit,
+		"javdb_rate_limit":     s.JavdbRateLimit,
+		"javdb_mapping_active": isJavdbMappingActive(),
+		"mapping_entries":      MappingStatus()["entries"],
 	})
 }
 
@@ -144,8 +144,8 @@ func jsonErr(c *gin.Context, err error) {
 func getStatus(c *gin.Context) {
 	c2 := getConfig()
 	status := map[string]any{
-		"enabled":  c2 != nil,
-		"mapping":  MappingStatus(),
+		"enabled": c2 != nil,
+		"mapping": MappingStatus(),
 	}
 	if c2 == nil {
 		jsonOK(c, status)

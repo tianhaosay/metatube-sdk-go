@@ -41,10 +41,10 @@ const (
 )
 
 const (
-	baseURL       = "https://javdb.com/"
-	movieURL      = "https://javdb.com/v/%s"
-	searchURL     = "https://javdb.com/search?q=%s&f=all"
-	actorURL      = "https://javdb.com/actors/%s"
+	baseURL        = "https://javdb.com/"
+	movieURL       = "https://javdb.com/v/%s"
+	searchURL      = "https://javdb.com/search?q=%s&f=all"
+	actorURL       = "https://javdb.com/actors/%s"
 	actorSearchURL = "https://javdb.com/search?q=%s&f=actors"
 )
 

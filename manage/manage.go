@@ -24,9 +24,9 @@ import (
 // Config holds the manage module configuration.
 type Config struct {
 	// Emby server connection.
-	EmbyURL      string
-	EmbyAPIKey   string
-	EmbyUserID   string
+	EmbyURL        string
+	EmbyAPIKey     string
+	EmbyUserID     string
 	EmbyLibraryIDs []string
 
 	// Local actor mapping table path (shared with the JavDB provider).
@@ -46,9 +46,9 @@ type Config struct {
 }
 
 var (
-	mu       sync.RWMutex
-	cfg      *Config
-	pipeline *enrich.Pipeline // shared with the engine; single mapping owner
+	mu        sync.RWMutex
+	cfg       *Config
+	pipeline  *enrich.Pipeline // shared with the engine; single mapping owner
 	syncState = jobStatus{}
 )
 
@@ -150,11 +150,11 @@ func SyncMappingNow() (*mapping.SyncResult, error) {
 func MappingStatus() map[string]any {
 	c := getConfig()
 	status := map[string]any{
-		"path":     "",
-		"entries":  0,
-		"version":  "",
-		"syncing":  false,
-		"online":   false,
+		"path":    "",
+		"entries": 0,
+		"version": "",
+		"syncing": false,
+		"online":  false,
 	}
 	if c == nil {
 		return status

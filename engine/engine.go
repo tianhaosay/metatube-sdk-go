@@ -12,9 +12,9 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/metatube-community/metatube-sdk-go/collection/maps"
+	"github.com/metatube-community/metatube-sdk-go/common/enrich"
 	"github.com/metatube-community/metatube-sdk-go/common/fetch"
 	"github.com/metatube-community/metatube-sdk-go/database"
-	"github.com/metatube-community/metatube-sdk-go/common/enrich"
 	mt "github.com/metatube-community/metatube-sdk-go/provider"
 )
 

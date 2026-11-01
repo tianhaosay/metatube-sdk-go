@@ -46,9 +46,9 @@ func TestApply_MapsActorsAndGenres(t *testing.T) {
 		Info:   fakeGenres{"ドラマ": "剧情", "ハイビジョン": mapping.DeleteMark},
 	})
 	info := &model.MovieInfo{
-		Title:   "タイトル",
-		Actors:  []string{"夏目響", "夏目響", " unknown "},
-		Genres:  []string{"ドラマ", "ハイビジョン", "巨乳"},
+		Title:  "タイトル",
+		Actors: []string{"夏目響", "夏目響", " unknown "},
+		Genres: []string{"ドラマ", "ハイビジョン", "巨乳"},
 	}
 	p.Apply(info)
 

@@ -102,11 +102,11 @@ func (c *EmbyClient) do(method, path string, query url.Values, body any, out any
 
 // Person is an Emby person entry used by the manage module.
 type Person struct {
-	ID           string            `json:"id"`
-	Name         string            `json:"name"`
-	HasPrimary   bool              `json:"has_primary"`
-	HasOverview  bool              `json:"has_overview"`
-	ProviderIDs  map[string]string `json:"provider_ids,omitempty"`
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	HasPrimary  bool              `json:"has_primary"`
+	HasOverview bool              `json:"has_overview"`
+	ProviderIDs map[string]string `json:"provider_ids,omitempty"`
 }
 
 type embyItem struct {

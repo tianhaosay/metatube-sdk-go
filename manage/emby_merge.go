@@ -131,6 +131,7 @@ func (c *EmbyClient) SetPeople(itemID string, people any) error {
 	dto["People"] = people
 	return c.do(http.MethodPost, "/Items/"+url.PathEscape(itemID), nil, dto, nil)
 }
+
 // verifyPeopleLink reports whether the item now links the target person and no
 // longer links any of the source persons.
 func verifyPeopleLink(c *EmbyClient, itemID string, sourceIDs []string, targetID string) (bool, error) {
