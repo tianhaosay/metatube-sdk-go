@@ -106,9 +106,16 @@ func DetectDuplicates() (map[string]any, error) {
 	}, nil
 }
 
-// ResolveDuplicate merges duplicate persons: every movie linked to a source
-// person is re-bound to the target person via the AvdbMagicTools plugin, and
-// the (now empty) source persons are deleted and verified absent.
+// ResolveDuplicate merges duplicate persons natively, without any Emby plugin:
+//
+//  1. re-point every movie of the source persons at the surviving person
+//     (read the item DTO, rewrite its People list, write it back);
+//  2. try to delete the now-empty source items (Emby only prunes virtual
+//     items during a scan, so this is best-effort);
+//  3. kick off a library scan, which is what actually removes the orphans.
+//
+// Everything is idempotent: re-running reports "skipped" for movies that are
+// already pointing at the target.
 func ResolveDuplicate(targetID string, sourceIDs []string) (map[string]any, error) {
 	c := getConfig()
 	if c == nil {
@@ -121,11 +128,12 @@ func ResolveDuplicate(targetID string, sourceIDs []string) (map[string]any, erro
 	if err != nil {
 		return nil, err
 	}
-	if ok, err := client.HasMagicToolsPlugin(); err != nil || !ok {
-		return nil, fmt.Errorf("Emby 未安装 Avdb Magic Tools 插件，无法安全合并（请先安装插件）")
+	targetName, err := client.ItemName(targetID)
+	if err != nil {
+		return nil, fmt.Errorf("读取保留演员失败: %w", err)
 	}
 
-	// Collect movies of all source persons.
+	// Collect every movie linked to any source person.
 	movieIDs := map[string]struct{}{}
 	for _, sid := range sourceIDs {
 		items, err := client.ListPersonMovies(sid)
@@ -137,50 +145,62 @@ func ResolveDuplicate(targetID string, sourceIDs []string) (map[string]any, erro
 		}
 	}
 
-	transferred, failed := 0, 0
+	transferred, skipped, failed := 0, 0, 0
 	var failures []string
 	for movieID := range movieIDs {
-		if err := client.TransferPerson(movieID, sourceIDs, targetID); err != nil {
+		changed, err := client.MovePeopleLinks(movieID, sourceIDs, targetID, targetName)
+		if err != nil {
 			failed++
 			failures = append(failures, fmt.Sprintf("影片 %s: %v", movieID, err))
-			log.Printf("[manage] resolve: transfer failed movie=%s: %v", movieID, err)
+			log.Printf("[manage] resolve: move links failed movie=%s: %v", movieID, err)
 			continue
 		}
-		transferred++
+		if changed {
+			transferred++
+		} else {
+			skipped++
+		}
+		time.Sleep(embyWriteDelay)
 	}
-	// Delete emptied source persons (even if some transfers failed, avdb
-	// reports the failures; deletion only for sources with no remaining
-	// links is safer — probe count first).
+
+	// Best-effort delete of the emptied source items.
 	deleted := 0
-	var deleteFailures []string
+	var notes []string
 	for _, sid := range sourceIDs {
 		if count, err := client.CountPersonMovies(sid); err == nil && count > 0 {
-			deleteFailures = append(deleteFailures, fmt.Sprintf("演员 %s 仍有 %d 部关联影片，跳过删除", sid, count))
+			notes = append(notes, fmt.Sprintf("演员 %s 仍有 %d 部关联影片，保留", sid, count))
 			continue
 		}
-		if err := client.DeletePerson(sid); err != nil {
-			deleteFailures = append(deleteFailures, fmt.Sprintf("删除 %s 失败: %v", sid, err))
-			continue
-		}
-		if ok, err := client.PersonExists(sid); err == nil && ok {
-			deleteFailures = append(deleteFailures, fmt.Sprintf("演员 %s 删除后仍存在", sid))
+		if err := client.DeleteItem(sid); err != nil {
+			notes = append(notes, fmt.Sprintf("删除 %s 失败: %v", sid, err))
 			continue
 		}
 		deleted++
 	}
-	log.Printf("[manage] resolve: movies=%d transferred=%d failed=%d deleted=%d",
-		len(movieIDs), transferred, failed, deleted)
+
+	// The scan is what removes the orphan person entries.
+	scanStarted, scanErr := client.TriggerLibraryScan()
+	if scanErr != nil {
+		notes = append(notes, "触发媒体库扫描失败: "+scanErr.Error())
+	}
+
+	log.Printf("[manage] resolve: target=%s movies=%d transferred=%d skipped=%d failed=%d deleted=%d scan=%v",
+		targetName, len(movieIDs), transferred, skipped, failed, deleted, scanStarted)
+
 	result := map[string]any{
+		"target":      targetName,
 		"movies":      len(movieIDs),
 		"transferred": transferred,
+		"skipped":     skipped,
 		"failed":      failed,
 		"deleted":     deleted,
+		"scan_started": scanStarted,
 	}
 	if len(failures) > 0 {
 		result["failures"] = failures
 	}
-	if len(deleteFailures) > 0 {
-		result["delete_failures"] = deleteFailures
+	if len(notes) > 0 {
+		result["notes"] = notes
 	}
 	return result, nil
 }
