@@ -27,6 +27,9 @@ func RegisterRoutes(r gin.IRouter, apiMiddleware ...gin.HandlerFunc) {
 		api.GET("/status", getStatus)
 		api.GET("/audit", getAudit)
 		api.POST("/fix", postFix)
+		api.POST("/refresh/start", postRefreshStart)
+		api.POST("/refresh/stop", postRefreshStop)
+		api.GET("/refresh/status", getRefreshStatus)
 		api.POST("/mapping/sync", postSyncMapping)
 		api.GET("/duplicates", getDuplicates)
 		api.POST("/duplicates/resolve", postResolveDuplicate)
@@ -331,4 +334,24 @@ func postTranslateTest(c *gin.Context) {
 		return
 	}
 	jsonOK(c, gin.H{"source": req.Text, "translated": out, "lang": lang})
+}
+
+// postRefreshStart begins a batched library refresh with progress tracking.
+func postRefreshStart(c *gin.Context) {
+	var opts RefreshOptions
+	_ = c.ShouldBindJSON(&opts)
+	res, err := StartRefresh(opts)
+	if err != nil {
+		jsonErr(c, err)
+		return
+	}
+	jsonOK(c, res)
+}
+
+func postRefreshStop(c *gin.Context) {
+	jsonOK(c, StopRefresh())
+}
+
+func getRefreshStatus(c *gin.Context) {
+	jsonOK(c, RefreshStatus())
 }

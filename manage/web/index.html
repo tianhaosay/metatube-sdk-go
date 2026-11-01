@@ -115,6 +115,41 @@
           </div>
           <div id="auditIssues" style="margin-top:10px"></div>
         </div>
+        <div class="card">
+          <h2>批量刷新（带进度）</h2>
+          <div class="grid g3">
+            <div>
+              <label class="f">范围</label>
+              <select id="rfScope">
+                <option value="problems">只刷有问题的（体检结果）</option>
+                <option value="all">整个媒体库</option>
+              </select>
+            </div>
+            <div>
+              <label class="f">本次数量（0=全部）</label>
+              <input id="rfLimit" value="0">
+            </div>
+            <div>
+              <label class="f">每部间隔（毫秒）</label>
+              <input id="rfDelay" value="200">
+            </div>
+            <div>
+              <label class="f">每批数量</label>
+              <input id="rfBatch" value="200">
+            </div>
+            <div>
+              <label class="f">批间休息（秒）</label>
+              <input id="rfPause" value="5">
+            </div>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <button onclick="startRefresh()">开始刷新</button>
+            <button class="sec" onclick="stopRefresh()">停止</button>
+            <span class="muted" id="rfMsg"></span>
+          </div>
+          <div class="bar" style="margin-top:10px"><i id="rfBar"></i></div>
+          <div class="muted" id="rfText">空闲</div>
+        </div>
       </section>
 
       <section id="page-actors" class="hide">
@@ -478,6 +513,38 @@ async function renameActors(){
 }
 
 let settings=null;
+async function startRefresh(){
+  const body={
+    scope: $('rfScope').value,
+    limit: parseInt($('rfLimit').value||'0',10)||0,
+    item_delay_ms: parseInt($('rfDelay').value||'200',10)||200,
+    batch_size: parseInt($('rfBatch').value||'200',10)||200,
+    batch_pause_sec: parseInt($('rfPause').value||'5',10)||0
+  };
+  try{
+    const r=await api('/manage/api/refresh/start',{method:'POST',body:JSON.stringify(body)});
+    $('rfMsg').textContent='已开始，共 '+r.total+' 部';
+    pollRefresh();
+  }catch(e){ $('rfMsg').textContent='失败：'+e.message; }
+}
+async function stopRefresh(){
+  try{ await api('/manage/api/refresh/stop',{method:'POST'}); $('rfMsg').textContent='正在停止…'; }
+  catch(e){ $('rfMsg').textContent='失败：'+e.message; }
+}
+let rfTimer=null;
+function pollRefresh(){
+  if(rfTimer) return;
+  rfTimer=setInterval(async function(){
+    try{
+      const s=await api('/manage/api/refresh/status');
+      $('rfBar').style.width=(s.percent||0)+'%';
+      $('rfText').textContent = s.running
+        ? s.done+'/'+s.total+'（'+s.percent+'%）· 成功 '+s.ok+' · 失败 '+s.failed+' · 已用 '+s.elapsed
+        : (s.total? '已结束：'+s.done+'/'+s.total+'（成功 '+s.ok+'，失败 '+s.failed+'）' : '空闲');
+      if(!s.running){ clearInterval(rfTimer); rfTimer=null; }
+    }catch(e){ clearInterval(rfTimer); rfTimer=null; }
+  }, 1500);
+}
 async function loadSettings(){
   try{ settings=await api('/manage/api/settings'); }catch(e){ return; }
   if(!settings) return;
@@ -579,6 +646,7 @@ async function loadConsistency(){
 
 refreshAll();
 loadSettings();
+pollRefresh();
 setInterval(loadStatus, 30000);
 </script>
 </body>
