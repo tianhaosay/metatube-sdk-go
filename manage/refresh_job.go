@@ -340,6 +340,8 @@ func summaryLocked() string {
 	where := refreshJob.pathPrefix
 	if where == "" {
 		where = "全部范围"
+	} else {
+		scope = "所选文件夹"
 	}
 	elapsed := ""
 	if !refreshJob.startedAt.IsZero() {
@@ -366,6 +368,8 @@ func (j *RefreshJob) describe() string {
 	where := j.pathPrefix
 	if where == "" {
 		where = "全部范围"
+	} else {
+		scope = "所选文件夹"
 	}
 	elapsed := ""
 	if !j.startedAt.IsZero() {
