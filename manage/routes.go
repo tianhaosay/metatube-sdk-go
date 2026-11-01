@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -372,33 +373,40 @@ func getPaths(c *gin.Context) {
 	}
 	locations := client.LibraryLocations()
 	res := make([]map[string]any, 0, 8)
+	sortLib := func(items []FolderRef) {
+		sort.SliceStable(items, func(i, j int) bool { return items[i].Path < items[j].Path })
+	}
 	for _, lib := range cfg.EmbyLibraryIDs {
 		roots := locations[lib]
 		items := make([]FolderRef, 0, 8)
-		seen := map[string]struct{}{}
-		for _, f := range client.ListFolders(lib) {
-			if f.Path == "" {
-				continue
-			}
-			for _, root := range roots {
-				root = strings.TrimRight(root, "/")
-				if f.Path != root && pathInScope(f.Path, root) {
-					rel := strings.TrimPrefix(strings.TrimPrefix(f.Path, root), "/")
-					if rel != "" && !strings.Contains(rel, "/") {
-						if _, dup := seen[f.Path]; !dup {
-							seen[f.Path] = struct{}{}
-							items = append(items, f)
-						}
-					}
+		// Sample movie paths to learn the layout: if movies sit one level deeper
+		// (root/category/actor/file) the categories are the useful scopes; if
+		// movies sit directly under a root (root/actor/file) the root itself is.
+		sample, _, _ := client.FetchMovies(lib, 0, 400)
+		for _, root := range roots {
+			root = strings.TrimRight(root, "/")
+			children := map[string]struct{}{}
+			deep := false
+			for _, it := range sample {
+				if it.Path == "" || !pathInScope(it.Path, root) {
+					continue
+				}
+				rel := strings.TrimPrefix(strings.TrimPrefix(it.Path, root), "/")
+				segs := strings.Split(rel, "/")
+				if len(segs) >= 3 {
+					deep = true
+					children[segs[0]] = struct{}{}
 				}
 			}
-		}
-		for _, root := range roots {
-			if _, dup := seen[root]; !dup {
-				seen[root] = struct{}{}
+			if deep && len(children) > 0 {
+				for ch := range children {
+					items = append(items, FolderRef{Name: ch, Path: root + "/" + ch})
+				}
+			} else {
 				items = append(items, FolderRef{Name: root, Path: root})
 			}
 		}
+		sortLib(items)
 		res = append(res, map[string]any{"library_id": lib, "items": items})
 	}
 	jsonOK(c, res)
