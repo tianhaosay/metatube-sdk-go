@@ -29,7 +29,18 @@ func ScanMissingAvatars() (map[string]any, error) {
 		return nil, fmt.Errorf("拉取 Emby 演员失败: %w", err)
 	}
 	missing := make([]Person, 0, 64)
+	acted := map[string]bool{}
 	for _, p := range persons {
+		if p.HasPrimary {
+			continue
+		}
+		if _, seen := acted[p.ID]; !seen {
+			acted[p.ID] = client.PersonActed(p.ID)
+		}
+		// Directors and crew are not actresses: skip them.
+		if !acted[p.ID] {
+			continue
+		}
 		if !p.HasPrimary {
 			missing = append(missing, p)
 		}

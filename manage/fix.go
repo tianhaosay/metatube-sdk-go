@@ -119,6 +119,9 @@ func fixRenameActors(client *EmbyClient, ids []string, limit int) (*FixResult, e
 		persons = filtered
 	}
 
+	tmdb := newTMDBClient(getConfig())
+	acted := map[string]bool{}
+	male := map[string]bool{}
 	res := &FixResult{Action: "rename_actors"}
 	for _, p := range persons {
 		if res.Total >= limit {
@@ -130,6 +133,24 @@ func fixRenameActors(client *EmbyClient, ids []string, limit int) (*FixResult, e
 		entry, ok := am.Lookup(p.Name)
 		if !ok || entry.Name == "" || entry.Name == p.Name {
 			continue // not in the mapping table: leave for human review
+		}
+		// Only actresses are renamed: skip directors/crew and male performers.
+		if _, seen := acted[p.ID]; !seen {
+			acted[p.ID] = client.PersonActed(p.ID)
+		}
+		if !acted[p.ID] {
+			continue
+		}
+		if tmdb != nil {
+			if _, seen := male[p.ID]; !seen {
+				male[p.ID] = false
+				if person, terr := lookupTMDBPerson(tmdb, am, p.Name); terr == nil && person != nil && person.Gender == GenderMale {
+					male[p.ID] = true
+				}
+			}
+			if male[p.ID] {
+				continue
+			}
 		}
 		if kanaRe.MatchString(entry.Name) {
 			// The table's canonical name is itself Japanese (bad/ambiguous
