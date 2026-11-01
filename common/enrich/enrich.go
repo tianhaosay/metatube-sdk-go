@@ -42,6 +42,10 @@ type Config struct {
 	DisableSummary bool
 	CleanSummary   bool
 
+	// Genres is the persistent Japanese->Chinese tag dictionary. Tags the
+	// curated mapping table misses are translated once and remembered here.
+	Genres *GenreDict
+
 	// ActorFallback is consulted only when a provider returned no actors at
 	// all (common for compilations/amateur titles on DMM). It receives the
 	// movie number and returns actor names from another source, or nil.
@@ -163,6 +167,43 @@ func (p *Pipeline) Apply(info *model.MovieInfo) {
 		info.Genres = dedupe(genres)
 	}
 
+	// 2b. Tags still in Japanese: dictionary first (free), translation last
+	// (once per tag, then cached in the dictionary forever).
+	if (cfg.Genres != nil || cfg.Translator != nil) && len(info.Genres) > 0 {
+		target := cfg.TranslateLang
+		if target == "" {
+			target = "zh-CN"
+		}
+		genres := make([]string, 0, len(info.Genres))
+		for _, g := range info.Genres {
+			g = strings.TrimSpace(g)
+			if g == "" {
+				continue
+			}
+			if kanaRe.MatchString(g) {
+				translated := ""
+				if cfg.Genres != nil {
+					if v, ok := cfg.Genres.Lookup(g); ok {
+						translated = v
+					}
+				}
+				if translated == "" && cfg.Translator != nil {
+					if t := translateField(cfg.Translator, g, target, info.Number); t != "" && !kanaRe.MatchString(t) {
+						translated = t
+						if cfg.Genres != nil {
+							cfg.Genres.Set(g, t)
+						}
+					}
+				}
+				if translated != "" {
+					g = translated
+				}
+			}
+			genres = append(genres, g)
+		}
+		info.Genres = dedupe(genres)
+	}
+
 	// 3. Summary housekeeping.
 	switch {
 	case cfg.DisableSummary:
@@ -205,6 +246,9 @@ func translateField(t translate.Translator, text, target, ref string) string {
 }
 
 var newlinePattern = regexp.MustCompile(`\r?\n(\r?\n)+`)
+
+// kanaRe matches hiragana/katakana, i.e. "this text is still Japanese".
+var kanaRe = regexp.MustCompile(`[\x{3040}-\x{30ff}]`)
 
 func collapseNewlines(s string) string {
 	if s == "" {

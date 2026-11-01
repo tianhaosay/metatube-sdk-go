@@ -4,6 +4,7 @@ import (
 	goflag "flag"
 	"log"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -64,6 +65,10 @@ var Config = &struct {
 	MappingOnline       bool
 	MappingSyncInterval time.Duration
 
+	// GenreDictFile is the persistent Japanese->Chinese tag dictionary.
+	// Empty means "<dir of mapping files>/genre_dict.json".
+	GenreDictFile string
+
 	// ActorFallback is a CSV of provider names consulted when a scrape
 	// returned no actors (e.g. "JavBus"). Empty disables the fallback.
 	ActorFallback string
@@ -110,6 +115,7 @@ func init() {
 	// Mapping tables (applied to every provider by the enrich pipeline).
 	flag.StringVar(&Config.MappingActorFile, "mapping-actor-file", "", "Local actor mapping table path (synced from the online source when enabled)")
 	flag.StringVar(&Config.MappingInfoFile, "mapping-info-file", "", "Local genre/tag mapping table path (mdc mapping_info.xml format)")
+	flag.StringVar(&Config.GenreDictFile, "genre-dict", "", "Persistent genre dictionary path (default: next to the mapping files)")
 	flag.StringVar(&Config.ActorFallback, "actor-fallback", "JavDB", "CSV of providers used to fill missing actors (JavBus mirrors DMM, so JavDB is the only useful source)")
 	flag.BoolVar(&Config.MappingOnline, "mapping-online", true, "Enable online actor-mapping source sync")
 	flag.DurationVar(&Config.MappingSyncInterval, "mapping-sync-interval", 24*time.Hour, "Online mapping sync interval")
@@ -171,6 +177,9 @@ func applyMetaTubeEnvOverrides() {
 	}
 	if v := os.Getenv("MT_MAPPING_INFO_FILE"); v != "" {
 		Config.MappingInfoFile = v
+	}
+	if v := os.Getenv("MT_GENRE_DICT"); v != "" {
+		Config.GenreDictFile = v
 	}
 	if v := os.Getenv("MT_ACTOR_FALLBACK"); v != "" {
 		Config.ActorFallback = v
@@ -301,6 +310,7 @@ func buildEnrichPipeline() *enrich.Pipeline {
 	if Config.Translate && Config.TranslateEngines != "" {
 		cfg.Translator = buildTranslator()
 	}
+	cfg.Genres = enrich.LoadGenreDict(genreDictPath())
 	cfg.ActorFallback = buildActorFallback()
 	return enrich.New(cfg)
 }
@@ -337,6 +347,18 @@ func negativeMark(number string) {
 	negativeMu.Lock()
 	negativeUntil[number] = time.Now().Add(negativeTTL)
 	negativeMu.Unlock()
+}
+
+// genreDictPath resolves the tag dictionary location: explicit config wins,
+// otherwise it lives next to the mapping tables.
+func genreDictPath() string {
+	if Config.GenreDictFile != "" {
+		return Config.GenreDictFile
+	}
+	if Config.MappingActorFile != "" {
+		return filepath.Join(filepath.Dir(Config.MappingActorFile), "genre_dict.json")
+	}
+	return ""
 }
 
 // buildActorFallback fills in actors when the primary provider returned none.
