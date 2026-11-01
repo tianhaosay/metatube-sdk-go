@@ -248,7 +248,35 @@ func LoadActorFile(path string) (*ActorMap, error) {
 
 // Lookup returns the canonical actor entry for any of its aliases.
 func (m *ActorMap) Lookup(name string) (*ActorEntry, bool) {
-	return m.base.lookup(name)
+	if e, ok := m.base.lookup(name); ok {
+		return e, true
+	}
+	// Providers often append aliases in parentheses
+	// ("みひな （あずみひな、永井みひな）", "真野祈（真北祈）"); retry without them.
+	if trimmed := stripTrailingAliases(name); trimmed != name {
+		if e, ok := m.base.lookup(trimmed); ok {
+			return e, true
+		}
+	}
+	return nil, false
+}
+
+// stripTrailingAliases removes trailing "（…）" / "(…)" alias groups.
+func stripTrailingAliases(name string) string {
+	s := strings.TrimSpace(name)
+	for {
+		changed := false
+		for _, pair := range [][2]string{{"（", "）"}, {"(", ")"}} {
+			if i := strings.LastIndex(s, pair[0]); i > 0 && strings.HasSuffix(s, pair[1]) {
+				s = strings.TrimSpace(s[:i])
+				changed = true
+			}
+		}
+		if !changed {
+			break
+		}
+	}
+	return s
 }
 
 // Len returns the number of entries in the table.
