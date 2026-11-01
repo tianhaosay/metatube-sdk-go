@@ -26,8 +26,11 @@ type AuditRequest struct {
 	// PathPrefix limits the scan to items whose file path starts with it
 	// (e.g. /media/litepan-strm/JAV/JAV2), so one folder can be audited alone.
 	PathPrefix string `json:"path_prefix"`
-	Offset     int    `json:"offset"`
-	Limit      int    `json:"limit"`
+	// Problem limits the returned issue window to one issue type; the
+	// counters stay global so the summary pills keep telling the truth.
+	Problem string `json:"problem"`
+	Offset  int    `json:"offset"`
+	Limit   int    `json:"limit"`
 }
 
 // AuditIssue is one movie that fails the completeness rules.
@@ -45,6 +48,7 @@ type AuditResult struct {
 	OK           int            `json:"ok"`
 	ProblemCount int            `json:"problem_count"`
 	Groups       map[string]int `json:"groups"`
+	IssueCount   int            `json:"issue_count"`
 	Issues       []AuditIssue   `json:"issues"`
 	Offset       int            `json:"offset"`
 	Limit        int            `json:"limit"`
@@ -52,6 +56,9 @@ type AuditResult struct {
 }
 
 const auditPageSize = 500
+
+// maxAuditIssues caps the in-memory issue list of one scan.
+const maxAuditIssues = 20000
 
 // Audit scans a library and reports which movies are not "good enough" to
 // browse: missing/Japanese title, missing/Japanese actors, Japanese genres,
@@ -115,7 +122,7 @@ func Audit(req AuditRequest) (*AuditResult, error) {
 				for _, pr := range problems {
 					res.Groups[pr]++
 				}
-				if res.Checked > req.Offset && len(res.Issues) < req.Limit {
+				if matchesProblem(problems, req.Problem) && len(res.Issues) < maxAuditIssues {
 					res.Issues = append(res.Issues, AuditIssue{ID: it.Id, Name: it.Name, Number: it.Number(), Problems: problems})
 				}
 			}
@@ -128,7 +135,32 @@ func Audit(req AuditRequest) (*AuditResult, error) {
 	if req.PathPrefix != "" {
 		res.Total = res.Checked
 	}
+	// Paginate the issue list itself: the UI asks for "issues 50..100", not
+	// "items 50..100". Slicing here keeps offsets stable across requests.
+	res.IssueCount = len(res.Issues)
+	if req.Offset >= len(res.Issues) {
+		res.Issues = []AuditIssue{}
+		return res, nil
+	}
+	end := req.Offset + req.Limit
+	if end > len(res.Issues) {
+		end = len(res.Issues)
+	}
+	res.Issues = res.Issues[req.Offset:end]
 	return res, nil
+}
+
+// matchesProblem reports whether an issue belongs to the requested filter.
+func matchesProblem(problems []string, filter string) bool {
+	if filter == "" {
+		return true
+	}
+	for _, p := range problems {
+		if p == filter {
+			return true
+		}
+	}
+	return false
 }
 
 // auditItem applies the completeness rules to one movie.

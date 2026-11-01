@@ -96,10 +96,11 @@ func getAudit(c *gin.Context) {
 		}
 	}
 	res, err := Audit(AuditRequest{
-		LibraryID: libID,
+		LibraryID:  libID,
 		PathPrefix: prefix,
-		Offset:    offset,
-		Limit:     limit,
+		Problem:    c.Query("problem"),
+		Offset:     offset,
+		Limit:      limit,
 	})
 	if err != nil {
 		jsonErr(c, err)

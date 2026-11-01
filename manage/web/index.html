@@ -384,11 +384,13 @@ function renderLogMini(logs){
 const ISSUE_LABEL={title_missing:'无标题',title_japanese:'标题日文',actor_japanese:'演员日文',no_actors:'无演员',genre_japanese:'流派日文',no_image:'无封面'};
 let auditOffset=0, auditLimit=50, auditData=null, auditFilter='';
 async function runAudit(filter){
-  auditFilter = filter||'';
+  if(filter!==undefined){ auditFilter = filter||''; auditOffset = 0; }
   $('auditMsg').textContent='扫描中…';
   try{
     const pp=$('pathSel')?$('pathSel').value:'';
-    auditData = await api('/manage/api/audit?offset='+auditOffset+'&limit='+auditLimit+(pp?('&path_prefix='+encodeURIComponent(pp)):''));
+    auditData = await api('/manage/api/audit?offset='+auditOffset+'&limit='+auditLimit
+      +(pp?('&path_prefix='+encodeURIComponent(pp)):'')
+      +(auditFilter?('&problem='+encodeURIComponent(auditFilter)):''));
     $('auditMsg').textContent = '扫描完成：共 '+auditData.total+' 部，合格 '+auditData.ok+'，有问题 '+auditData.problem_count;
     const g = auditData.groups||{};
     $('auditSummary').innerHTML = Object.keys(ISSUE_LABEL).map(k=>{
@@ -401,9 +403,9 @@ async function runAudit(filter){
 }
 function renderIssues(){
   if(!auditData) return;
-  let items = auditData.issues||[];
-  if(auditFilter) items = items.filter(i=>(i.problems||[]).indexOf(auditFilter)>=0);
-  $('auditCount').textContent = '本页 '+items.length+' 条';
+  const items = auditData.issues||[];
+  const total = auditData.issue_count||0;
+  $('auditCount').textContent = '共 '+total+' 条'+(items.length?('，当前显示 '+(auditData.offset||0)+'–'+((auditData.offset||0)+items.length)):'');
   $('auditIssues').innerHTML = items.length
     ? '<table><tr><th></th><th>名称</th><th>问题</th></tr>'+items.map(i=>'<tr><td><input type="checkbox" class="auditPick" value="'+esc(i.id)+'" style="width:auto"></td><td>'+esc(i.name)+'<div class="muted">'+esc(i.number||'')+'</div></td><td>'+(i.problems||[]).map(p=>'<span class="pill bad" style="margin-right:4px">'+esc(ISSUE_LABEL[p]||p)+'</span>').join('')+'</td></tr>').join('')+'</table>'
     : '<p class="muted">没有符合条件的问题</p>';
