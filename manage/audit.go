@@ -285,11 +285,21 @@ func auditItem(it embyItem) []string {
 	if len(actors) == 0 {
 		problems = append(problems, IssueNoActors)
 	} else {
+		// Only flag names the mapping table could translate. Male performers and
+		// crew-style names have no Chinese entry, so leaving them in Japanese is
+		// expected and must not be reported as a problem.
+		am := ActorMapping()
 		for _, a := range actors {
-			if kanaRe.MatchString(a) {
-				problems = append(problems, IssueActorJapanese)
-				break
+			if !kanaRe.MatchString(a) {
+				continue
 			}
+			if am != nil {
+				if _, ok := am.Lookup(a); !ok {
+					continue
+				}
+			}
+			problems = append(problems, IssueActorJapanese)
+			break
 		}
 	}
 
