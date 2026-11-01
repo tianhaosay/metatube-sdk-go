@@ -174,6 +174,7 @@
           <div class="muted">后台完成（本服务已返回元数据）</div>
           <div class="bar"><i id="rfBar2" style="background:#16a34a"></i></div>
           <div class="muted" id="rfText">空闲</div>
+          <div class="muted" id="rfNow"></div>
         </div>
       </section>
 
@@ -640,6 +641,7 @@ function pollRefresh(){
       if(!s.running && !s.total){ $('rfText').textContent='空闲'; }
       else if(s.running){ $('rfText').textContent = '已派发 '+s.done+'/'+s.total+' · 后台已完成 '+ans+'/'+s.total+' · 成功 '+s.ok+' · 失败 '+s.failed+' · 已用 '+s.elapsed; }
       else { $('rfText').textContent = '已结束：派发 '+s.done+'/'+s.total+' · 后台完成 '+ans+'/'+s.total+' · 成功 '+s.ok+' 失败 '+s.failed+' · 进度已保存'; }
+      if($('rfNow')) $('rfNow').textContent = s.running ? ('正在运行：'+s.summary) : '';
       if(!s.running){ clearInterval(rfTimer); rfTimer=null; }
     }catch(e){ clearInterval(rfTimer); rfTimer=null; }
   }, 1500);

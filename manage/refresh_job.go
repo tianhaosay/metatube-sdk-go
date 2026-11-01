@@ -24,6 +24,9 @@ type RefreshJob struct {
 	current   string
 	startedAt   time.Time
 	baseAnswers int64
+	mode        string
+	scope       string
+	pathPrefix  string
 	finished  bool
 	err       string
 }
@@ -77,7 +80,8 @@ func StartRefresh(opts RefreshOptions) (map[string]any, error) {
 	refreshJob.mu.Lock()
 	if refreshJob.running {
 		refreshJob.mu.Unlock()
-		return nil, fmt.Errorf("已有刷新任务在运行")
+		describe := refreshJob.describe()
+		return nil, fmt.Errorf("已有任务在运行：%s。请先点「暂停」再开始", describe)
 	}
 	refreshJob.mu.Unlock()
 
@@ -127,6 +131,9 @@ func StartRefresh(opts RefreshOptions) (map[string]any, error) {
 	refreshJob.finished = false
 	refreshJob.startedAt = time.Now()
 	refreshJob.baseAnswers = progress.Answers()
+	refreshJob.mode = opts.Mode
+	refreshJob.scope = opts.Scope
+	refreshJob.pathPrefix = opts.PathPrefix
 	refreshJob.mu.Unlock()
 
 	go runRefresh(client, ids, opts, key)
@@ -168,6 +175,10 @@ func RefreshStatus() map[string]any {
 	}
 	return map[string]any{
 		"answered": answered,
+		"mode":     refreshJob.mode,
+		"scope":    refreshJob.scope,
+		"path":     refreshJob.pathPrefix,
+		"summary":  summaryLocked(),
 		"running":  refreshJob.running,
 		"total":    refreshJob.total,
 		"done":     refreshJob.done,
@@ -254,6 +265,8 @@ func runRefresh(client *EmbyClient, ids []string, opts RefreshOptions, key strin
 	// Emby only queues its refresh, so keep the job alive until this
 	// service has actually answered for every queued item.
 	deadline := time.Now().Add(3 * time.Hour)
+	lastAnswered := 0
+	lastChange := time.Now()
 	for time.Now().Before(deadline) {
 		refreshJob.mu.Lock()
 		stopped := refreshJob.stopFlag
@@ -264,6 +277,13 @@ func runRefresh(client *EmbyClient, ids []string, opts RefreshOptions, key strin
 		answered := int(progress.Answers() - baseline)
 		if answered > len(ids) {
 			answered = len(ids)
+		}
+		if answered != lastAnswered {
+			lastAnswered = answered
+			lastChange = time.Now()
+		} else if time.Since(lastChange) > 10*time.Minute {
+			log.Printf("[manage] refresh settle: no progress for 10m, finishing (%d/%d)", answered, len(ids))
+			return
 		}
 		if answered >= len(ids) {
 			return
@@ -303,4 +323,53 @@ func collectRefreshIDs(client *EmbyClient, c *Config, opts RefreshOptions) ([]st
 		}
 	}
 	return ids, nil
+}
+
+// summaryLocked renders the running job as one line. Caller holds the lock.
+func summaryLocked() string {
+	kind := "刷新"
+	if refreshJob.mode == "wipe" {
+		kind = "清空元数据"
+	}
+	scope := refreshJob.scope
+	if scope == "" || scope == "all" {
+		scope = "整个媒体库"
+	} else if scope == "problems" {
+		scope = "只刷有问题的"
+	}
+	where := refreshJob.pathPrefix
+	if where == "" {
+		where = "全部范围"
+	}
+	elapsed := ""
+	if !refreshJob.startedAt.IsZero() {
+		elapsed = " · 已运行 " + time.Since(refreshJob.startedAt).Round(time.Second).String()
+	}
+	return fmt.Sprintf("%s · %s · %s · 派发 %d/%d%s", kind, scope, where, refreshJob.done, refreshJob.total, elapsed)
+}
+
+// describe renders the running job as one human line, so the console can say
+// what is actually running instead of just "busy".
+func (j *RefreshJob) describe() string {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	kind := "刷新"
+	if j.mode == "wipe" {
+		kind = "清空元数据"
+	}
+	scope := j.scope
+	if scope == "" || scope == "all" {
+		scope = "整个媒体库"
+	} else if scope == "problems" {
+		scope = "只刷有问题的"
+	}
+	where := j.pathPrefix
+	if where == "" {
+		where = "全部范围"
+	}
+	elapsed := ""
+	if !j.startedAt.IsZero() {
+		elapsed = " · 已运行 " + time.Since(j.startedAt).Round(time.Second).String()
+	}
+	return fmt.Sprintf("%s · %s · %s · 派发 %d/%d%s", kind, scope, where, j.done, j.total, elapsed)
 }
