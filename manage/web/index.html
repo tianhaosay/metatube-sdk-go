@@ -207,6 +207,7 @@
               <label class="f">主引擎超时（秒）</label>
               <input id="tTimeout" placeholder="15">
               <p class="muted">次引擎固定为 <b>Google 免费</b>；主引擎超时 / 报错 / 返回空时自动接管。</p>
+              <label class="f"><input type="checkbox" id="tNoSummary" style="width:auto"> 隐藏作品简介（不写简介、也不翻译简介）</label>
             </div>
             <div>
               <label class="f">百度 App ID</label>
@@ -587,6 +588,7 @@ async function loadSettings(){
   }
   $('tLang').value=settings.translate_lang||'zh-CN';
   $('tTimeout').value=settings.translate_timeout||15;
+  if ($('tNoSummary')) $('tNoSummary').checked=!!settings.disable_summary;
   $('kBaiduId').value=settings.baidu_app_id||'';
   $('kBaiduKey').value=settings.baidu_app_key||'';
   $('kDeeplKey').value=settings.deepl_api_key||'';
@@ -610,7 +612,7 @@ async function saveTranslate(){
     openai_api_key:$('kOpenaiKey').value.trim(),
     openai_api_url:$('kOpenaiUrl').value.trim(),
     openai_model:$('kOpenaiModel').value.trim(),
-    disable_summary:!!(settings&&settings.disable_summary),
+    disable_summary: $('tNoSummary')?$('tNoSummary').checked:false,
     fanza_rate_limit:$('sFanza').value.trim(),
     javdb_rate_limit:$('sJavdb').value.trim()
   };
