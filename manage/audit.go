@@ -7,7 +7,11 @@ import (
 	"time"
 )
 
-var kanaRe = regexp.MustCompile(`[\x{3040}-\x{30ff}]`)
+// kanaRe matches real hiragana/katakana letters. It deliberately leaves out
+// Japanese punctuation and marks that also show up in Chinese titles:
+// ・(U+30FB), ー(U+30FC), ヽヾ(U+30FD-30FE), ゛゜(U+309B-309C) and the
+// 、。「」 block — otherwise a title like "续・出道" would be called Japanese.
+var kanaRe = regexp.MustCompile(`[\x{3041}-\x{3096}\x{30A1}-\x{30FA}]`)
 var hanRe = regexp.MustCompile(`[\x{4e00}-\x{9fff}]`)
 
 // Issue types reported by the audit. Keep them stable: the UI groups by them.
