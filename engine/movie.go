@@ -229,6 +229,18 @@ func (e *Engine) getMovieInfoWithCallback(provider mt.MovieProvider, id string, 
 					e.db.Clauses(clause.OnConflict{UpdateAll: true}).Create(info)
 					e.logger.Printf("enriched cached entry %s/%s on read", provider.Name(), id)
 				}
+				// A cached row with no actors never triggers the fallback on its
+				// own (no scrape happens), so a library refresh could not repair
+				// it. Try the fallback once here as well; it keeps its own
+				// negative cache, so unfixable numbers are not retried.
+				if len(info.Actors) == 0 && cfg.ActorFallback != nil {
+					if actors := cfg.ActorFallback(info.Number); len(actors) > 0 {
+						info.Actors = actors
+						e.enrich.Apply(info)
+						e.db.Clauses(clause.OnConflict{UpdateAll: true}).Create(info)
+						e.logger.Printf("actors filled from fallback for cached %s/%s", provider.Name(), id)
+					}
+				}
 			}
 			return // ignore DB query error.
 		}

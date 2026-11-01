@@ -22,6 +22,10 @@ const (
 	IssueNoActors      = "no_actors"      // the provider returned no actors
 	IssueGenreJapanese = "genre_japanese" // at least one genre left in Japanese
 	IssueNoImage       = "no_image"       // no primary image
+	// IssueActorUnmapped is informational: the performer name is Japanese and
+	// the mapping table has no Chinese for it, so nothing can fix it
+	// automatically. It is reported separately and never counts as a problem.
+	IssueActorUnmapped = "actor_unmapped"
 )
 
 // AuditRequest scopes one completeness scan.
@@ -44,6 +48,7 @@ type AuditIssue struct {
 	Number   string   `json:"number"`
 	Path     string   `json:"path"`
 	Problems []string `json:"problems"`
+	Notes    []string `json:"notes,omitempty"`
 }
 
 // AuditResult is the machine-readable health report of a library.
@@ -53,6 +58,10 @@ type AuditResult struct {
 	OK           int            `json:"ok"`
 	ProblemCount int            `json:"problem_count"`
 	Groups       map[string]int `json:"groups"`
+	// NoteGroups / NoteCount hold informational findings (cannot be fixed by a
+	// refresh) and are kept out of ProblemCount.
+	NoteGroups map[string]int `json:"note_groups"`
+	NoteCount  int            `json:"note_count"`
 	IssueCount   int            `json:"issue_count"`
 	// DuplicateCount counts numbers that exist in more than one library copy.
 	DuplicateCount int          `json:"duplicate_count"`
@@ -94,7 +103,8 @@ func Audit(req AuditRequest) (*AuditResult, error) {
 	}
 
 	res := &AuditResult{
-		Groups:    map[string]int{},
+		Groups:     map[string]int{},
+		NoteGroups: map[string]int{},
 		Issues:    []AuditIssue{},
 		Offset:    req.Offset,
 		Limit:     req.Limit,
@@ -128,17 +138,25 @@ func Audit(req AuditRequest) (*AuditResult, error) {
 				if num := it.Number(); num != "" {
 					numberCount[num]++
 				}
-				problems := auditItem(it)
-				if len(problems) == 0 {
+				problems, notes := auditItem(it)
+				if len(problems) == 0 && len(notes) == 0 {
 					res.OK++
 					continue
 				}
-				res.ProblemCount++
-				for _, pr := range problems {
-					res.Groups[pr]++
+				if len(problems) > 0 {
+					res.ProblemCount++
+					for _, pr := range problems {
+						res.Groups[pr]++
+					}
 				}
-				if matchesProblem(problems, req.Problem) && len(res.Issues) < maxAuditIssues {
-					res.Issues = append(res.Issues, AuditIssue{ID: it.Id, Name: it.Name, Number: it.Number(), Path: it.Path, Problems: problems})
+				if len(notes) > 0 {
+					res.NoteCount++
+					for _, n := range notes {
+						res.NoteGroups[n]++
+					}
+				}
+				if matchesProblem(append(append([]string{}, problems...), notes...), req.Problem) && len(res.Issues) < maxAuditIssues {
+					res.Issues = append(res.Issues, AuditIssue{ID: it.Id, Name: it.Name, Number: it.Number(), Path: it.Path, Problems: problems, Notes: notes})
 				}
 			}
 			start += len(items)
@@ -262,7 +280,7 @@ func titleMissing(name, number string) bool {
 }
 
 // auditItem applies the completeness rules to one movie.
-func auditItem(it embyItem) []string {
+func auditItem(it embyItem) (problems, notes []string) {
 	problems := make([]string, 0, 4)
 	name := strings.TrimSpace(it.Name)
 	number := it.Number()
@@ -370,7 +388,7 @@ func CollectProblemIDs(client *EmbyClient, libraryID, pathPrefix string) ([]stri
 				continue
 			}
 			scanned++
-			if len(auditItem(it)) > 0 {
+			if p, n := auditItem(it); len(p) > 0 || len(n) > 0 {
 				ids = append(ids, it.Id)
 			}
 		}

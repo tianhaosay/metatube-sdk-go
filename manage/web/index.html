@@ -394,6 +394,7 @@ function renderLogMini(logs){
 }
 
 const ISSUE_LABEL={title_missing:'无标题',title_japanese:'标题日文',actor_japanese:'演员日文',no_actors:'无演员',genre_japanese:'流派日文',no_image:'无封面'};
+const NOTE_LABEL={actor_unmapped:'演员未收录（需人工）'};
 let auditOffset=0, auditLimit=50, auditData=null, auditFilter='';
 async function runAudit(filter){
   if(filter!==undefined){ auditFilter = filter||''; auditOffset = 0; }
@@ -404,12 +405,21 @@ async function runAudit(filter){
       +(pp?('&path_prefix='+encodeURIComponent(pp)):'')
       +(auditFilter?('&problem='+encodeURIComponent(auditFilter)):''));
     $('auditMsg').textContent = '扫描完成：共 '+auditData.total+' 部，合格 '+auditData.ok+'，有问题 '+auditData.problem_count
+      +((auditData.note_count||0)?('，另有需人工处理 '+auditData.note_count+' 部'):'')
       +((auditData.duplicate_count||0)?('（其中 '+auditData.duplicate_count+' 个番号在不同库里各有一份副本）'):'');
     const g = auditData.groups||{};
+    const ng = auditData.note_groups||{};
     $('auditSummary').innerHTML = Object.keys(ISSUE_LABEL).map(k=>{
       const active = auditFilter===k;
       return '<span class="pill '+(active?'ok':'gray')+'" style="cursor:pointer;margin:4px 6px 0 0" onclick="runAudit(\''+k+'\')">'+ISSUE_LABEL[k]+' '+(g[k]||0)+'</span>';
-    }).join('') + (auditFilter?' <span class="pill warn" style="cursor:pointer" onclick="runAudit(\'\')">清除筛选</span>':'');
+    }).join('')
+      + Object.keys(NOTE_LABEL).map(k=>{
+          const n = ng[k]||0;
+          if(!n) return '';
+          const active = auditFilter===k;
+          return ' <span class="pill '+(active?'warn':'gray')+'" style="cursor:pointer;margin:4px 6px 0 0" onclick="runAudit(\''+k+'\')">'+NOTE_LABEL[k]+' '+n+'</span>';
+        }).join('')
+      + (auditFilter?' <span class="pill warn" style="cursor:pointer" onclick="runAudit(\'\')">清除筛选</span>':'');
     renderIssues();
     $('auditListCard').classList.remove('hide');
   }catch(e){ $('auditMsg').textContent='失败：'+e.message; }
@@ -425,7 +435,7 @@ function renderIssues(){
         let lib = '';
         if(p.indexOf('/litepan-strm/')>=0) lib = 'JAV 库';
         else if(p.indexOf('/strm-quark/')>=0) lib = '夸克库';
-        return '<tr><td><input type="checkbox" class="auditPick" value="'+esc(i.id)+'" style="width:auto"></td><td>'+esc(i.name)+'<div class="muted">'+esc(i.number||'')+(lib?(' · <b>'+lib+'</b>'):'')+(p?(' · '+esc(p.slice(-46))):'')+'</div></td><td>'+(i.problems||[]).map(x=>'<span class="pill bad" style="margin-right:4px">'+esc(ISSUE_LABEL[x]||x)+'</span>').join('')+'</td></tr>';
+        return '<tr><td><input type="checkbox" class="auditPick" value="'+esc(i.id)+'" style="width:auto"></td><td>'+esc(i.name)+'<div class="muted">'+esc(i.number||'')+(lib?(' · <b>'+lib+'</b>'):'')+(p?(' · '+esc(p.slice(-46))):'')+'</div></td><td>'+(i.problems||[]).map(x=>'<span class="pill bad" style="margin-right:4px">'+esc(ISSUE_LABEL[x]||x)+'</span>').join('')+(i.notes||[]).map(x=>'<span class="pill gray" style="margin-right:4px">'+esc(NOTE_LABEL[x]||x)+'</span>').join('')+'</td></tr>';
       }).join('')+'</table>'
     : '<p class="muted">没有符合条件的问题</p>';
 }
