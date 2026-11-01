@@ -60,6 +60,9 @@ func DetectDuplicates(includeMovies bool) (map[string]any, error) {
 	log.Printf("[manage] duplicates: fetched %d persons", len(persons))
 
 	groups := map[string][]Person{}
+	// Only people credited as Actor are actresses; directors and crew have
+	// no reason to be merged here.
+	actorCache := map[string]bool{}
 	matched := 0
 	for _, p := range persons {
 		if p.Name == "" {
@@ -67,6 +70,12 @@ func DetectDuplicates(includeMovies bool) (map[string]any, error) {
 		}
 		entry, ok := am.Lookup(p.Name)
 		if !ok {
+			continue
+		}
+		if _, seen := actorCache[p.ID]; !seen {
+			actorCache[p.ID] = client.PersonActed(p.ID)
+		}
+		if !actorCache[p.ID] {
 			continue
 		}
 		matched++

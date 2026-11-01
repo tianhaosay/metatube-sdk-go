@@ -47,6 +47,11 @@
   .bar>i{display:block;height:100%;background:var(--brand);width:0;transition:width .3s}
   .log{background:#0f172a;border-radius:10px;padding:10px 12px;max-height:440px;overflow:auto;font-family:ui-monospace,Consolas,monospace;font-size:11.5px;line-height:1.7;color:#cbd5e1}
   .log .t{color:#64748b}.log .src{color:#7dd3fc;margin:0 6px}.log .num{color:#fbbf24;margin:0 6px}
+  .log .logline{display:flex;gap:8px;align-items:baseline;padding:1px 0}
+  .log .t{color:#64748b;width:84px;flex:none;font-variant-numeric:tabular-nums}
+  .log .src{color:#7dd3fc;width:76px;flex:none}
+  .log .num{color:#fbbf24;width:104px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .log .msg{color:#cbd5e1;flex:1;word-break:break-all}
   .log .lv-ERROR{color:#f87171;font-weight:700}.log .lv-WARN{color:#f59e0b}.log .lv-INFO{color:#94a3b8}
   .hide{display:none}
   .notice{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:10px;padding:9px 12px;font-size:12.5px;margin:8px 0}
@@ -213,11 +218,11 @@
               <label class="f"><input type="checkbox" id="tEnable" style="width:auto"> 启用翻译</label>
               <label class="f">主翻译引擎</label>
               <select id="tPrimary">
-                <option value="baidu">百度（有免费额度，中文质量好）</option>
-                <option value="deepl">DeepL（付费，质量最好）</option>
-                <option value="openai">OpenAI 兼容接口</option>
-                <option value="google">Google 官方 API（需 key）</option>
-                <option value="googlefree">Google 免费（无需 key）</option>
+                <option value="baidu">百度</option>
+                <option value="deepl">DeepL</option>
+                <option value="openai">OpenAI</option>
+                <option value="google">Google</option>
+                <option value="googlefree">Google 免费</option>
               </select>
               <label class="f">目标语言</label>
               <input id="tLang" placeholder="zh-CN">
@@ -317,11 +322,7 @@
           </div>
           <p class="muted">合并日志与忽略名单都在映射表目录：<code>merge_log.json</code> / <code>ignore_duplicates.json</code> / <code>genre_dict.json</code>。</p>
         </div>
-        <div class="card">
-          <h2>操作注意事项</h2>
-          <div class="notice">Emby 里永远不要点「替换全部元数据」——会把本地中文元数据覆盖成源站语言。只允许“刷新元数据（不替换）”。</div>
-          <div class="okbox">日常不需要改代码：翻译、冷却、映射同步、体检、批量修复、演员合并都有按钮。</div>
-        </div>
+        
       </section>
     </div>
   </main>
@@ -783,7 +784,7 @@ async function loadLogs(){
     $('logCount').textContent='共 '+(r.total||0)+' 条';
     const logs=r.logs||[];
     $('logbox').innerHTML = logs.length
-      ? logs.map(l=>'<div><span class="t">'+esc((l.time||'').slice(5,19))+'</span><span class="src">'+esc(l.source||'')+'</span><span class="num">'+esc(l.number||'')+'</span><span class="lv-'+esc(l.level||'INFO')+'">'+esc(l.level||'')+'</span> <span class="msg">'+esc(l.message||'')+'</span></div>').join('')
+      ? logs.map(function(l){ return '<div class="logline"><span class="t">'+esc(l.time||'')+'</span><span class="src">'+esc(l.source||'')+'</span>'+(l.number?('<span class="num">'+esc(l.number)+'</span>'):'')+'<span class="msg">'+esc(l.message||'')+'</span></div>'; }).join('')
       : '<span class="muted">没有匹配的日志</span>';
   }catch(e){ $('logbox').textContent='读取失败：'+e.message; }
 }

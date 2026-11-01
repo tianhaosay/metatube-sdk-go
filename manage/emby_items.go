@@ -192,3 +192,34 @@ func (c *EmbyClient) WipeMetadata(itemID string) error {
 	dto["PremiereDate"] = nil
 	return c.do(http.MethodPost, "/Items/"+url.PathEscape(itemID), nil, dto, nil)
 }
+
+// PersonActed reports whether the person is credited as an Actor on at least
+// one movie (as opposed to only directing or writing). Used to keep director
+// names out of the duplicate-actress scan.
+func (c *EmbyClient) PersonActed(personID string) bool {
+	q := url.Values{}
+	q.Set("PersonIds", personID)
+	q.Set("IncludeItemTypes", "Movie")
+	q.Set("Recursive", "true")
+	q.Set("Limit", "5")
+	q.Set("Fields", "People")
+	var page struct {
+		Items []struct {
+			People []struct {
+				Id   string `json:"Id"`
+				Type string `json:"Type"`
+			} `json:"People"`
+		} `json:"Items"`
+	}
+	if err := c.do(http.MethodGet, "/Items", q, nil, &page); err != nil {
+		return false
+	}
+	for _, it := range page.Items {
+		for _, p := range it.People {
+			if p.Id == personID && strings.EqualFold(p.Type, "Actor") {
+				return true
+			}
+		}
+	}
+	return false
+}
