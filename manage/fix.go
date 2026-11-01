@@ -122,6 +122,12 @@ func fixRenameActors(client *EmbyClient, ids []string, limit int) (*FixResult, e
 		if !ok || entry.Name == "" || entry.Name == p.Name {
 			continue // not in the mapping table: leave for human review
 		}
+		if kanaRe.MatchString(entry.Name) {
+			// The table's canonical name is itself Japanese (bad/ambiguous
+			// source data). Renaming would not improve anything, so skip and
+			// leave the person for manual review.
+			continue
+		}
 		res.Total++
 		if err := client.RenameItem(p.ID, entry.Name); err != nil {
 			res.Failed++
