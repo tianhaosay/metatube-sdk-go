@@ -290,7 +290,7 @@
           <div class="row">
             <input id="logNum" placeholder="按番号过滤，如 START-015" style="max-width:220px" onkeydown="if(event.key=='Enter')loadLogs()">
             <select id="logLevel" style="max-width:150px"><option value="">级别：全部</option><option value="ERROR">仅错误</option><option value="WARN">警告</option><option value="INFO">信息</option></select>
-            <select id="logSource" style="max-width:170px"><option value="">来源：全部</option><option value="FANZA">FANZA</option><option value="JavDB">JavDB</option><option value="TRANSLATE">翻译</option><option value="ENGINE">引擎</option><option value="API">接口</option></select>
+            <select id="logSource" style="max-width:170px"><option value="">来源：全部</option><option value="SCRAPE">抓取（SCRAPE）</option><option value="FALLBACK">兜底（FALLBACK）</option><option value="TRANSLATE">翻译</option><option value="ENGINE">引擎</option><option value="API">接口</option><option value="MANAGE">控制台</option></select>
             <button onclick="loadLogs()">刷新</button>
             <label class="muted"><input type="checkbox" id="logAuto" style="width:auto" onchange="toggleAuto()"> 自动刷新</label>
             <span class="muted" id="logCount"></span>

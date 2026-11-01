@@ -80,7 +80,7 @@ func QueryLogs(number, level, source string, limit int) []LogEntry {
 var (
 	numberRe = regexp.MustCompile(`\b([A-Z]{2,7}-\d{2,6})\b`)
 	ginLine  = regexp.MustCompile(`\[GIN\].*\|\s*(\d{3})\s*\|`)
-	srcRe    = regexp.MustCompile(`^\[(ENGINE|TRANSLATE|JavDB|manage|mapping|GIN)\]`)
+	srcRe    = regexp.MustCompile(`^\[(ENGINE|TRANSLATE|JavDB|manage|mapping|GIN|SCRAPE|FALLBACK)\]`)
 	stdDate  = regexp.MustCompile(`^\d{4}/\d{2}/\d{2}[ T]`)
 	goFileRe = regexp.MustCompile(`^[\w/\\.\-]+\.go:\d+:\s*`)
 )
@@ -188,4 +188,62 @@ func InstallLogCapture() *log.Logger {
 		gin.DefaultWriter = io.MultiWriter(gin.DefaultWriter, capture)
 	})
 	return log.New(io.MultiWriter(log.Default().Writer(), &logCapture{}), "[ENGINE]\u00a0", log.LstdFlags|log.Llongfile)
+}
+
+// structuredRe matches the machine-readable scrape/fallback lines emitted by
+// the engine, e.g.
+//   [SCRAPE] number=START-015 provider=FANZA result=ok ms=812 actors=4 genres=8
+var structuredRe = regexp.MustCompile(`^\[(SCRAPE|FALLBACK)\]\s+(.*)$`)
+var kvRe = regexp.MustCompile(`(\w+)=("([^"]*)"|\S+)`)
+
+// parseStructured turns a key=value log line into a readable Chinese message.
+func parseStructured(line string) (LogEntry, bool) {
+	m := structuredRe.FindStringSubmatch(strings.TrimSpace(line))
+	if m == nil {
+		return LogEntry{}, false
+	}
+	kind := m[1]
+	fields := map[string]string{}
+	for _, kv := range kvRe.FindAllStringSubmatch(m[2], -1) {
+		val := kv[2]
+		if kv[3] != "" {
+			val = kv[3]
+		}
+		fields[strings.ToLower(kv[1])] = strings.Trim(val, `"`)
+	}
+	e := LogEntry{
+		Time:   time.Now().Format("15:04:05.000"),
+		Level:  "INFO",
+		Source: kind,
+		Number: fields["number"],
+	}
+	provider := fields["provider"]
+	result := fields["result"]
+	ms := fields["ms"]
+	switch kind {
+	case "SCRAPE":
+		switch result {
+		case "ok":
+			e.Message = fmt.Sprintf("%s · %s · 抓取成功 · %sms · 演员 %s · 流派 %s · %s",
+				fields["number"], provider, ms, fields["actors"], fields["genres"], fields["title"])
+		default:
+			e.Level = "WARN"
+			e.Message = fmt.Sprintf("%s · %s · 抓取失败 · %sms", fields["number"], provider, ms)
+		}
+	case "FALLBACK":
+		switch result {
+		case "ok":
+			e.Message = fmt.Sprintf("%s · %s · 兜底成功 · 补到 %s 位演员 · %sms",
+				fields["number"], provider, fields["actors"], ms)
+		case "none":
+			e.Message = fmt.Sprintf("%s · %s · 兜底无演员 · %sms", fields["number"], provider, ms)
+		case "miss":
+			e.Level = "WARN"
+			e.Message = fmt.Sprintf("%s · 兜底无结果（12 小时内不再尝试）", fields["number"])
+		default:
+			e.Level = "WARN"
+			e.Message = fmt.Sprintf("%s · %s · 兜底失败 · %sms", fields["number"], provider, ms)
+		}
+	}
+	return e, true
 }

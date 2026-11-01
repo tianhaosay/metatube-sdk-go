@@ -440,7 +440,7 @@ func negativeMark(number string) {
 	negativeUntil[number] = time.Now().Add(negativeTTL)
 	saveNegativeCacheLocked()
 	negativeMu.Unlock()
-	log.Printf("[enrich] %s: no actors from fallback, remembered for 12h", number)
+	log.Printf("[FALLBACK] number=%s result=miss (12h 内不再尝试)", number)
 }
 
 // genreDictPath resolves the tag dictionary location: explicit config wins,
@@ -492,7 +492,7 @@ func buildActorFallback() func(number string) []string {
 				continue
 			}
 			if actors := []string(info.Actors); len(actors) > 0 {
-				log.Printf("[enrich] %s: actors filled by %s (%d)", n, p.Name(), len(actors))
+				log.Printf("[FALLBACK] number=%s provider=%s result=ok actors=%d", n, p.Name(), len(actors))
 				return actors
 			}
 		}

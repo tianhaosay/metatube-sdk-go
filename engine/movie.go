@@ -253,11 +253,19 @@ func (e *Engine) getMovieInfoWithCallback(provider mt.MovieProvider, id string, 
 			}).Create(info) // ignore error
 		}
 	}()
+	started := time.Now()
 	info, err = callback()
-	if err == nil && info != nil && info.IsValid() && e.enrich != nil {
-		// Enrich (mapping + translation) before caching, so the DB stores
-		// the final result and later reads never re-translate.
-		e.enrich.Apply(info)
+	elapsed := time.Since(started).Milliseconds()
+	if err != nil || info == nil || !info.IsValid() {
+		e.logger.Printf("[SCRAPE] number=%s provider=%s result=fail ms=%d", id, provider.Name(), elapsed)
+	} else {
+		if e.enrich != nil {
+			// Enrich (mapping + translation) before caching, so the DB stores
+			// the final result and later reads never re-translate.
+			e.enrich.Apply(info)
+		}
+		e.logger.Printf("[SCRAPE] number=%s provider=%s result=ok ms=%d actors=%d genres=%d title=%s",
+			info.Number, provider.Name(), elapsed, len(info.Actors), len(info.Genres), info.Title)
 	}
 	return
 }
