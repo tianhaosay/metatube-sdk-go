@@ -53,6 +53,12 @@ func getInfo(app *engine.Engine, typ infoType) gin.HandlerFunc {
 			info, err = app.GetActorInfoByProviderID(uri.AsProviderID(), query.Lazy)
 		case movieInfoType:
 			info, err = app.GetMovieInfoByProviderID(uri.AsProviderID(), query.Lazy)
+			if err == nil {
+				// Report real progress: Emby only queues its refresh, so the
+				// console counts finished answers instead of sent requests.
+				pid := uri.AsProviderID()
+				progress.Mark(progress.Key(pid.Provider, pid.ID))
+			}
 		default:
 			panic("invalid info/metadata type")
 		}

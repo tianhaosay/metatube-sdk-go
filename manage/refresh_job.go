@@ -1,6 +1,7 @@
 package manage
 
 import (
+	"github.com/metatube-community/metatube-sdk-go/common/progress"
 	"fmt"
 	"log"
 	"sync"
@@ -17,10 +18,13 @@ type RefreshJob struct {
 	stopFlag  bool
 	total     int
 	done      int
+	sent      int
 	ok        int
 	failed    int
 	current   string
-	startedAt time.Time
+	startedAt   time.Time
+	baseAnswers int64
+	sent        int
 	finished  bool
 	err       string
 }
@@ -123,6 +127,7 @@ func StartRefresh(opts RefreshOptions) (map[string]any, error) {
 	refreshJob.err = ""
 	refreshJob.finished = false
 	refreshJob.startedAt = time.Now()
+	refreshJob.baseAnswers = progress.Answers()
 	refreshJob.mu.Unlock()
 
 	go runRefresh(client, ids, opts, key)
@@ -155,10 +160,19 @@ func RefreshStatus() map[string]any {
 	if !refreshJob.startedAt.IsZero() {
 		elapsed = time.Since(refreshJob.startedAt).Round(time.Second).String()
 	}
+	answered := int(progress.Answers() - refreshJob.baseAnswers)
+	if answered < 0 {
+		answered = 0
+	}
+	if answered > refreshJob.total {
+		answered = refreshJob.total
+	}
 	return map[string]any{
+		"answered": answered,
 		"running":  refreshJob.running,
 		"total":    refreshJob.total,
 		"done":     refreshJob.done,
+		"sent":     refreshJob.sent,
 		"ok":       refreshJob.ok,
 		"failed":   refreshJob.failed,
 		"percent":  percent,
