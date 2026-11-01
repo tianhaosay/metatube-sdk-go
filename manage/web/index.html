@@ -90,13 +90,13 @@
       <div class="row">
         <input id="logNum" placeholder="按番号过滤，如 START-015" style="width:200px" onkeydown="if(event.key=='Enter')loadLogs()">
         <select id="logLevel"><option value="">级别：全部</option><option value="ERROR">仅错误</option><option value="WARN">警告</option><option value="INFO">信息</option></select>
-        <select id="logSource"><option value="">数据源：全部</option><option value="FANZA">FANZA</option><option value="JavDB">JavDB</option><option value="TRANSLATE">翻译</option><option value="MERGE">字段合并</option><option value="ENGINE">引擎</option><option value="API">API</option></select>
+        <select id="logSource"><option value="">数据源：全部</option><option value="FANZA">FANZA</option><option value="JavDB">JavDB</option><option value="TRANSLATE">翻译</option><option value="ENGINE">引擎</option><option value="API">API</option></select>
         <button onclick="loadLogs()">刷新</button>
         <label class="muted"><input type="checkbox" id="logAuto" onchange="toggleAuto()">自动刷新</label>
         <span id="logCount" class="muted"></span>
       </div>
       <div id="logbox" class="logbox" style="margin-top:10px"><span style="color:#64748b">输入番号或直接刷新查看日志…</span></div>
-      <p class="muted">💡 按番号过滤可查看该影片在 FANZA / JavDB / 翻译 / 字段合并各环节的完整处理时间线；红色为错误、橙色为警告（自动回落等）。</p>
+      <p class="muted">💡 按番号过滤可查看该影片在 FANZA / 翻译 / 映射 / 引擎各环节的完整处理时间线；红色为错误、橙色为警告（自动回落等）。</p>
     </div>
   </div>
 
@@ -147,9 +147,9 @@
           <span class="muted">示例：3s、500ms；0 为不限。批量大刮削建议 3s。</span>
         </div>
         <div>
-          <label class="fld">JavDB 冷却间隔</label>
+          <label class="fld">JavDB 冷却间隔（该源默认关闭）</label>
           <input id="sJavdb" placeholder="10s（默认）" style="width:100%">
-          <span class="muted">JavDB 有真实限流，批量大刮削务必保留冷却。</span>
+          <span class="muted">JavDB 默认不参与刮削（Cloudflare 限流严重）；仅当显式启用时才需要这个冷却。</span>
         </div>
       </div>
     </div>
@@ -215,9 +215,9 @@
     <div class="card">
       <strong>与 Emby 插件的一致性</strong>
       <p class="muted" style="margin:6px 0 0">
-        ① <b>翻译归后端管</b>：引擎与凭据在此配置（凭据留空则沿用环境变量）。此处开启翻译后，Emby 插件「翻译模式」保持 <b>Disabled</b>，插件页顶部会实时显示后端状态并检测冲突。<br>
-        ② 后端已加载 avdb 演员映射表时，Emby 插件的「数据源过滤器」需包含 <b>javdb</b>（或关闭过滤器），否则演员归一不会触发。<br>
-        ③ 冷却限流、字段来源合并均为纯后端行为，与插件设置无冲突。
+        ① <b>翻译归后端管</b>：主引擎在此选择，次引擎固定 Google 免费；凭据留空则沿用环境变量。Emby 插件「翻译模式」保持 <b>Disabled</b>，避免同一段文字被翻两次。<br>
+        ② <b>演员归一、流派映射、简介补全对全部刮削源生效</b>，与插件的数据源过滤器无关。<br>
+        ③ 冷却限流、流派词典、回滚日志均为纯后端行为，与插件设置无冲突。
       </p>
     </div>
   </div>

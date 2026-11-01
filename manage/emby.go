@@ -106,7 +106,6 @@ type Person struct {
 	Name         string            `json:"name"`
 	HasPrimary   bool              `json:"has_primary"`
 	HasOverview  bool              `json:"has_overview"`
-	MovieCount   int               `json:"movie_count"`
 	ProviderIDs  map[string]string `json:"provider_ids,omitempty"`
 }
 
@@ -258,63 +257,6 @@ func (c *EmbyClient) ListPersonMovies(personID string) ([]embyItem, error) {
 		return nil, err
 	}
 	return page.Items, nil
-}
-
-// HasMagicToolsPlugin reports whether the AvdbMagicTools plugin is installed.
-func (c *EmbyClient) HasMagicToolsPlugin() (bool, error) {
-	var plugins []struct {
-		Name string `json:"Name"`
-		Id   string `json:"Id"`
-	}
-	if err := c.do(http.MethodGet, "/Plugins", nil, nil, &plugins); err != nil {
-		return false, err
-	}
-	for _, p := range plugins {
-		n := strings.ToLower(strings.ReplaceAll(p.Name, " ", ""))
-		id := strings.ToLower(p.Id)
-		if strings.Contains(n, "magictools") ||
-			strings.ReplaceAll(id, "-", "") == "28abc9396af744d199d37bc5e2d52610" {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-// TransferPerson moves an item's person links from sources to target via the
-// AvdbMagicTools plugin (ID-preserving, like avdb).
-func (c *EmbyClient) TransferPerson(itemID string, sourceIDs []string, targetID string) error {
-	sourceNums := make([]int, 0, len(sourceIDs))
-	for _, id := range sourceIDs {
-		n := 0
-		if _, err := fmt.Sscanf(id, "%d", &n); err != nil || n <= 0 {
-			return fmt.Errorf("invalid numeric person id: %q", id)
-		}
-		sourceNums = append(sourceNums, n)
-	}
-	targetNum := 0
-	if _, err := fmt.Sscanf(targetID, "%d", &targetNum); err != nil || targetNum <= 0 {
-		return fmt.Errorf("invalid numeric target person id: %q", targetID)
-	}
-	q := url.Values{}
-	if c.userID != "" {
-		q.Set("UserId", c.userID)
-	}
-	return c.do(http.MethodPost,
-		fmt.Sprintf("/Plugins/AvdbMagicTools/Items/%s/TransferPerson", url.PathEscape(itemID)),
-		q,
-		map[string]any{"SourcePersonIds": sourceNums, "TargetPersonId": targetNum},
-		nil)
-}
-
-// DeletePerson removes a person via the AvdbMagicTools plugin.
-func (c *EmbyClient) DeletePerson(personID string) error {
-	q := url.Values{}
-	if c.userID != "" {
-		q.Set("UserId", c.userID)
-	}
-	return c.do(http.MethodPost,
-		fmt.Sprintf("/Plugins/AvdbMagicTools/Items/%s/DeletePerson", url.PathEscape(personID)),
-		q, nil, nil)
 }
 
 // PersonExists checks whether a person item still exists.

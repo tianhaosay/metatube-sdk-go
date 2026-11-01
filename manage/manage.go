@@ -1,8 +1,9 @@
-// Package manage provides a user-friendly actor management module for
-// metatube-plus, aligned with avdb's implementation:
+// Package manage is the operator console for metatube-plus:
 //
-//   - duplicate actor detection & merge (via the AvdbMagicTools Emby plugin)
-//   - missing-avatar scanning & one-click completion (gfriends)
+//   - library health audit (missing / Japanese titles, actors, genres, covers)
+//   - batch repair (re-scrape, canonical actor rename) with rollback log
+//   - duplicate actor detection and NATIVE merge (no Emby plugin required)
+//   - actor profile completion (biography, TMDB id, avatar) with male filter
 //   - online actor-mapping table sync (li-peifeng/Jav-Actors-Mapping)
 //
 // Configuration comes from environment variables (see cmd), and a simple

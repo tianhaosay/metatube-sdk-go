@@ -13,6 +13,9 @@ import (
 // so the UI can prompt for a token); pass route.RequireToken(token) to make
 // the console respect the server token.
 func RegisterRoutes(r gin.IRouter, apiMiddleware ...gin.HandlerFunc) {
+	// /healthz is the container healthcheck: no auth, no Emby calls.
+	r.GET("/healthz", healthHandler)
+
 	r.GET("/manage/", uiHandler)
 	r.GET("/manage", uiHandler)
 
@@ -157,11 +160,6 @@ func getStatus(c *gin.Context) {
 		return
 	}
 	emby := map[string]any{"connected": true, "url": c2.EmbyURL}
-	if ok, err := client.HasMagicToolsPlugin(); err == nil {
-		emby["magic_tools"] = ok
-	} else {
-		emby["magic_tools_error"] = err.Error()
-	}
 	// Quick connectivity + person count probe.
 	if persons, err := client.FetchPersons(c2.EmbyLibraryIDs); err == nil {
 		emby["person_count"] = len(persons)
@@ -286,4 +284,12 @@ func postCompleteAvatars(c *gin.Context) {
 
 func getAvatarProgress(c *gin.Context) {
 	jsonOK(c, GetAvatarProgress())
+}
+
+// healthHandler is a dependency-free liveness probe for docker healthcheck.
+func healthHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "ok",
+		"mapping": MappingStatus()["entries"],
+	})
 }
