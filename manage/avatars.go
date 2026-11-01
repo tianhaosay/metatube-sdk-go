@@ -47,6 +47,7 @@ type AvatarProgress struct {
 	Done     int      `json:"done"`
 	Updated  int      `json:"updated"`
 	Profiles int      `json:"profiles"`
+	Skipped  int      `json:"skipped"`
 	Failed   int      `json:"failed"`
 	Current  string   `json:"current"`
 	Fails    []string `json:"fails,omitempty"`

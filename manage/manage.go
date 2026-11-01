@@ -37,6 +37,11 @@ type Config struct {
 	// MappingSyncInterval is the periodic sync interval (default 24h; <=0
 	// disables the background ticker).
 	MappingSyncInterval time.Duration
+
+	// TMDB credentials for actor avatar / gender completion (optional).
+	TMDBAPIKey   string
+	TMDBLanguage string
+	TMDBProxy    string
 }
 
 var (
