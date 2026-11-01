@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -369,9 +370,36 @@ func getPaths(c *gin.Context) {
 		jsonErr(c, err)
 		return
 	}
+	locations := client.LibraryLocations()
 	res := make([]map[string]any, 0, 8)
 	for _, lib := range cfg.EmbyLibraryIDs {
-		res = append(res, map[string]any{"library_id": lib, "items": client.ListFolders(lib)})
+		roots := locations[lib]
+		items := make([]FolderRef, 0, 8)
+		seen := map[string]struct{}{}
+		for _, f := range client.ListFolders(lib) {
+			if f.Path == "" {
+				continue
+			}
+			for _, root := range roots {
+				root = strings.TrimRight(root, "/")
+				if f.Path != root && pathInScope(f.Path, root) {
+					rel := strings.TrimPrefix(strings.TrimPrefix(f.Path, root), "/")
+					if rel != "" && !strings.Contains(rel, "/") {
+						if _, dup := seen[f.Path]; !dup {
+							seen[f.Path] = struct{}{}
+							items = append(items, f)
+						}
+					}
+				}
+			}
+		}
+		for _, root := range roots {
+			if _, dup := seen[root]; !dup {
+				seen[root] = struct{}{}
+				items = append(items, FolderRef{Name: root, Path: root})
+			}
+		}
+		res = append(res, map[string]any{"library_id": lib, "items": items})
 	}
 	jsonOK(c, res)
 }

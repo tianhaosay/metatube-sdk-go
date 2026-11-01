@@ -128,3 +128,18 @@ func (c *EmbyClient) ListFolders(parentID string) []FolderRef {
 	}
 	return out
 }
+// LibraryLocations maps library ids to their configured root paths.
+func (c *EmbyClient) LibraryLocations() map[string][]string {
+	out := map[string][]string{}
+	var folders []struct {
+		ItemId    string   `json:"ItemId"`
+		Locations []string `json:"Locations"`
+	}
+	if err := c.do(http.MethodGet, "/Library/VirtualFolders", nil, nil, &folders); err != nil {
+		return out
+	}
+	for _, f := range folders {
+		out[f.ItemId] = f.Locations
+	}
+	return out
+}
