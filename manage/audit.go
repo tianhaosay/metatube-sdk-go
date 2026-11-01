@@ -281,7 +281,7 @@ func titleMissing(name, number string) bool {
 
 // auditItem applies the completeness rules to one movie.
 func auditItem(it embyItem) (problems, notes []string) {
-	problems := make([]string, 0, 4)
+	problems = make([]string, 0, 4)
 	name := strings.TrimSpace(it.Name)
 	number := it.Number()
 
@@ -345,7 +345,7 @@ func auditItem(it embyItem) (problems, notes []string) {
 	if _, ok := it.ImageTags["Primary"]; !ok {
 		problems = append(problems, IssueNoImage)
 	}
-	return problems
+	return problems, notes
 }
 
 // hasText reports whether the name carries any letters (Latin/CJK), i.e. is
