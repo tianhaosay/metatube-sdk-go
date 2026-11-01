@@ -56,6 +56,8 @@ func translateWithTimeout(t Translator, text, from, to string, timeout time.Dura
 //     should keep the original (e.g. Japanese) text. Failures are logged
 //     with the reference string for later inspection.
 type Failover struct {
+	// lastEngine records which engine answered the latest call (log only).
+	lastEngine string
 	mu sync.Mutex
 
 	primaryName   string
