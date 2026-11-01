@@ -98,7 +98,9 @@ func Audit(req AuditRequest) (*AuditResult, error) {
 			if err != nil {
 				return nil, fmt.Errorf("读取媒体库失败: %w", err)
 			}
-			res.Total += total
+			if start == 0 {
+				res.Total += total
+			}
 			for _, it := range items {
 				if req.PathPrefix != "" && !pathInScope(it.Path, req.PathPrefix) {
 					continue
