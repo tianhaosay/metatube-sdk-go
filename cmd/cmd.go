@@ -4,8 +4,10 @@ import (
 	goflag "flag"
 	"log"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -108,7 +110,7 @@ func init() {
 	// Mapping tables (applied to every provider by the enrich pipeline).
 	flag.StringVar(&Config.MappingActorFile, "mapping-actor-file", "", "Local actor mapping table path (synced from the online source when enabled)")
 	flag.StringVar(&Config.MappingInfoFile, "mapping-info-file", "", "Local genre/tag mapping table path (mdc mapping_info.xml format)")
-	flag.StringVar(&Config.ActorFallback, "actor-fallback", "JavBus", "CSV of providers used to fill missing actors (empty disables)")
+	flag.StringVar(&Config.ActorFallback, "actor-fallback", "JavDB", "CSV of providers used to fill missing actors (JavBus mirrors DMM, so JavDB is the only useful source)")
 	flag.BoolVar(&Config.MappingOnline, "mapping-online", true, "Enable online actor-mapping source sync")
 	flag.DurationVar(&Config.MappingSyncInterval, "mapping-sync-interval", 24*time.Hour, "Online mapping sync interval")
 
@@ -303,13 +305,50 @@ func buildEnrichPipeline() *enrich.Pipeline {
 	return enrich.New(cfg)
 }
 
-// buildActorFallback returns a lookup that fills in actors when a provider
-// returned none (compilations, amateur titles). It is deliberately narrow —
-// one rule, "no actors? ask the next source" — instead of the old generic
-// cross-provider field merge, which needed a proxy passthrough and a
-// per-field matrix to reach the same practical outcome.
+// javNumberRe matches a standard JAV number (FLAV-414, BLOR-211, START-015,
+// T-38027). It deliberately rejects FC2-PPV-xxx and other multi-segment
+// labels, where an actor lookup would never pay off.
+var javNumberRe = regexp.MustCompile(`(?i)^[a-z]{1,10}-?\d{2,6}$`)
+
+// negativeActors remembers numbers whose fallback already failed, so a
+// library refresh does not hammer JavDB for the same unfixable titles.
+var (
+	negativeMu    sync.Mutex
+	negativeUntil = map[string]time.Time{}
+)
+
+const negativeTTL = 12 * time.Hour
+
+func negativeHit(number string) bool {
+	negativeMu.Lock()
+	defer negativeMu.Unlock()
+	until, ok := negativeUntil[number]
+	if !ok {
+		return false
+	}
+	if time.Now().After(until) {
+		delete(negativeUntil, number)
+		return false
+	}
+	return true
+}
+
+func negativeMark(number string) {
+	negativeMu.Lock()
+	negativeUntil[number] = time.Now().Add(negativeTTL)
+	negativeMu.Unlock()
+}
+
+// buildActorFallback fills in actors when the primary provider returned none.
 //
-// Failures are ignored: a dead fallback source must never break a scrape.
+// Why JavDB and not JavBus: JavBus mirrors DMM, so every title DMM has no
+// actors for is equally empty there (confirmed on FLAV-414 / BLOR-211). JavDB
+// maintains its own cast list and is the only source that can fill the gap.
+//
+// The lookup runs only for movies that came back with zero actors, so the
+// common path never pays for it. JavDB's global 10s cooldown (common/throttle)
+// still applies; failures are cached for 12h to keep full-library refreshes
+// from retrying the same dead title.
 func buildActorFallback() func(number string) []string {
 	providers := make([]provider.MovieProvider, 0, 2)
 	for _, name := range strings.Split(Config.ActorFallback, ",") {
@@ -327,16 +366,21 @@ func buildActorFallback() func(number string) []string {
 		return nil
 	}
 	return func(number string) []string {
+		n := strings.TrimSpace(number)
+		if n == "" || !javNumberRe.MatchString(n) || negativeHit(n) {
+			return nil
+		}
 		for _, p := range providers {
-			info, err := p.GetMovieInfoByID(number)
+			info, err := p.GetMovieInfoByID(n)
 			if err != nil || info == nil {
 				continue
 			}
 			if actors := []string(info.Actors); len(actors) > 0 {
-				log.Printf("[enrich] %s: actors filled by %s", number, p.Name())
+				log.Printf("[enrich] %s: actors filled by %s (%d)", n, p.Name(), len(actors))
 				return actors
 			}
 		}
+		negativeMark(n)
 		return nil
 	}
 }
