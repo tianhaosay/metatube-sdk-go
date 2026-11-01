@@ -190,6 +190,7 @@ func (p *Pipeline) Apply(info *model.MovieInfo) {
 				}
 				if translated == "" && cfg.Translator != nil {
 					if t := translateField(cfg.Translator, g, target, info.Number); t != "" && !kanaRe.MatchString(t) {
+						log.Printf("[TRANSLATE] number=%s field=genre engine=%s result=ok from=%q to=%q", info.Number, engineName(cfg.Translator), g, t)
 						translated = t
 						if cfg.Genres != nil {
 							cfg.Genres.Set(g, t)
@@ -227,11 +228,13 @@ func (p *Pipeline) Apply(info *model.MovieInfo) {
 	if info.Title != "" {
 		if t := translateField(cfg.Translator, info.Title, target, info.Number); t != "" {
 			info.Title = t
+			log.Printf("[TRANSLATE] number=%s field=title engine=%s result=ok text=%q", info.Number, engineName(cfg.Translator), preview(t))
 		}
 	}
 	if info.Summary != "" {
 		if t := translateField(cfg.Translator, info.Summary, target, info.Number); t != "" {
 			info.Summary = t
+			log.Printf("[TRANSLATE] number=%s field=summary engine=%s result=ok text=%q", info.Number, engineName(cfg.Translator), preview(t))
 		}
 	}
 }
@@ -240,6 +243,25 @@ func (p *Pipeline) Apply(info *model.MovieInfo) {
 // treated as a failed translation (free engines occasionally return a bare
 // romanization or an empty-ish fragment instead of Chinese).
 var hanRe = regexp.MustCompile(`[\x{4e00}-\x{9fff}]`)
+
+// engineName reports which translator answered last (used only for logging).
+func engineName(t translate.Translator) string {
+	if e, ok := t.(interface{ LastEngine() string }); ok {
+		if n := e.LastEngine(); n != "" {
+			return n
+		}
+	}
+	return "default"
+}
+
+// preview shortens a translated string for the console log.
+func preview(s string) string {
+	r := []rune(s)
+	if len(r) <= 26 {
+		return s
+	}
+	return string(r[:26]) + "…"
+}
 
 func translateField(t translate.Translator, text, target, ref string) string {
 	if rt, ok := t.(translate.RefTranslator); ok {

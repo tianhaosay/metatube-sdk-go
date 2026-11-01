@@ -84,6 +84,13 @@ func NewFailover(primary Translator, primaryName string, secondary Translator, s
 }
 
 // Translate implements Translator (without a reference label).
+// LastEngine reports which engine answered the most recent call.
+func (f *Failover) LastEngine() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.lastEngine
+}
+
 func (f *Failover) Translate(text, from, to string) (string, error) {
 	return f.TranslateWithRef(text, from, to, "-")
 }
@@ -104,6 +111,7 @@ func (f *Failover) TranslateWithRef(text, from, to, ref string) (string, error) 
 		err = ErrEmptyResult
 	}
 	if err == nil {
+		f.setLastEngine(primaryName)
 		f.resetConsecutive()
 		return result, nil
 	}
@@ -124,6 +132,7 @@ func (f *Failover) TranslateWithRef(text, from, to, ref string) (string, error) 
 		return "", err
 	}
 
+	f.setLastEngine(secondaryName)
 	f.countTakeover(ref, primaryErr)
 	return result, nil
 }
@@ -200,4 +209,11 @@ func normalizeParamKey(s string) string {
 	s = strings.ReplaceAll(s, "-", "")
 	s = strings.ReplaceAll(s, "_", "")
 	return s
+}
+
+// setLastEngine remembers the engine that produced the latest result.
+func (f *Failover) setLastEngine(name string) {
+	f.mu.Lock()
+	f.lastEngine = name
+	f.mu.Unlock()
 }

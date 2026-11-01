@@ -212,7 +212,7 @@ func parseStructured(line string) (LogEntry, bool) {
 	// source bracket ("[ENGINE] 2026/11/01 …"), so strip both repeatedly.
 	for i := 0; i < 4; i++ {
 		if m := srcBracketRe.FindStringSubmatch(s); m != nil {
-			if m[1] == "SCRAPE" || m[1] == "FALLBACK" {
+			if m[1] == "SCRAPE" || m[1] == "FALLBACK" || m[1] == "TRANSLATE" {
 				kind = m[1]
 			}
 			s = strings.TrimSpace(s[len(m[0]):])
@@ -253,6 +253,21 @@ func parseStructured(line string) (LogEntry, bool) {
 		default:
 			e.Level = "WARN"
 			e.Message = fmt.Sprintf("%s · %s · 抓取失败 · %sms", fields["number"], provider, ms)
+		}
+	case "TRANSLATE":
+		field := fields["field"]
+		switch field {
+		case "title":
+			field = "标题"
+		case "summary":
+			field = "简介"
+		case "genre":
+			field = "流派"
+		}
+		if from, to := fields["from"], fields["to"]; from != "" {
+			e.Message = fmt.Sprintf("%s · 翻译%s · %s · %s → %s", fields["number"], field, provider, from, to)
+		} else {
+			e.Message = fmt.Sprintf("%s · 翻译%s · %s · %s", fields["number"], field, provider, fields["text"])
 		}
 	case "FALLBACK":
 		switch result {
