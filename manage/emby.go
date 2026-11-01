@@ -85,11 +85,46 @@ type Person struct {
 }
 
 type embyItem struct {
-	Id        string            `json:"Id"`
-	Name      string            `json:"Name"`
-	Type      string            `json:"Type"`
-	ImageTags map[string]string `json:"ImageTags"`
+	Id          string            `json:"Id"`
+	Name        string            `json:"Name"`
+	Type        string            `json:"Type"`
+	ImageTags   map[string]string `json:"ImageTags"`
 	ProviderIds map[string]string `json:"ProviderIds"`
+	Genres      []string          `json:"Genres"`
+	Overview    string            `json:"Overview"`
+	Path        string            `json:"Path"`
+	People      []struct {
+		Name string `json:"Name"`
+		Type string `json:"Type"`
+	} `json:"People"`
+}
+
+// Actors returns the actor names attached to the item.
+func (i embyItem) Actors() []string {
+	out := make([]string, 0, len(i.People))
+	for _, p := range i.People {
+		if p.Type == "Actor" && p.Name != "" {
+			out = append(out, p.Name)
+		}
+	}
+	return out
+}
+
+// Number extracts a display label from MetaTube provider ids (e.g.
+// "FANZA:1start00015" -> "1START00015"), falling back to the name prefix.
+func (i embyItem) Number() string {
+	for _, key := range []string{"MetaTube", "Fanza", "FANZA"} {
+		if v, ok := i.ProviderIds[key]; ok && v != "" {
+			if idx := strings.LastIndex(v, ":"); idx >= 0 {
+				return strings.ToUpper(v[idx+1:])
+			}
+			return strings.ToUpper(v)
+		}
+	}
+	if fields := strings.Fields(i.Name); len(fields) > 0 {
+		return strings.ToUpper(fields[0])
+	}
+	return ""
 }
 
 func (i embyItem) toPerson() Person {

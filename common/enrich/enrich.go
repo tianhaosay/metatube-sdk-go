@@ -41,6 +41,14 @@ type Config struct {
 	TranslateLang  string
 	DisableSummary bool
 	CleanSummary   bool
+
+	// ActorFallback is consulted only when a provider returned no actors at
+	// all (common for compilations/amateur titles on DMM). It receives the
+	// movie number and returns actor names from another source, or nil.
+	//
+	// This replaces the old "merge arbitrary fields across providers" design:
+	// one narrow rule, one place, no per-field matrix.
+	ActorFallback func(number string) []string
 }
 
 // Pipeline applies a Config to movie metadata. It is safe for concurrent use
@@ -109,6 +117,14 @@ func (p *Pipeline) Apply(info *model.MovieInfo) {
 		return
 	}
 	cfg := p.Snapshot()
+
+	// 0. Actor fallback: only when the provider gave us nothing, so the
+	// common path never pays for an extra request.
+	if len(info.Actors) == 0 && info.Number != "" && cfg.ActorFallback != nil {
+		if extra := cfg.ActorFallback(info.Number); len(extra) > 0 {
+			info.Actors = extra
+		}
+	}
 
 	// 1. Actor names -> canonical Chinese name.
 	if cfg.Actors != nil && len(info.Actors) > 0 {

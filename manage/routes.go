@@ -23,6 +23,8 @@ func RegisterRoutes(r gin.IRouter, apiMiddleware ...gin.HandlerFunc) {
 	}
 	{
 		api.GET("/status", getStatus)
+		api.GET("/audit", getAudit)
+		api.POST("/fix", postFix)
 		api.POST("/mapping/sync", postSyncMapping)
 		api.GET("/duplicates", getDuplicates)
 		api.POST("/duplicates/resolve", postResolveDuplicate)
@@ -63,6 +65,38 @@ func getConsistency(c *gin.Context) {
 		"javdb_mapping_active":  isJavdbMappingActive(),
 		"mapping_entries":       MappingStatus()["entries"],
 	})
+}
+
+// getAudit scans the library and reports which movies are incomplete.
+// Query: library_id (optional), offset, limit (issues window).
+func getAudit(c *gin.Context) {
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "200"))
+	res, err := Audit(AuditRequest{
+		LibraryID: c.Query("library_id"),
+		Offset:    offset,
+		Limit:     limit,
+	})
+	if err != nil {
+		jsonErr(c, err)
+		return
+	}
+	jsonOK(c, res)
+}
+
+// postFix runs a batch repair (refresh | rename_actors).
+func postFix(c *gin.Context) {
+	var req FixRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		jsonErr(c, err)
+		return
+	}
+	res, err := Fix(req)
+	if err != nil {
+		jsonErr(c, err)
+		return
+	}
+	jsonOK(c, res)
 }
 
 func getLogs(c *gin.Context) {

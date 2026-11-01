@@ -16,6 +16,7 @@ import (
 	"github.com/metatube-community/metatube-sdk-go/engine"
 	"github.com/metatube-community/metatube-sdk-go/internal/envconfig"
 	"github.com/metatube-community/metatube-sdk-go/manage"
+	"github.com/metatube-community/metatube-sdk-go/provider"
 	"github.com/metatube-community/metatube-sdk-go/route"
 	"github.com/metatube-community/metatube-sdk-go/route/auth"
 	"github.com/metatube-community/metatube-sdk-go/translate"
@@ -61,6 +62,10 @@ var Config = &struct {
 	MappingOnline       bool
 	MappingSyncInterval time.Duration
 
+	// ActorFallback is a CSV of provider names consulted when a scrape
+	// returned no actors (e.g. "JavBus"). Empty disables the fallback.
+	ActorFallback string
+
 	// version flag
 	VersionFlag bool
 }{}
@@ -103,6 +108,7 @@ func init() {
 	// Mapping tables (applied to every provider by the enrich pipeline).
 	flag.StringVar(&Config.MappingActorFile, "mapping-actor-file", "", "Local actor mapping table path (synced from the online source when enabled)")
 	flag.StringVar(&Config.MappingInfoFile, "mapping-info-file", "", "Local genre/tag mapping table path (mdc mapping_info.xml format)")
+	flag.StringVar(&Config.ActorFallback, "actor-fallback", "JavBus", "CSV of providers used to fill missing actors (empty disables)")
 	flag.BoolVar(&Config.MappingOnline, "mapping-online", true, "Enable online actor-mapping source sync")
 	flag.DurationVar(&Config.MappingSyncInterval, "mapping-sync-interval", 24*time.Hour, "Online mapping sync interval")
 
@@ -163,6 +169,9 @@ func applyMetaTubeEnvOverrides() {
 	}
 	if v := os.Getenv("MT_MAPPING_INFO_FILE"); v != "" {
 		Config.MappingInfoFile = v
+	}
+	if v := os.Getenv("MT_ACTOR_FALLBACK"); v != "" {
+		Config.ActorFallback = v
 	}
 	if v := os.Getenv("MT_MAPPING_ONLINE"); v != "" {
 		if b, err := strconv.ParseBool(v); err == nil {
@@ -290,7 +299,46 @@ func buildEnrichPipeline() *enrich.Pipeline {
 	if Config.Translate && Config.TranslateEngines != "" {
 		cfg.Translator = buildTranslator()
 	}
+	cfg.ActorFallback = buildActorFallback()
 	return enrich.New(cfg)
+}
+
+// buildActorFallback returns a lookup that fills in actors when a provider
+// returned none (compilations, amateur titles). It is deliberately narrow —
+// one rule, "no actors? ask the next source" — instead of the old generic
+// cross-provider field merge, which needed a proxy passthrough and a
+// per-field matrix to reach the same practical outcome.
+//
+// Failures are ignored: a dead fallback source must never break a scrape.
+func buildActorFallback() func(number string) []string {
+	providers := make([]provider.MovieProvider, 0, 2)
+	for _, name := range strings.Split(Config.ActorFallback, ",") {
+		if name = strings.TrimSpace(name); name == "" {
+			continue
+		}
+		p, err := provider.GetMovieProviderByName(name)
+		if err != nil {
+			log.Printf("[enrich] actor fallback %q unavailable: %v", name, err)
+			continue
+		}
+		providers = append(providers, p)
+	}
+	if len(providers) == 0 {
+		return nil
+	}
+	return func(number string) []string {
+		for _, p := range providers {
+			info, err := p.GetMovieInfoByID(number)
+			if err != nil || info == nil {
+				continue
+			}
+			if actors := []string(info.Actors); len(actors) > 0 {
+				log.Printf("[enrich] %s: actors filled by %s", number, p.Name())
+				return actors
+			}
+		}
+		return nil
+	}
 }
 
 // buildTranslator creates a failover-capable metadata translator from the

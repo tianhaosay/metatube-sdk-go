@@ -97,6 +97,34 @@ func TestApply_DisableSummary(t *testing.T) {
 	}
 }
 
+func TestApply_ActorFallback(t *testing.T) {
+	calls := 0
+	p := New(Config{
+		Actors: fakeActors{"JavDB Actress": "中文名"},
+		ActorFallback: func(number string) []string {
+			calls++
+			if number == "ABC-001" {
+				return []string{"JavDB Actress"}
+			}
+			return nil
+		},
+	})
+
+	// No actors -> fallback fills them, then mapping canonicalizes.
+	info := &model.MovieInfo{Number: "ABC-001"}
+	p.Apply(info)
+	if len(info.Actors) != 1 || info.Actors[0] != "中文名" {
+		t.Fatalf("fallback actors = %v", info.Actors)
+	}
+
+	// Actors present -> fallback must not be called.
+	info2 := &model.MovieInfo{Number: "ABC-002", Actors: []string{"有演员"}}
+	p.Apply(info2)
+	if calls != 1 {
+		t.Fatalf("fallback should only run for movies without actors, ran %d times", calls)
+	}
+}
+
 func TestCollapseNewlines(t *testing.T) {
 	got := collapseNewlines("\n\na\n\n\n\nb\n\n")
 	if got != "a\nb" {
