@@ -39,6 +39,8 @@ type RefreshOptions struct {
 	// BatchSize / BatchPauseSec insert a longer pause every N items.
 	BatchSize     int `json:"batch_size"`
 	BatchPauseSec int `json:"batch_pause_sec"`
+	// PathPrefix limits the run to one folder subtree (e.g. .../JAV/JAV2).
+	PathPrefix string `json:"path_prefix"`
 }
 
 // StartRefresh validates the request and starts the background job.
@@ -187,7 +189,7 @@ func collectRefreshIDs(client *EmbyClient, c *Config, opts RefreshOptions) ([]st
 	}
 
 	if opts.Scope == "problems" {
-		res, err := Audit(AuditRequest{LibraryID: libraryID, Offset: 0, Limit: 100000})
+		res, err := Audit(AuditRequest{LibraryID: libraryID, PathPrefix: opts.PathPrefix, Offset: 0, Limit: 100000})
 		if err != nil {
 			return nil, err
 		}
@@ -206,6 +208,9 @@ func collectRefreshIDs(client *EmbyClient, c *Config, opts RefreshOptions) ([]st
 			return nil, fmt.Errorf("读取媒体库失败: %w", err)
 		}
 		for _, it := range items {
+			if opts.PathPrefix != "" && !strings.HasPrefix(it.Path, opts.PathPrefix) {
+				continue
+			}
 			ids = append(ids, it.Id)
 		}
 		start += len(items)

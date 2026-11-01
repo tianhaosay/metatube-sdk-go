@@ -23,8 +23,11 @@ const (
 // AuditRequest scopes one completeness scan.
 type AuditRequest struct {
 	LibraryID string `json:"library_id"`
-	Offset    int    `json:"offset"`
-	Limit     int    `json:"limit"`
+	// PathPrefix limits the scan to items whose file path starts with it
+	// (e.g. /media/litepan-strm/JAV/JAV2), so one folder can be audited alone.
+	PathPrefix string `json:"path_prefix"`
+	Offset     int    `json:"offset"`
+	Limit      int    `json:"limit"`
 }
 
 // AuditIssue is one movie that fails the completeness rules.
@@ -94,6 +97,9 @@ func Audit(req AuditRequest) (*AuditResult, error) {
 			res.Total = total
 		}
 		for _, it := range items {
+			if req.PathPrefix != "" && !strings.HasPrefix(it.Path, req.PathPrefix) {
+				continue
+			}
 			res.Checked++
 			problems := auditItem(it)
 			if len(problems) == 0 {

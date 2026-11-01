@@ -99,6 +99,15 @@
       <section id="page-audit" class="hide">
         <div class="card">
           <div class="row">
+            <label class="muted">范围：</label>
+            <select id="pathSel" style="max-width:520px" onchange="onPathChange()">
+              <option value="">全部（配置的媒体库）</option>
+            </select>
+            <span class="muted" id="pathHint"></span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="row">
             <button onclick="runAudit()">开始体检</button>
             <span class="muted" id="auditMsg">扫描全库，找出不符合“中文标题 / 中文流派 / 演员已归一 / 有封面”的条目</span>
           </div>
@@ -377,7 +386,8 @@ async function runAudit(filter){
   auditFilter = filter||'';
   $('auditMsg').textContent='扫描中…';
   try{
-    auditData = await api('/manage/api/audit?offset='+auditOffset+'&limit='+auditLimit);
+    const pp=$('pathSel')?$('pathSel').value:'';
+    auditData = await api('/manage/api/audit?offset='+auditOffset+'&limit='+auditLimit+(pp?('&path_prefix='+encodeURIComponent(pp)):''));
     $('auditMsg').textContent = '扫描完成：共 '+auditData.total+' 部，合格 '+auditData.ok+'，有问题 '+auditData.problem_count;
     const g = auditData.groups||{};
     $('auditSummary').innerHTML = Object.keys(ISSUE_LABEL).map(k=>{
@@ -516,6 +526,7 @@ let settings=null;
 async function startRefresh(){
   const body={
     scope: $('rfScope').value,
+    path_prefix: $('pathSel')?$('pathSel').value:'',
     limit: parseInt($('rfLimit').value||'0',10)||0,
     item_delay_ms: parseInt($('rfDelay').value||'200',10)||200,
     batch_size: parseInt($('rfBatch').value||'200',10)||200,
@@ -544,6 +555,25 @@ function pollRefresh(){
       if(!s.running){ clearInterval(rfTimer); rfTimer=null; }
     }catch(e){ clearInterval(rfTimer); rfTimer=null; }
   }, 1500);
+}
+async function loadPaths(){
+  try{
+    const groups = await api('/manage/api/paths');
+    const sel = $('pathSel'); if(!sel) return;
+    groups.forEach(function(g){
+      (g.items||[]).forEach(function(f){
+        if(!f.path) return;
+        const o=document.createElement('option');
+        o.value=f.path; o.textContent=f.path.replace('/media/','');
+        sel.appendChild(o);
+      });
+    });
+  }catch(e){}
+}
+function onPathChange(){
+  const v=$('pathSel').value;
+  $('pathHint').textContent = v ? ('仅处理：'+v) : '';
+  auditOffset = 0;
 }
 async function loadSettings(){
   try{ settings=await api('/manage/api/settings'); }catch(e){ return; }
@@ -645,6 +675,7 @@ async function loadConsistency(){
 }
 
 refreshAll();
+loadPaths();
 loadSettings();
 pollRefresh();
 setInterval(loadStatus, 30000);

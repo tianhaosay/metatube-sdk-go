@@ -97,3 +97,34 @@ func (c *EmbyClient) UpdatePersonFields(itemID string, patch map[string]any) err
 	}
 	return c.do(http.MethodPost, "/Items/"+url.PathEscape(itemID), nil, dto, nil)
 }
+
+// FolderRef is one folder entry shown in the console's folder picker.
+type FolderRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Path string `json:"path"`
+}
+
+// ListFolders returns the direct child folders of a library (or folder).
+func (c *EmbyClient) ListFolders(parentID string) []FolderRef {
+	q := url.Values{}
+	q.Set("ParentId", parentID)
+	q.Set("IncludeItemTypes", "Folder")
+	q.Set("Fields", "Path")
+	q.Set("Limit", "200")
+	var page struct {
+		Items []struct {
+			Id   string `json:"Id"`
+			Name string `json:"Name"`
+			Path string `json:"Path"`
+		} `json:"Items"`
+	}
+	out := make([]FolderRef, 0, 8)
+	if err := c.do(http.MethodGet, "/Items", q, nil, &page); err != nil {
+		return out
+	}
+	for _, it := range page.Items {
+		out = append(out, FolderRef{ID: it.Id, Name: it.Name, Path: it.Path})
+	}
+	return out
+}

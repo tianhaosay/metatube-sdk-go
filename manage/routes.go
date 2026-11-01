@@ -30,6 +30,7 @@ func RegisterRoutes(r gin.IRouter, apiMiddleware ...gin.HandlerFunc) {
 		api.POST("/refresh/start", postRefreshStart)
 		api.POST("/refresh/stop", postRefreshStop)
 		api.GET("/refresh/status", getRefreshStatus)
+		api.GET("/paths", getPaths)
 		api.POST("/mapping/sync", postSyncMapping)
 		api.GET("/duplicates", getDuplicates)
 		api.POST("/duplicates/resolve", postResolveDuplicate)
@@ -354,4 +355,22 @@ func postRefreshStop(c *gin.Context) {
 
 func getRefreshStatus(c *gin.Context) {
 	jsonOK(c, RefreshStatus())
+}
+// getPaths lists the first-level folders of the configured library so the UI
+// can offer "refresh only this folder" without asking for an item id.
+func getPaths(c *gin.Context) {
+	cfg := getConfig()
+	if cfg == nil {
+		return
+	}
+	client, err := newEmbyClient(cfg)
+	if err != nil {
+		jsonErr(c, err)
+		return
+	}
+	res := make([]map[string]any, 0, 8)
+	for _, lib := range cfg.EmbyLibraryIDs {
+		res = append(res, map[string]any{"library_id": lib, "items": client.ListFolders(lib)})
+	}
+	jsonOK(c, res)
 }
