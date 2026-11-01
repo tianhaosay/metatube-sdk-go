@@ -89,6 +89,10 @@ var (
 // parseLogLine derives level/source/number from a raw log line. Parsing is
 // heuristic on purpose: unmatched fields default gracefully.
 func parseLogLine(line string) LogEntry {
+	// Machine-readable scrape/fallback lines get a readable rewrite first.
+	if e, ok := parseStructured(line); ok {
+		return e
+	}
 	e := LogEntry{
 		Time:    time.Now().Format("15:04:05.000"),
 		Level:   "INFO",
