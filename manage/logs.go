@@ -194,20 +194,32 @@ func InstallLogCapture() *log.Logger {
 // structuredRe matches the machine-readable scrape/fallback lines emitted by
 // the engine, e.g.
 //   [SCRAPE] number=START-015 provider=FANZA result=ok ms=812 actors=4 genres=8
-var structuredRe = regexp.MustCompile(`^\[(SCRAPE|FALLBACK)\]\s+(.*)$`)
+var srcBracketRe = regexp.MustCompile(`^\[([A-Za-z]+)\]\s+`)
 var kvRe = regexp.MustCompile(`(\w+)=("([^"]*)"|\S+)`)
 var structuredDateRe = regexp.MustCompile(`^\d{4}/\d{2}/\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?\s+`)
 
 // parseStructured turns a key=value log line into a readable Chinese message.
+// The raw line may arrive as "[ENGINE] 2026/11/01 13:44:16 [FALLBACK] number=…",
+// so bracket prefixes and the date are stripped first.
 func parseStructured(line string) (LogEntry, bool) {
-	trimmed := strings.TrimSpace(structuredDateRe.ReplaceAllString(strings.TrimSpace(line), ""))
-	m := structuredRe.FindStringSubmatch(trimmed)
-	if m == nil {
+	s := strings.TrimSpace(line)
+	kind := ""
+	for {
+		m := srcBracketRe.FindStringSubmatch(s)
+		if m == nil {
+			break
+		}
+		if m[1] == "SCRAPE" || m[1] == "FALLBACK" {
+			kind = m[1]
+		}
+		s = strings.TrimSpace(s[len(m[0]):])
+	}
+	s = strings.TrimSpace(structuredDateRe.ReplaceAllString(s, ""))
+	if kind == "" {
 		return LogEntry{}, false
 	}
-	kind := m[1]
 	fields := map[string]string{}
-	for _, kv := range kvRe.FindAllStringSubmatch(m[2], -1) {
+	for _, kv := range kvRe.FindAllStringSubmatch(s, -1) {
 		val := kv[2]
 		if kv[3] != "" {
 			val = kv[3]
