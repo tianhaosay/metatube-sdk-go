@@ -24,7 +24,6 @@ type RefreshJob struct {
 	current   string
 	startedAt   time.Time
 	baseAnswers int64
-	sent        int
 	finished  bool
 	err       string
 }
