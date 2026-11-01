@@ -303,7 +303,7 @@ func auditItem(it embyItem) []string {
 		}
 	}
 
-	for _, g := range it.Genres {
+	for _, g := range it.GenresForAudit() {
 		if kanaRe.MatchString(g) {
 			problems = append(problems, IssueGenreJapanese)
 			break

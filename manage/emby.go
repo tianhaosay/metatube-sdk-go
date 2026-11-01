@@ -116,12 +116,57 @@ type embyItem struct {
 	ImageTags   map[string]string `json:"ImageTags"`
 	ProviderIds map[string]string `json:"ProviderIds"`
 	Genres      []string          `json:"Genres"`
+	Studios     []struct {
 	Overview    string            `json:"Overview"`
 	Path        string            `json:"Path"`
+	Studios     []struct {
+		Name string `json:"Name"`
+	} `json:"Studios"`
 	People      []struct {
 		Name string `json:"Name"`
 		Type string `json:"Type"`
 	} `json:"People"`
+}
+
+// GenresForAudit returns the "type" genres only. Studio / series / actor names
+// that the provider packed into the genre list are removed, and Emby's separate
+// Tags and Studios collections are never consulted: only 类型 is audited.
+func (i embyItem) GenresForAudit() []string {
+	skip := map[string]struct{}{}
+	for _, s := range i.Studios {
+		if s.Name != "" {
+			skip[strings.ToLower(strings.TrimSpace(s.Name))] = struct{}{}
+		}
+	}
+	for _, p := range i.People {
+		if p.Name != "" {
+			skip[strings.ToLower(strings.TrimSpace(p.Name))] = struct{}{}
+		}
+	}
+	prefixes := []string{"片商:", "片商：", "系列:", "系列：", "厂商:", "厂商：", "studio:", "series:", "maker:", "label:"}
+	out := make([]string, 0, len(i.Genres))
+	for _, g := range i.Genres {
+		name := strings.TrimSpace(g)
+		if name == "" {
+			continue
+		}
+		low := strings.ToLower(name)
+		skipIt := false
+		for _, p := range prefixes {
+			if strings.HasPrefix(low, p) {
+				skipIt = true
+				break
+			}
+		}
+		if skipIt {
+			continue
+		}
+		if _, ok := skip[low]; ok {
+			continue
+		}
+		out = append(out, name)
+	}
+	return out
 }
 
 // Actors returns the actor names attached to the item.
