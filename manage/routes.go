@@ -28,6 +28,8 @@ func RegisterRoutes(r gin.IRouter, apiMiddleware ...gin.HandlerFunc) {
 		api.POST("/mapping/sync", postSyncMapping)
 		api.GET("/duplicates", getDuplicates)
 		api.POST("/duplicates/resolve", postResolveDuplicate)
+		api.POST("/duplicates/resolve-all", postResolveAllDuplicates)
+		api.POST("/duplicates/rollback", postRollbackMerge)
 		api.GET("/avatars/missing", getMissingAvatars)
 		api.POST("/avatars/complete", postCompleteAvatars)
 		api.GET("/avatars/progress", getAvatarProgress)
@@ -204,6 +206,26 @@ func postResolveDuplicate(c *gin.Context) {
 		return
 	}
 	res, err := ResolveDuplicate(req.TargetID, req.SourceIDs)
+	if err != nil {
+		jsonErr(c, err)
+		return
+	}
+	jsonOK(c, res)
+}
+
+// postResolveAllDuplicates merges every detected duplicate group at once.
+func postResolveAllDuplicates(c *gin.Context) {
+	res, err := ResolveAllDuplicates()
+	if err != nil {
+		jsonErr(c, err)
+		return
+	}
+	jsonOK(c, res)
+}
+
+// postRollbackMerge restores the person links recorded by the last merge batch.
+func postRollbackMerge(c *gin.Context) {
+	res, err := RollbackLastMerge()
 	if err != nil {
 		jsonErr(c, err)
 		return

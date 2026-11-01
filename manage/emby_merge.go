@@ -112,3 +112,22 @@ func (c *EmbyClient) TriggerLibraryScan() (bool, error) {
 	}
 	return false, fmt.Errorf("emby 未找到媒体库扫描任务")
 }
+
+// PeopleOf returns the raw People array of an item (rollback snapshot).
+func (c *EmbyClient) PeopleOf(itemID string) (any, error) {
+	dto, err := c.itemDTO(itemID)
+	if err != nil {
+		return nil, err
+	}
+	return dto["People"], nil
+}
+
+// SetPeople replaces an item's People list (rollback path).
+func (c *EmbyClient) SetPeople(itemID string, people any) error {
+	dto, err := c.itemDTO(itemID)
+	if err != nil {
+		return err
+	}
+	dto["People"] = people
+	return c.do(http.MethodPost, "/Items/"+url.PathEscape(itemID), nil, dto, nil)
+}
