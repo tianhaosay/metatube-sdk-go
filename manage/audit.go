@@ -173,13 +173,21 @@ func auditItem(it embyItem) []string {
 	name := strings.TrimSpace(it.Name)
 	number := it.Number()
 
+	actors := it.Actors()
+	// Judge the title after dropping known actor names: many translated titles
+	// keep the original performer name at the end ("… 佐藤ののか"), which is
+	// useful context but not a sign of an untranslated title.
+	titleForTest := name
+	for _, a := range actors {
+		if a != "" && len(a) > 1 {
+			titleForTest = strings.ReplaceAll(titleForTest, a, "")
+		}
+	}
 	if name == "" || (number != "" && strings.EqualFold(name, number)) || !hasText(name) {
 		problems = append(problems, IssueTitleMissing)
-	} else if kanaRe.MatchString(name) {
+	} else if kanaRe.MatchString(titleForTest) {
 		problems = append(problems, IssueTitleJapanese)
 	}
-
-	actors := it.Actors()
 	if len(actors) == 0 {
 		problems = append(problems, IssueNoActors)
 	} else {
