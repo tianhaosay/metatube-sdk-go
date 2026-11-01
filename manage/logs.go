@@ -259,6 +259,10 @@ func parseStructured(line string) (LogEntry, bool) {
 		}
 	case "TRANSLATE":
 		field := fields["field"]
+			engine := fields["engine"]
+			if engine == "" {
+				engine = "unknown"
+			}
 		switch field {
 		case "title":
 			field = "标题"
@@ -268,9 +272,9 @@ func parseStructured(line string) (LogEntry, bool) {
 			field = "流派"
 		}
 		if from, to := fields["from"], fields["to"]; from != "" {
-			e.Message = fmt.Sprintf("%s · 翻译%s · %s · %s → %s", fields["number"], field, provider, from, to)
+			e.Message = fmt.Sprintf("%s · 翻译%s · %s · %s → %s", fields["number"], field, engine, from, to)
 		} else {
-			e.Message = fmt.Sprintf("%s · 翻译%s · %s · %s", fields["number"], field, provider, fields["text"])
+			e.Message = fmt.Sprintf("%s · 翻译%s · %s · %s", fields["number"], field, engine, fields["text"])
 		}
 	case "FALLBACK":
 		switch result {
