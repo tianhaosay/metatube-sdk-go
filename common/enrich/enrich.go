@@ -14,6 +14,7 @@
 package enrich
 
 import (
+	"log"
 	"regexp"
 	"strings"
 	"sync"
@@ -214,6 +215,9 @@ func (p *Pipeline) Apply(info *model.MovieInfo) {
 
 	// 4. Translation (title first: it is the field users notice).
 	if cfg.Translator == nil {
+		if kanaRe.MatchString(info.Title) {
+			log.Printf("[enrich] %s: no translator configured, keeping original title", info.Number)
+		}
 		return
 	}
 	target := cfg.TranslateLang
