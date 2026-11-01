@@ -379,26 +379,27 @@ func getPaths(c *gin.Context) {
 	for _, lib := range cfg.EmbyLibraryIDs {
 		roots := locations[lib]
 		items := make([]FolderRef, 0, 8)
-		// Sample movie paths to learn the layout: if movies sit one level deeper
-		// (root/category/actor/file) the categories are the useful scopes; if
-		// movies sit directly under a root (root/actor/file) the root itself is.
 		sample, _, _ := client.FetchMovies(lib, 0, 400)
 		for _, root := range roots {
 			root = strings.TrimRight(root, "/")
 			children := map[string]struct{}{}
-			deep := false
+			deepCount, sampled := 0, 0
 			for _, it := range sample {
 				if it.Path == "" || !pathInScope(it.Path, root) {
 					continue
 				}
 				rel := strings.TrimPrefix(strings.TrimPrefix(it.Path, root), "/")
 				segs := strings.Split(rel, "/")
+				sampled++
 				if len(segs) >= 3 {
-					deep = true
+					deepCount++
 					children[segs[0]] = struct{}{}
 				}
 			}
-			if deep && len(children) > 0 {
+			// Categories only make sense when most movies sit one level deeper
+			// (root/category/actor/file). A flat layout (root/actor/file) offers
+			// the root itself, and a huge child list means we guessed wrong.
+			if sampled > 0 && deepCount*2 > sampled && len(children) > 0 && len(children) <= 20 {
 				for ch := range children {
 					items = append(items, FolderRef{Name: ch, Path: root + "/" + ch})
 				}
