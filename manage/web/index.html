@@ -631,9 +631,10 @@ function pollRefresh(){
     try{
       const s=await api('/manage/api/refresh/status');
       $('rfBar').style.width=(s.percent||0)+'%';
-      $('rfText').textContent = s.running
-        ? s.done+'/'+s.total+'（'+s.percent+'%）· 成功 '+s.ok+' · 失败 '+s.failed+' · 已用 '+s.elapsed
-        : (s.total? '已结束：'+s.done+'/'+s.total+'（成功 '+s.ok+'，失败 '+s.failed+'）· 进度已保存，可再点「开始 / 继续」' : '空闲');
+      const ans=(s.answered!=null? s.answered : s.done);
+      if(!s.running && !s.total){ $('rfText').textContent='空闲'; }
+      else if(s.running){ $('rfText').textContent = '已派发 '+s.done+'/'+s.total+' · 后台已完成 '+ans+'/'+s.total+' · 成功 '+s.ok+' · 失败 '+s.failed+' · 已用 '+s.elapsed; }
+      else { $('rfText').textContent = '已结束：派发 '+s.done+'/'+s.total+' · 后台完成 '+ans+'/'+s.total+' · 成功 '+s.ok+' 失败 '+s.failed+' · 进度已保存'; }
       if(!s.running){ clearInterval(rfTimer); rfTimer=null; }
     }catch(e){ clearInterval(rfTimer); rfTimer=null; }
   }, 1500);
