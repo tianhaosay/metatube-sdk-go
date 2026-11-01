@@ -43,9 +43,21 @@ func (c *EmbyClient) RefreshMetadata(itemID string) error {
 	return c.do(http.MethodPost, "/Items/"+url.PathEscape(itemID)+"/Refresh", q, nil, nil)
 }
 
-// itemDTO loads a full item DTO. Person items are reliably readable through
-// /Items?Ids=..., not through /Items/{id} (which 404s on some versions).
+// itemDTO loads a full item DTO.
+//
+// Emby only returns the full DTO (the shape POST /Items/{id} accepts) through
+// the user-scoped endpoint; /Items?Ids= returns a partial object that the
+// update endpoint rejects with "Value cannot be null".
 func (c *EmbyClient) itemDTO(itemID string) (map[string]any, error) {
+	if uid := c.resolveUserID(); uid != "" {
+		var dto map[string]any
+		err := c.do(http.MethodGet,
+			"/Users/"+url.PathEscape(uid)+"/Items/"+url.PathEscape(itemID), nil, nil, &dto)
+		if err == nil && len(dto) > 0 {
+			return dto, nil
+		}
+	}
+
 	var page struct {
 		Items []map[string]any `json:"Items"`
 	}

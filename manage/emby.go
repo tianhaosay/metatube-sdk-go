@@ -36,6 +36,31 @@ func newEmbyClient(c *Config) (*EmbyClient, error) {
 	}, nil
 }
 
+// resolveUserID returns the configured user id, or discovers an administrator
+// id on first use. The user-scoped item endpoint is the only one that returns
+// a DTO Emby accepts back on POST /Items/{id}.
+func (c *EmbyClient) resolveUserID() string {
+	if c.userID != "" {
+		return c.userID
+	}
+	var users []struct {
+		Id     string `json:"Id"`
+		Policy struct {
+			IsAdministrator bool `json:"IsAdministrator"`
+		} `json:"Policy"`
+	}
+	if err := c.do(http.MethodGet, "/Users", nil, nil, &users); err != nil {
+		return ""
+	}
+	for _, u := range users {
+		if u.Policy.IsAdministrator {
+			c.userID = u.Id
+			return u.Id
+		}
+	}
+	return ""
+}
+
 func (c *EmbyClient) do(method, path string, query url.Values, body any, out any) error {
 	var reader io.Reader
 	if body != nil {
@@ -200,8 +225,7 @@ func (c *EmbyClient) FetchPersons(libraries []string) ([]Person, error) {
 	return persons, nil
 }
 
-// CountPersonMovies returns how many movies link to the person.
-func (c *EmbyClient) CountPersonMovies(personID string) (int, error) {
+// CountPersonMovies returns how many movies link to the person.func (c *EmbyClient) CountPersonMovies(personID string) (int, error) {
 	var page struct {
 		TotalRecordCount int `json:"TotalRecordCount"`
 	}
