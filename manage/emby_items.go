@@ -15,7 +15,7 @@ func (c *EmbyClient) FetchMovies(libraryID string, start, limit int) ([]embyItem
 	}
 	q.Set("Recursive", "true")
 	q.Set("IncludeItemTypes", "Movie")
-	q.Set("Fields", "Genres,People,Overview,ImageTags,ProviderIds,Path,ProductionYear")
+	q.Set("Fields", "Genres,Studios,People,Overview,ImageTags,ProviderIds,Path,ProductionYear")
 	q.Set("StartIndex", fmt.Sprint(start))
 	q.Set("Limit", fmt.Sprint(limit))
 
