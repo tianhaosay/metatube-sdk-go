@@ -304,26 +304,29 @@ func auditItem(it embyItem) (problems, notes []string) {
 		problems = append(problems, IssueNoActors)
 	} else {
 		// Only flag names the mapping table can turn into a real Chinese name.
-		// Male performers, crew names, and entries whose canonical name is
-		// still Japanese (the table has no Chinese for them) cannot be fixed,
-		// so they must not be reported.
+		// When the table has no Chinese for a performer, no refresh can fix it,
+		// so it becomes an informational note instead of a problem.
 		am := ActorMapping()
+		flagged, unmapped := false, false
 		for _, a := range actors {
 			if !kanaRe.MatchString(a) {
 				continue
 			}
 			if am == nil {
+				unmapped = true
 				continue
 			}
 			entry, ok := am.Lookup(a)
-			if !ok || entry == nil || entry.Name == "" {
+			if !ok || entry == nil || entry.Name == "" || kanaRe.MatchString(entry.Name) || !hanRe.MatchString(entry.Name) {
+				unmapped = true
 				continue
 			}
-			if kanaRe.MatchString(entry.Name) || !hanRe.MatchString(entry.Name) {
-				continue
-			}
+			flagged = true
+		}
+		if flagged {
 			problems = append(problems, IssueActorJapanese)
-			break
+		} else if unmapped {
+			notes = append(notes, IssueActorUnmapped)
 		}
 	}
 
