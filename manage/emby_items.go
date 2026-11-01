@@ -180,8 +180,11 @@ func (c *EmbyClient) WipeMetadata(itemID string) error {
 	dto["Overview"] = ""
 	dto["Taglines"] = []any{}
 	dto["Genres"] = []any{}
+	dto["GenreItems"] = []any{}
 	dto["Tags"] = []any{}
+	dto["TagItems"] = []any{}
 	dto["Studios"] = []any{}
+	dto["StudioItems"] = []any{}
 	dto["People"] = []any{}
 	dto["OfficialRating"] = ""
 	dto["CustomRating"] = ""
