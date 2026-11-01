@@ -28,8 +28,11 @@ type Settings struct {
 	// and credentials are configured here; the Emby/Jellyfin plugin keeps
 	// its own translation disabled.
 	Translate        bool   `json:"translate"`
-	TranslateEngines string `json:"translate_engines"` // primary,secondary
+	TranslateEngines string `json:"translate_engines"` // primary only; secondary is always googlefree
 	TranslateLang    string `json:"translate_lang"`
+	// TranslateTimeout is the per-engine timeout in seconds (default 15).
+	// When the primary exceeds it, the free Google engine takes over.
+	TranslateTimeout int `json:"translate_timeout,omitempty"`
 
 	// Translation engine credentials. Empty values fall back to the
 	// MT_TRANSLATE_<ENGINE>__<PARAM> environment variables.
