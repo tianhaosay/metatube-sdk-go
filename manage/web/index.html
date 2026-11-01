@@ -5,477 +5,581 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>metatube-plus 控制台</title>
 <style>
-  :root { --bg:#f4f5f7; --card:#fff; --line:#e2e8f0; --text:#0f172a; --muted:#64748b; --brand:#2563eb; --ok:#16a34a; --warn:#d97706; --bad:#dc2626; }
-  * { box-sizing:border-box; }
-  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--text); }
-  .topbar { background:#1e293b; color:#fff; padding:10px 16px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; position:sticky; top:0; z-index:5; }
-  .topbar b { font-size:15px; margin-right:12px; }
-  .tab { padding:6px 12px; border-radius:6px; font-size:13px; color:#94a3b8; cursor:pointer; border:0; background:none; }
-  .tab.active { background:#334155; color:#e2e8f0; }
-  .status { margin-left:auto; font-size:12px; color:#94a3b8; }
-  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e; margin-right:4px; }
-  .wrap { max-width:980px; margin:0 auto; padding:16px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:14px; }
-  .card h2 { font-size:15px; margin:0 0 10px; }
-  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  .kv { font-size:13px; color:var(--muted); margin:2px 0; }
-  .kv b { color:var(--text); }
-  button { background:var(--brand); color:#fff; border:0; border-radius:8px; padding:7px 13px; font-size:13px; cursor:pointer; }
-  button:disabled { opacity:.5; cursor:not-allowed; }
-  button.secondary { background:#e2e8f0; color:var(--text); }
-  button.danger { background:var(--bad); }
-  button.ok { background:var(--ok); }
-  input, select { padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:13px; background:#fff; }
-  .bar { height:8px; background:#e2e8f0; border-radius:4px; overflow:hidden; margin:8px 0; }
-  .bar>div { height:100%; background:var(--brand); width:0; transition:width .4s; }
-  table { width:100%; border-collapse:collapse; font-size:12.5px; margin-top:8px; }
-  th,td { text-align:left; padding:5px 7px; border-bottom:1px solid var(--line); vertical-align:top; }
-  th { color:var(--muted); font-weight:500; }
-  .pill { display:inline-block; padding:1px 7px; border-radius:9px; font-size:11px; }
-  .pill.ok { background:#dcfce7; color:var(--ok); }
-  .pill.no { background:#fee2e2; color:var(--bad); }
-  .pill.warn { background:#fef3c7; color:var(--warn); }
-  .muted { color:var(--muted); font-size:12.5px; }
-  .fail { color:var(--bad); font-size:12px; }
-  details { margin-top:6px; }
-  summary { cursor:pointer; font-size:13px; color:var(--muted); }
-  .logbox { background:#0f172a; border-radius:10px; padding:10px 12px; max-height:460px; overflow-y:auto; font-family:ui-monospace,Consolas,monospace; font-size:11.5px; line-height:1.7; }
-  .logbox .t { color:#64748b; }
-  .logbox .src { color:#7dd3fc; margin:0 6px; }
-  .logbox .num { color:#fbbf24; margin:0 6px; }
-  .logbox .lv-ERROR { color:#f87171; font-weight:bold; }
-  .logbox .lv-WARN { color:#f59e0b; }
-  .logbox .lv-INFO { color:#94a3b8; }
-  .msg { color:#cbd5e1; }
-  .chip { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; margin-right:4px; }
-  .chip.ok { background:#dcfce7; color:var(--ok); }
-  .chip.bad { background:#fee2e2; color:var(--bad); }
-  .hidden { display:none; }
-  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  @media (max-width:700px){ .grid2{grid-template-columns:1fr;} }
-  label.fld { display:block; font-size:12px; color:var(--muted); margin:8px 0 3px; }
+  :root{--bg:#f6f7f9;--panel:#fff;--line:#e5e8ee;--text:#0f172a;--muted:#64748b;--brand:#2563eb;--ok:#16a34a;--warn:#d97706;--bad:#dc2626}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text)}
+  a{color:var(--brand);text-decoration:none}
+  .app{display:flex;min-height:100vh}
+  .side{width:190px;background:#0f172a;color:#cbd5e1;padding:14px 10px;position:sticky;top:0;height:100vh}
+  .side h1{font-size:14px;color:#fff;margin:4px 8px 14px;letter-spacing:.5px}
+  .nav{display:block;padding:8px 10px;border-radius:8px;color:#cbd5e1;font-size:13.5px;cursor:pointer;margin-bottom:2px}
+  .nav:hover{background:#1e293b}
+  .nav.active{background:#1e293b;color:#fff}
+  .main{flex:1;min-width:0}
+  .top{background:var(--panel);border-bottom:1px solid var(--line);padding:10px 18px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5;flex-wrap:wrap}
+  .top .sp{flex:1}
+  .chip{font-size:12px;padding:3px 9px;border-radius:999px;background:#f1f5f9;color:var(--muted);display:inline-flex;align-items:center;gap:5px}
+  .chip.ok{background:#dcfce7;color:#15803d}.chip.bad{background:#fee2e2;color:#b91c1c}.chip.warn{background:#fef3c7;color:#b45309}
+  .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+  .wrap{padding:16px 18px 40px;max-width:1180px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+  .card h2{font-size:14px;margin:0 0 10px}
+  .grid{display:grid;gap:12px}
+  .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  @media(max-width:900px){.g2,.g3{grid-template-columns:1fr}.side{display:none}}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  button{background:var(--brand);color:#fff;border:0;border-radius:8px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  button.sec{background:#eef2f7;color:var(--text)}
+  button.danger{background:var(--bad)}
+  input,select,textarea{padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:#fff;width:100%}
+  label.f{display:block;font-size:12px;color:var(--muted);margin:8px 0 4px}
+  .muted{color:var(--muted);font-size:12.5px}
+  .kv{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:4px 0;border-bottom:1px dashed var(--line)}
+  .kv:last-child{border:0}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:500;white-space:nowrap}
+  .pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px}
+  .pill.ok{background:#dcfce7;color:#15803d}.pill.bad{background:#fee2e2;color:#b91c1c}.pill.warn{background:#fef3c7;color:#b45309}.pill.gray{background:#f1f5f9;color:#475569}
+  .bar{height:8px;background:#e5e8ee;border-radius:999px;overflow:hidden;margin:8px 0}
+  .bar>i{display:block;height:100%;background:var(--brand);width:0;transition:width .3s}
+  .log{background:#0f172a;border-radius:10px;padding:10px 12px;max-height:440px;overflow:auto;font-family:ui-monospace,Consolas,monospace;font-size:11.5px;line-height:1.7;color:#cbd5e1}
+  .log .t{color:#64748b}.log .src{color:#7dd3fc;margin:0 6px}.log .num{color:#fbbf24;margin:0 6px}
+  .log .lv-ERROR{color:#f87171;font-weight:700}.log .lv-WARN{color:#f59e0b}.log .lv-INFO{color:#94a3b8}
+  .hide{display:none}
+  .notice{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:10px;padding:9px 12px;font-size:12.5px;margin:8px 0}
+  .okbox{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:10px;padding:9px 12px;font-size:12.5px;margin:8px 0}
+  details summary{cursor:pointer;color:var(--muted);font-size:12.5px}
+  .moviebox{max-height:150px;overflow:auto;font-size:12px;color:var(--muted);margin-top:4px}
+  .toast{position:fixed;right:16px;bottom:16px;background:#0f172a;color:#fff;padding:9px 14px;border-radius:10px;font-size:13px;opacity:0;transition:.25s;z-index:99}
+  .toast.show{opacity:1}
 </style>
 </head>
 <body>
-<div class="topbar">
-  <b>metatube-plus</b>
-  <button class="tab active" data-page="query">🔍 查询</button>
-  <button class="tab" data-page="logs">📜 日志自查</button>
-  <button class="tab" data-page="actors">👥 演员管理</button>
-  <button class="tab" data-page="settings">⚙️ 设置</button>
-  <span class="status"><span class="dot"></span><span id="statusMini">…</span></span>
+<div class="app">
+  <aside class="side">
+    <h1>metatube-plus</h1>
+    <div class="nav active" data-page="overview">概览</div>
+    <div class="nav" data-page="audit">库体检</div>
+    <div class="nav" data-page="actors">演员管理</div>
+    <div class="nav" data-page="translate">翻译</div>
+    <div class="nav" data-page="sources">数据源与映射</div>
+    <div class="nav" data-page="logs">日志</div>
+    <div class="nav" data-page="advanced">高级</div>
+    <p class="muted" style="margin:18px 8px 0;font-size:11px;line-height:1.6">Emby 插件那侧：<br>Token 留空、翻译 Disabled<br>其余交给这里</p>
+  </aside>
+
+  <main class="main">
+    <div class="top">
+      <div class="chip" id="chipEmby"><span class="dot"></span>Emby</div>
+      <div class="chip" id="chipMapping"><span class="dot"></span>映射</div>
+      <div class="chip" id="chipTranslate"><span class="dot"></span>翻译</div>
+      <div class="sp"></div>
+      <button class="sec" onclick="refreshAll()">刷新状态</button>
+    </div>
+
+    <div class="wrap">
+      <section id="page-overview">
+        <div class="card">
+          <h2>运行状态</h2>
+          <div class="grid g3" id="statCards"></div>
+        </div>
+        <div class="card">
+          <h2>Emby 插件联动</h2>
+          <div id="pluginState" class="muted">读取中…</div>
+        </div>
+        <div class="card">
+          <h2>最近日志</h2>
+          <div class="log" id="overviewLog">加载中…</div>
+        </div>
+      </section>
+
+      <section id="page-audit" class="hide">
+        <div class="card">
+          <div class="row">
+            <button onclick="runAudit()">开始体检</button>
+            <span class="muted" id="auditMsg">扫描全库，找出不符合“中文标题 / 中文流派 / 演员已归一 / 有封面”的条目</span>
+          </div>
+          <div id="auditSummary" style="margin-top:12px"></div>
+        </div>
+        <div class="card hide" id="auditListCard">
+          <div class="row">
+            <strong style="font-size:13px">问题清单</strong>
+            <span class="muted" id="auditCount"></span>
+            <button class="sec" onclick="selectAllIssues()">全选本页</button>
+            <button onclick="refreshSelected()">重刮选中</button>
+            <button class="sec" onclick="auditPrev()">上一页</button>
+            <button class="sec" onclick="auditNext()">下一页</button>
+          </div>
+          <div id="auditIssues" style="margin-top:10px"></div>
+        </div>
+      </section>
+
+      <section id="page-actors" class="hide">
+        <div class="card">
+          <h2>重复演员（合并前请核对影片清单）</h2>
+          <div class="row">
+            <button onclick="detectDup()">开始检测</button>
+            <button class="danger" onclick="resolveAll()">全部合并（推荐项）</button>
+            <button class="sec" onclick="rollbackMerge()">撤销上次合并</button>
+            <span class="muted" id="dupMsg"></span>
+          </div>
+          <div id="dupResult" style="margin-top:10px"></div>
+          <div id="ignoredBox" style="margin-top:10px"></div>
+        </div>
+        <div class="card">
+          <h2>资料与头像补全</h2>
+          <div class="row">
+            <button onclick="scanAvatars()">扫描缺头像</button>
+            <button onclick="completeAvatars()">开始补全</button>
+            <button class="sec" onclick="renameActors()">批量改名（日文→中文）</button>
+            <span class="muted" id="avaMsg"></span>
+          </div>
+          <div class="bar"><i id="avaBar"></i></div>
+          <div class="muted" id="avaProgress"></div>
+          <div id="avaResult" style="margin-top:8px"></div>
+        </div>
+      </section>
+
+      <section id="page-translate" class="hide">
+        <div class="card">
+          <h2>翻译设置</h2>
+          <p class="muted" style="margin:0 0 6px">由后端独占。Emby 插件里「翻译模式」必须是 <b>Disabled</b>，否则同一段文字会被翻两次。</p>
+          <div class="grid g2">
+            <div>
+              <label class="f"><input type="checkbox" id="tEnable" style="width:auto"> 启用翻译</label>
+              <label class="f">主翻译引擎</label>
+              <select id="tPrimary">
+                <option value="baidu">百度（有免费额度，中文质量好）</option>
+                <option value="deepl">DeepL（付费，质量最好）</option>
+                <option value="openai">OpenAI 兼容接口</option>
+                <option value="google">Google 官方 API（需 key）</option>
+                <option value="googlefree">Google 免费（无需 key）</option>
+              </select>
+              <label class="f">目标语言</label>
+              <input id="tLang" placeholder="zh-CN">
+              <label class="f">主引擎超时（秒）</label>
+              <input id="tTimeout" placeholder="15">
+              <p class="muted">次引擎固定为 <b>Google 免费</b>；主引擎超时 / 报错 / 返回空时自动接管。</p>
+            </div>
+            <div>
+              <label class="f">百度 App ID</label>
+              <input id="kBaiduId">
+              <label class="f">百度 App Key</label>
+              <input id="kBaiduKey" type="password">
+              <label class="f">DeepL API Key</label>
+              <input id="kDeeplKey" type="password">
+              <label class="f">DeepL API URL（可选）</label>
+              <input id="kDeeplUrl" placeholder="https://api-free.deepl.com/v2">
+              <label class="f">OpenAI Key / URL / 模型</label>
+              <input id="kOpenaiKey" type="password" placeholder="sk-...">
+              <input id="kOpenaiUrl" placeholder="http://192.168.1.3:1234/v1" style="margin-top:6px">
+              <input id="kOpenaiModel" placeholder="model" style="margin-top:6px">
+            </div>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <button onclick="saveTranslate()">保存并立即生效</button>
+            <button class="sec" onclick="testTranslate()">测试翻译</button>
+            <span class="muted" id="tMsg"></span>
+          </div>
+          <div id="tResult" style="margin-top:8px"></div>
+        </div>
+      </section>
+
+      <section id="page-sources" class="hide">
+        <div class="card">
+          <h2>数据源</h2>
+          <div class="grid g2">
+            <div>
+              <label class="f">FANZA(DMM) 冷却间隔</label>
+              <input id="sFanza" placeholder="0 = 关闭（默认）">
+              <p class="muted">DMM 反爬是间歇性的；批量大刮削可设 3s。</p>
+            </div>
+            <div>
+              <label class="f">JavDB 冷却间隔（该源默认关闭）</label>
+              <input id="sJavdb" placeholder="10s">
+              <p class="muted">JavDB 只作为「缺演员」时的兜底，不参与常规搜索。</p>
+            </div>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button onclick="saveRateLimits()">保存冷却</button>
+            <span class="muted" id="rateMsg"></span>
+          </div>
+        </div>
+        <div class="card">
+          <h2>演员映射表</h2>
+          <div id="mappingInfo" class="muted">读取中…</div>
+          <div class="row" style="margin-top:8px">
+            <button onclick="syncMapping()">立即同步</button>
+            <span class="muted" id="syncMsg"></span>
+          </div>
+          <p class="muted">来源：GitHub <b>li-peifeng/Jav-Actors-Mapping</b>（raw / jsDelivr 多路回落）。
+            <b>与 avdb 容器无关</b>，只要这台机器能访问 GitHub 即可；默认每日自动同步。</p>
+        </div>
+        <div class="card">
+          <h2>演员兜底</h2>
+          <div class="kv"><span>触发条件</span><b>仅当主源没有演员</b></div>
+          <div class="kv"><span>兜底顺序</span><b id="fbOrder">读取中…</b></div>
+          <div class="kv"><span>负缓存</span><b>查不到记住 12 小时</b></div>
+          <p class="muted">JavBus 的演员信息照搬 DMM，所以 DMM 缺的它也缺；真正能补的是 JavDB。
+            改动请设环境变量 <code>MT_ACTOR_FALLBACK</code>（默认 JavDB）。</p>
+        </div>
+      </section>
+
+      <section id="page-logs" class="hide">
+        <div class="card">
+          <div class="row">
+            <input id="logNum" placeholder="按番号过滤，如 START-015" style="max-width:220px" onkeydown="if(event.key=='Enter')loadLogs()">
+            <select id="logLevel" style="max-width:150px"><option value="">级别：全部</option><option value="ERROR">仅错误</option><option value="WARN">警告</option><option value="INFO">信息</option></select>
+            <select id="logSource" style="max-width:170px"><option value="">来源：全部</option><option value="FANZA">FANZA</option><option value="JavDB">JavDB</option><option value="TRANSLATE">翻译</option><option value="ENGINE">引擎</option><option value="API">接口</option></select>
+            <button onclick="loadLogs()">刷新</button>
+            <label class="muted"><input type="checkbox" id="logAuto" style="width:auto" onchange="toggleAuto()"> 自动刷新</label>
+            <span class="muted" id="logCount"></span>
+          </div>
+          <div class="log" id="logbox" style="margin-top:10px">输入番号或直接刷新…</div>
+        </div>
+      </section>
+
+      <section id="page-advanced" class="hide">
+        <div class="card">
+          <h2>一致性信息</h2>
+          <pre class="muted" id="consistency" style="white-space:pre-wrap">读取中…</pre>
+        </div>
+        <div class="card">
+          <h2>回滚与维护</h2>
+          <div class="row">
+            <button class="sec" onclick="rollbackMerge()">撤销上一次演员合并</button>
+            <button class="sec" onclick="syncMapping()">重新同步映射表</button>
+          </div>
+          <p class="muted">合并日志与忽略名单都在映射表目录：<code>merge_log.json</code> / <code>ignore_duplicates.json</code> / <code>genre_dict.json</code>。</p>
+        </div>
+        <div class="card">
+          <h2>操作注意事项</h2>
+          <div class="notice">Emby 里永远不要点「替换全部元数据」——会把本地中文元数据覆盖成源站语言。只允许“刷新元数据（不替换）”。</div>
+          <div class="okbox">日常不需要改代码：翻译、冷却、映射同步、体检、批量修复、演员合并都有按钮。</div>
+        </div>
+      </section>
+    </div>
+  </main>
 </div>
-<div class="wrap">
-  <input id="token" class="hidden" type="password" placeholder="访问令牌（首次使用填写）">
-  <button id="tokenBtn" class="secondary hidden" onclick="saveToken()">保存令牌</button>
-
-  <!-- ============ 查询 ============ -->
-  <div id="page-query" class="page">
-    <div class="card">
-      <div class="row">
-        <input id="qnum" placeholder="输入番号，如 START-015 / T-38027 / FLAV-359…" style="flex:1;min-width:240px;padding:8px 10px;border:1px solid var(--line);border-radius:8px" onkeydown="if(event.key=='Enter')query()">
-        <button onclick="query()">查询</button>
-      </div>
-      <div id="qresult" style="margin-top:12px"></div>
-    </div>
-    <div class="card">
-      <h2>来源耗时</h2>
-      <div id="qchips" class="muted">查询后显示各数据源状态…</div>
-    </div>
-  </div>
-
-  <!-- ============ 日志自查 ============ -->
-  <div id="page-logs" class="page hidden">
-    <div class="card">
-      <div class="row">
-        <input id="logNum" placeholder="按番号过滤，如 START-015" style="width:200px" onkeydown="if(event.key=='Enter')loadLogs()">
-        <select id="logLevel"><option value="">级别：全部</option><option value="ERROR">仅错误</option><option value="WARN">警告</option><option value="INFO">信息</option></select>
-        <select id="logSource"><option value="">数据源：全部</option><option value="FANZA">FANZA</option><option value="JavDB">JavDB</option><option value="TRANSLATE">翻译</option><option value="ENGINE">引擎</option><option value="API">API</option></select>
-        <button onclick="loadLogs()">刷新</button>
-        <label class="muted"><input type="checkbox" id="logAuto" onchange="toggleAuto()">自动刷新</label>
-        <span id="logCount" class="muted"></span>
-      </div>
-      <div id="logbox" class="logbox" style="margin-top:10px"><span style="color:#64748b">输入番号或直接刷新查看日志…</span></div>
-      <p class="muted">💡 按番号过滤可查看该影片在 FANZA / 翻译 / 映射 / 引擎各环节的完整处理时间线；红色为错误、橙色为警告（自动回落等）。</p>
-    </div>
-  </div>
-
-  <!-- ============ 演员管理 ============ -->
-  <div id="page-actors" class="page hidden">
-    <div class="card">
-      <h2>演员映射表（在线源自动同步）</h2>
-      <div id="mappingInfo" class="kv">—</div>
-      <div class="row" style="margin-top:8px">
-        <button id="syncBtn" onclick="syncMapping()">立即同步</button>
-        <span id="syncMsg" class="muted"></span>
-      </div>
-      <p class="muted">数据源：li-peifeng/Jav-Actors-Mapping（与 avdb 相同），自动校验并热更新，每日定时同步。</p>
-    </div>
-    <div class="card">
-      <h2>重名演员管理</h2>
-      <p class="muted">同一演员的多个重复条目（不同艺名）检测与合并。<b>无需任何 Emby 插件</b>：把影片关联转到保留的条目，再由媒体库扫描清理空条目。合并前会自动写入回滚日志。</p>
-      <div class="row">
-        <button id="dupBtn" onclick="detectDuplicates()">开始检测</button>
-        <button class="danger" onclick="resolveAll()">全部合并（推荐项）</button>
-        <button class="secondary" onclick="rollbackMerge()">撤销上次合并</button>
-        <span id="dupMsg" class="muted"></span>
-      </div>
-      <div id="dupResult"></div>
-    </div>
-    <div class="card">
-      <h2>无头像演员管理</h2>
-      <p class="muted">扫描缺头像的演员并一键补全（Gfriends 头像库，自动经映射表匹配别名）。</p>
-      <div class="row">
-        <button id="scanBtn" onclick="scanMissing()">扫描</button>
-        <button id="compBtn" onclick="completeAvatars()">一键补全</button>
-        <span id="avaMsg" class="muted"></span>
-      </div>
-      <div class="bar"><div id="avaBar"></div></div>
-      <div id="avaProgress" class="kv"></div>
-      <div id="avaResult"></div>
-    </div>
-  </div>
-
-  <!-- ============ 设置 ============ -->
-  <div id="page-settings" class="page hidden">
-    <div class="card">
-      <h2>刮削限流（冷却）</h2>
-      <div class="grid2">
-        <div>
-          <label class="fld">FANZA (DMM) 冷却间隔</label>
-          <input id="sFanza" placeholder="0 = 关闭（默认）" style="width:100%">
-          <span class="muted">示例：3s、500ms；0 为不限。批量大刮削建议 3s。</span>
-        </div>
-        <div>
-          <label class="fld">JavDB 冷却间隔（该源默认关闭）</label>
-          <input id="sJavdb" placeholder="10s（默认）" style="width:100%">
-          <span class="muted">JavDB 默认不参与刮削（Cloudflare 限流严重）；仅当显式启用时才需要这个冷却。</span>
-        </div>
-      </div>
-    </div>
-    <div class="card">
-      <h2>元数据翻译</h2>
-      <p class="muted" style="margin:0 0 8px"><b>翻译由后端独占</b>：引擎、凭据、语言都在这里配；Emby 插件里的「翻译模式」必须保持 <b>Disabled</b>，否则同一段文字会被翻译两次、还会互相覆盖。</p>
-      <div class="row">
-        <label class="muted"><input type="checkbox" id="sTranslate"> 启用翻译</label>
-      </div>
-      <label class="fld">主翻译引擎</label>
-      <select id="sPrimary" style="width:100%">
-        <option value="baidu">百度（有免费额度，中文质量最好）</option>
-        <option value="deepl">DeepL（付费，质量最好）</option>
-        <option value="openai">OpenAI 兼容接口（本地/自建）</option>
-        <option value="google">Google 官方 API（需 key）</option>
-        <option value="googlefree">Google 免费接口（无需 key）</option>
-      </select>
-      <span class="muted">次引擎<b>固定为 Google（免费）</b>：主引擎超时或报错时自动接管，不需要任何 key。</span>
-      <label class="fld">主引擎超时（秒）</label>
-      <input id="sTimeout" placeholder="15" style="width:120px">
-      <span class="muted">超过这个时间就切到 Google 免费，默认 15 秒。</span>
-      <label class="fld">目标语言</label>
-      <input id="sLang" placeholder="zh-CN" style="width:200px">
-      <div class="row" style="margin-top:8px">
-        <label class="muted"><input type="checkbox" id="sNoSummary"> 隐藏作品简介（不刮削不翻译）</label>
-      </div>
-    </div>
-    <div class="card">
-      <h2>翻译引擎凭据</h2>
-      <p class="muted" style="margin:0 0 8px">留空的项沿用环境变量（MT_TRANSLATE_&lt;引擎&gt;__&lt;参数&gt;）；此处填写后以这里为准，保存立即生效。</p>
-      <div class="grid2">
-        <div>
-          <label class="fld">百度 App ID</label>
-          <input id="sBaiduID" style="width:100%">
-          <label class="fld" style="margin-top:6px">百度 App Key</label>
-          <input id="sBaiduKey" type="password" style="width:100%">
-        </div>
-        <div>
-          <label class="fld">DeepL API Key</label>
-          <input id="sDeepLKey" type="password" style="width:100%">
-          <label class="fld" style="margin-top:6px">DeepL API 地址（可选，兼容 API）</label>
-          <input id="sDeepLUrl" placeholder="http://…/v2" style="width:100%">
-        </div>
-        <div>
-          <label class="fld">OpenAI API Key</label>
-          <input id="sOpenAiKey" type="password" style="width:100%">
-          <label class="fld" style="margin-top:6px">OpenAI API 地址 / 模型</label>
-          <input id="sOpenAiUrl" placeholder="http://…/v1" style="width:100%">
-          <input id="sOpenAiModel" placeholder="模型名" style="width:100%;margin-top:6px">
-        </div>
-        <div>
-          <label class="fld">Google API Key</label>
-          <input id="sGoogleKey" type="password" style="width:100%">
-          <label class="fld" style="margin-top:6px">Google API 地址（可选）</label>
-          <input id="sGoogleUrl" style="width:100%">
-        </div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="row">
-        <button class="ok" onclick="saveSettings()">保存并立即生效</button>
-        <span id="setMsg" class="muted"></span>
-      </div>
-      <p class="muted">设置保存在映射表同目录（gui_settings.json），重启后仍生效。</p>
-    </div>
-    <div class="card">
-      <strong>与 Emby 插件的一致性</strong>
-      <p class="muted" style="margin:6px 0 0">
-        ① <b>翻译归后端管</b>：主引擎在此选择，次引擎固定 Google 免费；凭据留空则沿用环境变量。Emby 插件「翻译模式」保持 <b>Disabled</b>，避免同一段文字被翻两次。<br>
-        ② <b>演员归一、流派映射、简介补全对全部刮削源生效</b>，与插件的数据源过滤器无关。<br>
-        ③ 冷却限流、流派词典、回滚日志均为纯后端行为，与插件设置无冲突。
-      </p>
-    </div>
-  </div>
-</div>
+<div class="toast" id="toast"></div>
 
 <script>
 const $ = id => document.getElementById(id);
-let token = localStorage.getItem('mt_token') || '';
-let tokenAsked = false;
-$('token').value = token;
+const api = async (path, opts={}) => {
+  const r = await fetch(path, Object.assign({headers:{'Content-Type':'application/json'}}, opts));
+  const txt = await r.text();
+  let data = {};
+  try { data = txt ? JSON.parse(txt) : {}; } catch(e) { data = {raw: txt}; }
+  if (!r.ok) throw new Error((data.error && (data.error.message||data.error)) || ('HTTP '+r.status));
+  return data.data !== undefined ? data.data : data;
+};
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
 
-document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
-  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-  t.classList.add('active');
-  document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
-  $('page-' + t.dataset.page).classList.remove('hidden');
-  if (t.dataset.page === 'query') loadStatus();
-  if (t.dataset.page === 'actors') refreshMappingInfo();
-  if (t.dataset.page === 'settings') loadSettings();
+document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>{
+  document.querySelectorAll('.nav').forEach(x=>x.classList.remove('active'));
+  n.classList.add('active');
+  const p=n.dataset.page;
+  document.querySelectorAll('section').forEach(s=>s.classList.add('hide'));
+  $('page-'+p).classList.remove('hide');
+  if(p==='logs') loadLogs();
+  if(p==='translate') loadSettings();
+  if(p==='sources'){ loadSettings(); loadMappingInfo(); }
+  if(p==='advanced') loadConsistency();
 });
 
-function saveToken(){ token = $('token').value.trim(); localStorage.setItem('mt_token', token); $('token').classList.add('hidden'); $('tokenBtn').classList.add('hidden'); loadStatus(); }
-
-async function api(path, opts={}) {
-  const headers = {'Content-Type':'application/json'};
-  if (token) headers['Authorization'] = 'Bearer ' + token;
-  const res = await fetch(path, {...opts, headers});
-  if (res.status === 401 && !tokenAsked) {
-    tokenAsked = true; $('token').classList.remove('hidden'); $('tokenBtn').classList.remove('hidden');
-    throw new Error('需要访问令牌');
-  }
-  const body = await res.json();
-  if (!res.ok) throw new Error((body.error && body.error.message) || res.status);
-  return body.data;
-}
-function esc(s){ return String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-
-/* ---------- status ---------- */
+let lastStatus=null;
 async function loadStatus(){
-  try {
-    const s = await api('/manage/api/status');
-    $('statusMini').textContent = s.emby && s.emby.connected ? '服务正常 · Emby 已连接' : '服务正常';
-  } catch(e){ $('statusMini').textContent = '状态未知'; }
+  try{ lastStatus = await api('/manage/api/status'); }catch(e){ lastStatus=null; }
+  const emby = (lastStatus && lastStatus.emby) || {};
+  const map = (lastStatus && lastStatus.mapping) || {};
+  setChip('chipEmby', emby.connected ? 'Emby 已连接' : 'Emby 未连接', emby.connected?'ok':'bad');
+  setChip('chipMapping', `映射 ${map.entries||0} 条`, (map.entries>0)?'ok':'warn');
+  const s = await api('/manage/api/settings').catch(()=>null);
+  setChip('chipTranslate', s && s.translate ? `翻译 ${(s.translate_engines||'').split(',')[0]}` : '翻译未启用', (s&&s.translate)?'ok':'warn');
+  renderStats(s, map, emby);
 }
-loadStatus(); refreshMappingInfo();
-
-async function refreshMappingInfo(){
-  try {
-    const s = await api('/manage/api/status');
-    const m = s.mapping || {};
-    $('mappingInfo').innerHTML = `路径：<b>${esc(m.path||'未配置')}</b>　条目：<b>${(m.entries||0).toLocaleString()}</b>　源版本：<b>${m.version?esc(String(m.version).slice(0,10)):'—'}</b>　在线同步：<b>${m.online?'开':'关'}</b>`;
-  } catch(e){}
+function setChip(id, text, cls){
+  const el=$(id); if(!el) return;
+  el.className='chip'+(cls?' '+cls:''); el.innerHTML='<span class="dot"></span>'+esc(text);
 }
-
-async function syncMapping(){
-  $('syncBtn').disabled = true; $('syncMsg').textContent = '同步中…';
-  try { const r = await api('/manage/api/mapping/sync', {method:'POST'}); $('syncMsg').textContent = r.message; refreshMappingInfo(); }
-  catch(e){ $('syncMsg').textContent = '失败：' + e.message; }
-  $('syncBtn').disabled = false;
+function renderStats(s, map, emby){
+  const cards = [
+    ['媒体库', emby.person_count!=null?`${emby.person_count} 位演员`:'—', emby.connected?'Emby 已连接':'Emby 未连接'],
+    ['映射表', (map.entries||0)+' 条', map.version?('版本 '+String(map.version).slice(0,8)):'未同步'],
+    ['翻译', s&&s.translate?(s.translate_engines||'').split(',')[0]:'未启用', s&&s.translate?('次引擎 googlefree · 超时 '+(s.translate_timeout||15)+'s'):'在「翻译」页开启'],
+  ];
+  $('statCards').innerHTML = cards.map(([t,v,d])=>`<div class="card" style="margin:0"><div class="muted">${esc(t)}</div><div style="font-size:20px;margin:6px 0">${esc(v)}</div><div class="muted">${esc(d)}</div></div>`).join('');
 }
-
-/* ---------- query ---------- */
-async function query(){
-  const n = $('qnum').value.trim().toUpperCase();
-  if (!n) return;
-  $('qresult').innerHTML = '<span class="muted">查询中…</span>'; $('qchips').innerHTML = '';
-  const chips = [];
-  let best = null, bestProv = '';
-  try {
-    for (const p of ['fanza','javdb','javbus']) {
-      try {
-        const t0 = performance.now();
-        const r = await api(`/v1/movies/search?provider=${p}&q=${encodeURIComponent(n)}`);
-        const dt = ((performance.now()-t0)/1000).toFixed(2);
-        const hit = r && r.length > 0;
-        chips.push(`<span class="chip ${hit?'ok':'bad'}">${p.toUpperCase()} ${hit?'✓ '+dt+'s':'无结果'}</span>`);
-        if (hit && !best) { best = r[0]; bestProv = p; }
-      } catch(e){ chips.push(`<span class="chip bad">${p.toUpperCase()} 错误</span>`); }
-    }
-    $('qchips').innerHTML = chips.join(' ');
-    if (!best) { $('qresult').innerHTML = '<span class="fail">所有数据源均未找到该番号</span>'; return; }
-    const info = await api(`/v1/movies/${bestProv}/${best.id}?lazy=true`);
-    $('qresult').innerHTML = `
-      <div class="card" style="margin:0">
-        <div class="row" style="align-items:flex-start">
-          <img src="${esc(info.cover_url||'')}" style="width:120px;border-radius:6px" onerror="this.style.display='none'">
-          <div style="flex:1;min-width:0">
-            <b style="font-size:14px">${esc(info.number||n)} · ${esc(info.title||'')}</b>
-            <div class="kv">演员：<b>${esc((info.actors||[]).join('、'))||'-'}</b></div>
-            <div class="kv">流派：${esc((info.genres||[]).join(' / '))||'-'}</div>
-            <div class="kv">发行：${esc(String(info.release_date||'-').slice(0,10))}　 maker：${esc(info.maker||'-')}</div>
-            <div class="kv" style="margin-top:6px">${esc((info.summary||'').slice(0,180))}${(info.summary||'').length>180?'…':''}</div>
-            <a class="muted" href="${esc(info.homepage||'#')}" target="_blank">数据源页面 ↗</a>
-          </div>
-        </div>
-      </div>`;
-  } catch(e){ $('qresult').innerHTML = `<span class="fail">${esc(e.message)}</span>`; }
+async function loadPluginState(){
+  try{
+    const p = await api('/manage/api/plugin-state');
+    if(!p.found){ $('pluginState').innerHTML = '<span class="muted">'+esc(p.reason||'未读取到插件配置')+'</span>'; return; }
+    const warns = (p.warnings||[]).map(w=>'<div class="notice">⚠ '+esc(w)+'</div>').join('');
+    $('pluginState').innerHTML = `
+      <div class="kv"><span>插件地址</span><b>${esc(p.server||'-')}</b></div>
+      <div class="kv"><span>插件 Token</span><b>${p.token_present?'已填写':'留空（推荐）'}</b></div>
+      <div class="kv"><span>插件翻译模式</span><b>${esc(p.translation_mode||'-')}</b></div>
+      <div class="kv"><span>插件翻译引擎</span><b>${esc(p.translation_engine||'-')}</b></div>
+      ${warns || '<div class="okbox">✔ 插件与本控制台没有冲突</div>'}`;
+  }catch(e){ $('pluginState').innerHTML = '<span class="muted">读取失败：'+esc(e.message)+'</span>'; }
+}
+async function refreshAll(){
+  await loadStatus(); await loadPluginState();
+  try{ const r=await api('/manage/api/logs?limit=8'); renderLogMini(r.logs); }catch(e){}
+}
+function renderLogMini(logs){
+  if(!logs||!logs.length){ $('overviewLog').textContent='暂无日志'; return; }
+  $('overviewLog').innerHTML = logs.map(l=>'<div><span class="t">'+esc((l.time||'').slice(11,19))+'</span><span class="src">'+esc(l.source||'')+'</span><span class="num">'+esc(l.number||'')+'</span><span class="msg">'+esc(l.message||'')+'</span></div>').join('');
 }
 
-/* ---------- logs ---------- */
-let autoTimer = null;
-function toggleAuto(){
-  if ($('logAuto').checked) { autoTimer = setInterval(loadLogs, 3000); loadLogs(); }
-  else if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+const ISSUE_LABEL={title_missing:'无标题',title_japanese:'标题日文',actor_japanese:'演员日文',no_actors:'无演员',genre_japanese:'流派日文',no_image:'无封面'};
+let auditOffset=0, auditLimit=50, auditData=null, auditFilter='';
+async function runAudit(filter){
+  auditFilter = filter||'';
+  $('auditMsg').textContent='扫描中…';
+  try{
+    auditData = await api('/manage/api/audit?offset='+auditOffset+'&limit='+auditLimit);
+    $('auditMsg').textContent = '扫描完成：共 '+auditData.total+' 部，合格 '+auditData.ok+'，有问题 '+auditData.problem_count;
+    const g = auditData.groups||{};
+    $('auditSummary').innerHTML = Object.keys(ISSUE_LABEL).map(k=>{
+      const active = auditFilter===k;
+      return '<span class="pill '+(active?'ok':'gray')+'" style="cursor:pointer;margin:4px 6px 0 0" onclick="runAudit(\''+k+'\')">'+ISSUE_LABEL[k]+' '+(g[k]||0)+'</span>';
+    }).join('') + (auditFilter?' <span class="pill warn" style="cursor:pointer" onclick="runAudit(\'\')">清除筛选</span>':'');
+    renderIssues();
+    $('auditListCard').classList.remove('hide');
+  }catch(e){ $('auditMsg').textContent='失败：'+e.message; }
 }
-async function loadLogs(){
-  const num = $('logNum').value.trim();
-  const lv = $('logLevel').value, src = $('logSource').value;
-  try {
-    const r = await api(`/manage/api/logs?number=${encodeURIComponent(num)}&level=${lv}&source=${src}&limit=300`);
-    const logs = r.logs || [];
-    $('logCount').textContent = logs.length + ' 条';
-    $('logbox').innerHTML = logs.length ? logs.map(l =>
-      `<div><span class="t">${esc(l.time)}</span><span class="lv-${l.level}"> ${String(l.level).padEnd(5)}</span><span class="src">[${esc(l.source)}]</span>${l.number?`<span class="num">${esc(l.number)}</span>`:''}<span class="msg">${esc(l.message)}</span></div>`
-    ).join('') : '<span style="color:#64748b">无匹配日志</span>';
-  } catch(e){ $('logbox').innerHTML = `<span class="fail">${esc(e.message)}</span>`; }
+function renderIssues(){
+  if(!auditData) return;
+  let items = auditData.issues||[];
+  if(auditFilter) items = items.filter(i=>(i.problems||[]).indexOf(auditFilter)>=0);
+  $('auditCount').textContent = '本页 '+items.length+' 条';
+  $('auditIssues').innerHTML = items.length
+    ? '<table><tr><th></th><th>名称</th><th>问题</th></tr>'+items.map(i=>'<tr><td><input type="checkbox" class="auditPick" value="'+esc(i.id)+'" style="width:auto"></td><td>'+esc(i.name)+'<div class="muted">'+esc(i.number||'')+'</div></td><td>'+(i.problems||[]).map(p=>'<span class="pill bad" style="margin-right:4px">'+esc(ISSUE_LABEL[p]||p)+'</span>').join('')+'</td></tr>').join('')+'</table>'
+    : '<p class="muted">没有符合条件的问题</p>';
+}
+function selectAllIssues(){ document.querySelectorAll('.auditPick').forEach(c=>c.checked=true); }
+function auditNext(){ auditOffset += auditLimit; runAudit(auditFilter); }
+function auditPrev(){ auditOffset = Math.max(0, auditOffset-auditLimit); runAudit(auditFilter); }
+async function refreshSelected(){
+  const ids=[].slice.call(document.querySelectorAll('.auditPick:checked')).map(c=>c.value);
+  if(!ids.length) return toast('先选择要重刮的条目');
+  try{
+    const r=await api('/manage/api/fix',{method:'POST',body:JSON.stringify({action:'refresh',ids:ids,limit:ids.length})});
+    toast('已触发重刮：成功 '+r.ok+'，失败 '+r.failed);
+  }catch(e){ toast('失败：'+e.message); }
 }
 
-/* ---------- duplicates ---------- */
-let dupGroups = [];
-async function resolveAll(){
-  if (!confirm('将合并全部检测到的重复演员（保留影片数最多的条目），确认继续？')) return;
-  $('dupMsg').textContent = '合并中…';
-  try {
-    const r = await api('/manage/api/duplicates/resolve-all', {method:'POST'});
-    $('dupMsg').textContent = `合并 ${r.groups} 组、${r.movies} 部影片，失败 ${r.failed}；回滚日志：${r.rollback_log||'-'}；扫描已启动，稍后刷新查看`;
-  } catch(e){ $('dupMsg').textContent = '失败：' + e.message; }
+let dupGroups=[];
+async function detectDup(){
+  $('dupMsg').textContent='检测中（含影片计数）…';
+  try{
+    const r=await api('/manage/api/duplicates');
+    dupGroups=r.groups||[];
+    $('dupMsg').textContent='扫描 '+r.scanned+' 位演员，发现 '+dupGroups.length+' 组';
+    renderDup(r);
+  }catch(e){ $('dupMsg').textContent='失败：'+e.message; }
 }
-async function rollbackMerge(){
-  if (!confirm('按回滚日志恢复上一次合并的影片关联？')) return;
-  $('dupMsg').textContent = '回滚中…';
-  try {
-    const r = await api('/manage/api/duplicates/rollback', {method:'POST'});
-    $('dupMsg').textContent = `已恢复 ${r.restored} 部影片，失败 ${r.failed}`;
-  } catch(e){ $('dupMsg').textContent = '失败：' + e.message; }
-}
-async function detectDuplicates(){
-  $('dupBtn').disabled = true; $('dupMsg').textContent = '检测中（含影片计数，可能需要几分钟）…';
-  $('dupResult').innerHTML = '';
-  try {
-    const r = await api('/manage/api/duplicates');
-    dupGroups = r.groups || [];
-    $('dupMsg').textContent = `扫描 ${r.scanned} 名演员，匹配 ${r.matched}，发现 ${dupGroups.length} 组重名`;
-    if (!dupGroups.length) { $('dupResult').innerHTML = '<p class="muted">未发现重名演员 🎉</p>'; $('dupBtn').disabled = false; return; }
-    let html = '';
-    dupGroups.forEach((g, gi) => {
-      html += `<details open><summary><b>${esc(g.recommended_name)}</b>（${g.actors.length} 个重复条目，共 ${g.total_movies} 部影片）</summary><table><tr><th>保留</th><th>名称</th><th>影片数</th><th>头像</th><th>证据</th></tr>`;
-      g.actors.forEach((a, ai) => {
-        const movies = a.movies || [];
-        const list = movies.length ? `<details><summary class="muted">查看 ${movies.length} 部</summary><div class="muted" style="max-height:180px;overflow:auto">${movies.map(m=>`${esc(m.number||'')} ${esc(m.title||'')}`).join('<br>')}</div></details>` : '<span class="muted">-</span>';
-        html += `<tr><td><input type="radio" name="g${gi}" value="${esc(a.id)}" ${ai===0?'checked':''}></td><td>${esc(a.name)}${ai===0?' <span class="pill ok">推荐</span>':''}</td><td>${a.movie_count}</td><td>${a.has_avatar?'<span class="pill ok">有</span>':'<span class="pill no">无</span>'}</td><td>${list}</td></tr>`;
-      });
-      html += `</table><div class="row" style="margin-top:6px"><button class="danger" onclick="resolveGroup(${gi})">确认合并</button><button class="secondary" onclick="ignoreGroup(${gi})">不是同一人，跳过</button><span class="muted">合并会把影片关联转到保留条目，并写入回滚日志</span></div></details>`;
-    });
-    $('dupResult').innerHTML = html;
-  } catch(e){ $('dupMsg').textContent = '失败：' + e.message; }
-  $('dupBtn').disabled = false;
-}
-async function ignoreGroup(gi){
-  const g = dupGroups[gi];
-  if (!confirm(`把「${g.recommended_name}」加入忽略名单？以后不再提示合并。`)) return;
-  try {
-    await api('/manage/api/duplicates/ignore', {method:'POST', body: JSON.stringify({group: g.mapping_id || g.recommended_name})});
-    detectDuplicates();
-  } catch(e){ $('dupMsg').textContent = '失败：' + e.message; }
+function renderDup(r){
+  $('ignoredBox').innerHTML = r.ignored ? '<span class="muted">已忽略 '+r.ignored+' 组</span>' : '';
+  if(!dupGroups.length){ $('dupResult').innerHTML='<p class="muted">没有需要合并的重复演员 🎉</p>'; return; }
+  $('dupResult').innerHTML = dupGroups.map(function(g,gi){
+    const rows=g.actors.map(function(a,ai){
+      const movies=(a.movies||[]).map(m=>esc(m.number||'')+' '+esc((m.title||'').slice(0,28))).join('<br>');
+      return '<tr>'
+        +'<td><input type="radio" name="g'+gi+'" value="'+esc(a.id)+'" '+(ai===0?'checked':'')+' style="width:auto"></td>'
+        +'<td>'+esc(a.name)+(ai===0?' <span class="pill ok">推荐</span>':'')+'</td>'
+        +'<td>'+a.movie_count+'</td>'
+        +'<td>'+(a.has_avatar?'<span class="pill ok">有</span>':'<span class="pill gray">无</span>')+'</td>'
+        +'<td>'+(movies?'<details><summary>'+a.movie_count+' 部</summary><div class="moviebox">'+movies+'</div></details>':'-')+'</td>'
+        +'</tr>';
+    }).join('');
+    return '<div class="card" style="margin:10px 0"><div class="row"><b>'+esc(g.recommended_name)+'</b><span class="muted">'+g.actors.length+' 个条目 · 共 '+g.total_movies+' 部</span></div>'
+      +'<table><tr><th>保留</th><th>名称</th><th>影片数</th><th>头像</th><th>影片清单</th></tr>'+rows+'</table>'
+      +'<div class="row" style="margin-top:8px"><button class="danger" onclick="resolveGroup('+gi+')">确认合并</button>'
+      +'<button class="sec" onclick="ignoreGroup('+gi+')">不是同一人，跳过</button></div></div>';
+  }).join('');
 }
 async function resolveGroup(gi){
-  const g = dupGroups[gi];
-  const sel = document.querySelector(`input[name="g${gi}"]:checked`);
-  if (!sel) { alert('请选择保留的演员'); return; }
-  if (!confirm(`确认合并「${g.recommended_name}」？将转移影片关联并删除未选中的重复演员。`)) return;
-  const sources = g.actors.map(a => a.id).filter(id => id !== sel.value);
-  $('dupMsg').textContent = '合并中…';
-  try {
-    const r = await api('/manage/api/duplicates/resolve', {method:'POST', body: JSON.stringify({target_id: sel.value, source_ids: sources})});
-    $('dupMsg').textContent = `影片 ${r.movies} 部，转移 ${r.transferred}，失败 ${r.failed}，删除 ${r.deleted}`;
-    detectDuplicates();
-  } catch(e){ $('dupMsg').textContent = '失败：' + e.message; }
+  const g=dupGroups[gi]; const sel=document.querySelector('input[name="g'+gi+'"]:checked');
+  if(!sel) return toast('请选择保留的演员');
+  if(!confirm('合并「'+g.recommended_name+'」？将把其他条目的影片关联转到保留条目，并写入回滚日志。')) return;
+  const src=g.actors.map(a=>a.id).filter(id=>id!==sel.value);
+  try{
+    const r=await api('/manage/api/duplicates/resolve',{method:'POST',body:JSON.stringify({target_id:sel.value,source_ids:src})});
+    const bad=(r.unverified||[]).length;
+    toast('影片 '+r.movies+' 部，转移 '+r.transferred+'，失败 '+r.failed+(bad?'，未生效 '+bad:''));
+    detectDup();
+  }catch(e){ toast('失败：'+e.message); }
+}
+async function ignoreGroup(gi){
+  const g=dupGroups[gi];
+  if(!confirm('把「'+g.recommended_name+'」加入忽略名单？')) return;
+  try{ await api('/manage/api/duplicates/ignore',{method:'POST',body:JSON.stringify({group:g.mapping_id||g.recommended_name})}); detectDup(); }
+  catch(e){ toast('失败：'+e.message); }
+}
+async function resolveAll(){
+  if(!confirm('合并全部检测到的重复演员（保留影片最多的条目）？')) return;
+  try{ const r=await api('/manage/api/duplicates/resolve-all',{method:'POST'});
+    toast('合并 '+r.groups+' 组 / '+r.movies+' 部'); detectDup(); }
+  catch(e){ toast('失败：'+e.message); }
+}
+async function rollbackMerge(){
+  if(!confirm('按回滚日志恢复上一次合并？')) return;
+  try{ const r=await api('/manage/api/duplicates/rollback',{method:'POST'}); toast('已恢复 '+r.restored+' 部影片'); }
+  catch(e){ toast('失败：'+e.message); }
 }
 
-/* ---------- avatars ---------- */
-let missingPersons = [];
-async function scanMissing(){
-  $('scanBtn').disabled = true; $('avaMsg').textContent = '扫描中…';
-  try {
-    const r = await api('/manage/api/avatars/missing');
-    missingPersons = r.missing || [];
-    $('avaMsg').textContent = `扫描 ${r.scanned} 名演员，${missingPersons.length} 人缺头像`;
-    $('avaResult').innerHTML = missingPersons.length
-      ? `<table><tr><th>演员</th><th>演员 ID</th></tr>${missingPersons.map(p=>`<tr><td>${esc(p.name)}</td><td class="muted">${esc(p.id)}</td></tr>`).join('')}</table>`
-      : '<p class="muted">所有演员都有头像 🎉</p>';
-  } catch(e){ $('avaMsg').textContent = '失败：' + e.message; }
-  $('scanBtn').disabled = false;
+let missing=[];
+async function scanAvatars(){
+  $('avaMsg').textContent='扫描中…';
+  try{ const r=await api('/manage/api/avatars/missing'); missing=r.missing||[];
+    $('avaMsg').textContent=r.scanned+' 位演员，'+missing.length+' 位缺头像';
+    $('avaResult').innerHTML = missing.length? '<details><summary>查看缺头像名单</summary><div class="moviebox">'+missing.map(p=>esc(p.name)).join('<br>')+'</div></details>':'';
+  }catch(e){ $('avaMsg').textContent='失败：'+e.message; }
 }
 async function completeAvatars(){
-  $('compBtn').disabled = true;
-  try {
-    await api('/manage/api/avatars/complete', {method:'POST', body: JSON.stringify({persons: missingPersons})});
-    let poll = setInterval(async () => {
-      try {
-        const p = await api('/manage/api/avatars/progress');
-        $('avaBar').style.width = (p.total ? Math.round(p.done/p.total*100) : 0) + '%';
-        $('avaProgress').textContent = p.running ? `进行中：${p.done}/${p.total}，成功 ${p.updated}，失败 ${p.failed}，当前：${esc(p.current||'')}` : `完成：成功 ${p.result?.updated??0}，失败 ${p.result?.failed??0}`;
-        if (!p.running) { clearInterval(poll); $('compBtn').disabled = false; scanMissing(); }
-      } catch(e){}
-    }, 1500);
-  } catch(e){ $('avaMsg').textContent = '失败：' + e.message; $('compBtn').disabled = false; }
+  $('avaMsg').textContent='提交中…';
+  try{ await api('/manage/api/avatars/complete',{method:'POST',body:JSON.stringify({persons:missing})}); pollAvatars(); }
+  catch(e){ $('avaMsg').textContent='失败：'+e.message; }
+}
+function pollAvatars(){
+  const t=setInterval(async function(){
+    try{
+      const p=await api('/manage/api/avatars/progress');
+      const pct = p.total? Math.round(((p.done||0)/p.total)*100):0;
+      $('avaBar').style.width=pct+'%';
+      $('avaProgress').textContent = p.running? ('进行中 '+(p.done||0)+'/'+(p.total||0)) : '空闲';
+      if(!p.running){
+        clearInterval(t);
+        const r=p.result||{};
+        $('avaMsg').textContent='完成：头像 '+(r.updated||0)+'，资料 '+(r.profiles||0)+'，跳过(男优) '+(r.skipped||0)+'，失败 '+(r.failed||0);
+        const fails=(r.fails||[]).slice(0,10);
+        $('avaResult').innerHTML = fails.length? '<details><summary>失败明细（前 10）</summary><div class="moviebox">'+fails.map(esc).join('<br>')+'</div></details>':'';
+      }
+    }catch(e){ clearInterval(t); }
+  },1500);
+}
+async function renameActors(){
+  if(!confirm('按映射表把日文演员名改成中文（每批 200，可重复执行）？')) return;
+  let total=0, ok=0;
+  try{
+    for(let i=0;i<10;i++){
+      const r=await api('/manage/api/fix',{method:'POST',body:JSON.stringify({action:'rename_actors',limit:200})});
+      total+=r.total; ok+=r.ok;
+      if(!r.total) break;
+    }
+    toast('改名完成：处理 '+total+'，成功 '+ok);
+  }catch(e){ toast('失败：'+e.message); }
 }
 
-/* ---------- settings ---------- */
+let settings=null;
 async function loadSettings(){
-  try {
-    const s = await api('/manage/api/settings');
-    $('sFanza').value = s.fanza_rate_limit || '0';
-    $('sJavdb').value = s.javdb_rate_limit || '10s';
-    $('sTranslate').checked = !!s.translate;
-    const primary = (s.translate_engines || 'baidu').split(',')[0].trim() || 'baidu';
-  const sel = $('sPrimary'); if (sel) { if (![...sel.options].some(o=>o.value===primary)) { const o=document.createElement('option'); o.value=primary; o.textContent=primary; sel.appendChild(o); } sel.value = primary; }
-    $('sLang').value = s.translate_lang || 'zh-CN';
-  if ($('sTimeout')) $('sTimeout').value = s.translate_timeout || 15;
-    $('sNoSummary').checked = !!s.disable_summary;
-    $('sBaiduID').value = s.baidu_app_id || '';
-    $('sBaiduKey').value = s.baidu_app_key || '';
-    $('sDeepLKey').value = s.deepl_api_key || '';
-    $('sDeepLUrl').value = s.deepl_api_url || '';
-    $('sOpenAiKey').value = s.openai_api_key || '';
-    $('sOpenAiUrl').value = s.openai_api_url || '';
-    $('sOpenAiModel').value = s.openai_model || '';
-    $('sGoogleKey').value = s.google_api_key || '';
-    $('sGoogleUrl').value = s.google_api_url || '';
-  } catch(e){ $('setMsg').textContent = '读取失败：' + e.message; }
+  try{ settings=await api('/manage/api/settings'); }catch(e){ return; }
+  if(!settings) return;
+  $('tEnable').checked=!!settings.translate;
+  const primary=(settings.translate_engines||'baidu').split(',')[0];
+  const sel=$('tPrimary');
+  if(sel){
+    if(![].slice.call(sel.options).some(o=>o.value===primary)){ const o=document.createElement('option'); o.value=primary; o.textContent=primary; sel.appendChild(o); }
+    sel.value=primary;
+  }
+  $('tLang').value=settings.translate_lang||'zh-CN';
+  $('tTimeout').value=settings.translate_timeout||15;
+  $('kBaiduId').value=settings.baidu_app_id||'';
+  $('kBaiduKey').value=settings.baidu_app_key||'';
+  $('kDeeplKey').value=settings.deepl_api_key||'';
+  $('kDeeplUrl').value=settings.deepl_api_url||'';
+  $('kOpenaiKey').value=settings.openai_api_key||'';
+  $('kOpenaiUrl').value=settings.openai_api_url||'';
+  $('kOpenaiModel').value=settings.openai_model||'';
+  $('sFanza').value=settings.fanza_rate_limit||'';
+  $('sJavdb').value=settings.javdb_rate_limit||'';
 }
-async function saveSettings(){
-  try {
-    await api('/manage/api/settings', {method:'POST', body: JSON.stringify({
-      fanza_rate_limit: $('sFanza').value.trim() || '0',
-      javdb_rate_limit: $('sJavdb').value.trim() || '10s',
-      translate: $('sTranslate').checked,
-      translate_engines: ($('sPrimary').value || 'baidu') + ',googlefree',
-      translate_lang: $('sLang').value.trim() || 'zh-CN',
-    translate_timeout: parseInt($('sTimeout')?.value || '15', 10) || 15,
-      disable_summary: $('sNoSummary').checked,
-      baidu_app_id: $('sBaiduID').value.trim(),
-      baidu_app_key: $('sBaiduKey').value.trim(),
-      deepl_api_key: $('sDeepLKey').value.trim(),
-      deepl_api_url: $('sDeepLUrl').value.trim(),
-      openai_api_key: $('sOpenAiKey').value.trim(),
-      openai_api_url: $('sOpenAiUrl').value.trim(),
-      openai_model: $('sOpenAiModel').value.trim(),
-      google_api_key: $('sGoogleKey').value.trim(),
-      google_api_url: $('sGoogleUrl').value.trim(),
-    })});
-    $('setMsg').textContent = '已保存并生效 ✓';
-  } catch(e){ $('setMsg').textContent = '失败：' + e.message; }
+async function saveTranslate(){
+  const body={
+    translate:$('tEnable').checked,
+    translate_engines:($('tPrimary').value||'baidu')+',googlefree',
+    translate_lang:$('tLang').value.trim()||'zh-CN',
+    translate_timeout:parseInt($('tTimeout').value||'15',10)||15,
+    baidu_app_id:$('kBaiduId').value.trim(),
+    baidu_app_key:$('kBaiduKey').value.trim(),
+    deepl_api_key:$('kDeeplKey').value.trim(),
+    deepl_api_url:$('kDeeplUrl').value.trim(),
+    openai_api_key:$('kOpenaiKey').value.trim(),
+    openai_api_url:$('kOpenaiUrl').value.trim(),
+    openai_model:$('kOpenaiModel').value.trim(),
+    disable_summary:!!(settings&&settings.disable_summary),
+    fanza_rate_limit:$('sFanza').value.trim(),
+    javdb_rate_limit:$('sJavdb').value.trim()
+  };
+  try{
+    await api('/manage/api/settings',{method:'POST',body:JSON.stringify(body)});
+    $('tMsg').textContent='已保存并生效';
+    toast('翻译设置已保存');
+    loadStatus();
+  }catch(e){ $('tMsg').textContent='失败：'+e.message; }
 }
+async function testTranslate(){
+  $('tMsg').textContent='测试中…';
+  try{
+    const r=await api('/manage/api/translate-test',{method:'POST',body:JSON.stringify({text:'高圧系女上司にパワハラされたので、快楽の虜にしてやった'})});
+    $('tResult').innerHTML='<div class="okbox">原文：'+esc(r.source)+'<br>译文：'+esc(r.translated)+'</div>';
+    $('tMsg').textContent='';
+  }catch(e){ $('tMsg').textContent='失败：'+e.message; }
+}
+async function saveRateLimits(){
+  try{
+    const body=Object.assign({},settings,{fanza_rate_limit:$('sFanza').value.trim(), javdb_rate_limit:$('sJavdb').value.trim()});
+    await api('/manage/api/settings',{method:'POST',body:JSON.stringify(body)});
+    $('rateMsg').textContent='已保存';
+  }catch(e){ $('rateMsg').textContent='失败：'+e.message; }
+}
+
+async function loadMappingInfo(){
+  try{
+    const st=await api('/manage/api/status'); const m=st.mapping||{};
+    $('mappingInfo').innerHTML='<div class="kv"><span>文件</span><b>'+esc(m.path||'-')+'</b></div>'
+      +'<div class="kv"><span>条目</span><b>'+(m.entries||0)+'</b></div>'
+      +'<div class="kv"><span>版本</span><b>'+esc(String(m.version||'-').slice(0,12))+'</b></div>'
+      +'<div class="kv"><span>在线同步</span><b>'+(m.online?'开启':'关闭')+'</b></div>';
+    $('fbOrder').textContent='JavDB（默认；JavBus 与 DMM 同源，无用）';
+  }catch(e){}
+}
+async function syncMapping(){
+  $('syncMsg').textContent='同步中…';
+  try{ const r=await api('/manage/api/mapping/sync',{method:'POST'});
+    $('syncMsg').textContent = r.updated? ('已更新到 '+String(r.version||'').slice(0,8)+'（'+(r.records||0)+' 条）') : (r.message||'无更新');
+    loadMappingInfo();
+  }catch(e){ $('syncMsg').textContent='失败：'+e.message; }
+}
+
+let logTimer=null;
+async function loadLogs(){
+  const q=new URLSearchParams({number:$('logNum').value.trim(),level:$('logLevel').value,source:$('logSource').value,limit:'300'});
+  try{
+    const r=await api('/manage/api/logs?'+q.toString());
+    $('logCount').textContent='共 '+(r.total||0)+' 条';
+    const logs=r.logs||[];
+    $('logbox').innerHTML = logs.length
+      ? logs.map(l=>'<div><span class="t">'+esc((l.time||'').slice(5,19))+'</span><span class="src">'+esc(l.source||'')+'</span><span class="num">'+esc(l.number||'')+'</span><span class="lv-'+esc(l.level||'INFO')+'">'+esc(l.level||'')+'</span> <span class="msg">'+esc(l.message||'')+'</span></div>').join('')
+      : '<span class="muted">没有匹配的日志</span>';
+  }catch(e){ $('logbox').textContent='读取失败：'+e.message; }
+}
+function toggleAuto(){ if($('logAuto').checked){ loadLogs(); logTimer=setInterval(loadLogs,5000);} else { clearInterval(logTimer); logTimer=null; } }
+
+async function loadConsistency(){
+  try{ const c=await api('/manage/api/consistency'); $('consistency').textContent=JSON.stringify(c,null,2); }
+  catch(e){ $('consistency').textContent='读取失败：'+e.message; }
+}
+
+refreshAll();
+loadSettings();
+setInterval(loadStatus, 30000);
 </script>
 </body>
 </html>

@@ -40,6 +40,9 @@ type Config struct {
 	MappingSyncInterval time.Duration
 
 	// TMDB credentials for actor avatar / gender completion (optional).
+	// EmbyPluginDir is a read-only mount of Emby's plugin configuration dir.
+	EmbyPluginDir string
+
 	TMDBAPIKey   string
 	TMDBLanguage string
 	TMDBProxy    string

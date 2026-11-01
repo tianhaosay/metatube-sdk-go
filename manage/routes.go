@@ -39,6 +39,8 @@ func RegisterRoutes(r gin.IRouter, apiMiddleware ...gin.HandlerFunc) {
 		api.GET("/settings", getSettings)
 		api.POST("/settings", postSettings)
 		api.GET("/consistency", getConsistency)
+		api.GET("/plugin-state", getPluginState)
+		api.POST("/translate-test", postTranslateTest)
 	}
 }
 
@@ -290,4 +292,42 @@ func HealthHandler(c *gin.Context) {
 		"status":  "ok",
 		"mapping": MappingStatus()["entries"],
 	})
+}
+
+// getPluginState reports the Emby plugin configuration (read from a mounted
+// file) so the console can show conflicts like "plugin translates too".
+func getPluginState(c *gin.Context) {
+	jsonOK(c, GetPluginState())
+}
+
+// postTranslateTest runs the current translator on a sample text so the
+// operator can verify credentials without waiting for a real scrape.
+func postTranslateTest(c *gin.Context) {
+	var req struct {
+		Text string `json:"text"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	if req.Text == "" {
+		req.Text = "高圧系女上司にパワハラされたので、快楽の虜にしてやった"
+	}
+	p := getPipeline()
+	if p == nil {
+		jsonErr(c, fmt.Errorf("翻译未初始化"))
+		return
+	}
+	cfg := p.Snapshot()
+	if cfg.Translator == nil {
+		jsonErr(c, fmt.Errorf("翻译未启用"))
+		return
+	}
+	lang := cfg.TranslateLang
+	if lang == "" {
+		lang = "zh-CN"
+	}
+	out, err := cfg.Translator.Translate(req.Text, "auto", lang)
+	if err != nil {
+		jsonErr(c, err)
+		return
+	}
+	jsonOK(c, gin.H{"source": req.Text, "translated": out, "lang": lang})
 }
