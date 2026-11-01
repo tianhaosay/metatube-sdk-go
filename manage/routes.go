@@ -39,6 +39,8 @@ func RegisterRoutes(r gin.IRouter, apiMiddleware ...gin.HandlerFunc) {
 		api.POST("/duplicates/resolve", postResolveDuplicate)
 		api.POST("/duplicates/resolve-all", postResolveAllDuplicates)
 		api.POST("/duplicates/ignore", postIgnoreDuplicate)
+		api.POST("/duplicates/unignore", postUnignoreDuplicate)
+		api.GET("/duplicates/ignored", getIgnoredDuplicates)
 		api.POST("/duplicates/rollback", postRollbackMerge)
 		api.GET("/avatars/missing", getMissingAvatars)
 		api.POST("/avatars/complete", postCompleteAvatars)
@@ -433,4 +435,22 @@ func postRefreshReset(c *gin.Context) {
 	}
 	_ = c.ShouldBindJSON(&body)
 	jsonOK(c, ResetRefreshProgress(body.Scope, body.PathPrefix))
+}
+
+// getIgnoredDuplicates lists the groups the operator chose not to merge.
+func getIgnoredDuplicates(c *gin.Context) {
+	jsonOK(c, map[string]any{"groups": IgnoredDuplicateGroups()})
+}
+
+// postUnignoreDuplicate restores one ignored group to the duplicate list.
+func postUnignoreDuplicate(c *gin.Context) {
+	var body struct {
+		Group string `json:"group"`
+	}
+	_ = c.ShouldBindJSON(&body)
+	if err := UnignoreDuplicateGroup(body.Group); err != nil {
+		jsonErr(c, err)
+		return
+	}
+	jsonOK(c, map[string]any{"unignored": body.Group})
 }

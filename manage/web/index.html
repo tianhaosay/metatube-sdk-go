@@ -194,6 +194,11 @@
           </div>
           <div id="dupResult" style="margin-top:10px"></div>
           <div id="ignoredBox" style="margin-top:10px"></div>
+          <div class="card hide" id="ignoredCard" style="margin-top:10px;background:#fafafa">
+            <div class="row"><strong style="font-size:13px">忽略名单（不参与合并）</strong>
+              <span class="muted" id="ignoredMsg"></span></div>
+            <div id="ignoredList" style="margin-top:6px"></div>
+          </div>
         </div>
         <div class="card">
           <h2>资料与头像补全</h2>
@@ -352,6 +357,7 @@ document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>{
   if(p==='translate') loadSettings();
   if(p==='sources'){ loadSettings(); loadMappingInfo(); }
   if(p==='advanced') loadConsistency();
+  if(p==='actors') loadIgnored();
 });
 
 let lastStatus=null;
@@ -466,6 +472,29 @@ async function refreshSelected(){
 }
 
 let dupGroups=[];
+async function loadIgnored(){
+  try{
+    const r=await api('/manage/api/duplicates/ignored');
+    const list=r.groups||[];
+    const card=$('ignoredCard');
+    if(!card) return;
+    if(!list.length){ card.classList.add('hide'); return; }
+    card.classList.remove('hide');
+    $('ignoredBox').textContent = '已忽略 '+list.length+' 组（可在下方恢复）';
+    $('ignoredList').innerHTML = list.map(function(g){
+      return '<div class="row" style="margin:4px 0"><span>'+esc(g)+'</span>'
+        +'<button class="sec" style="padding:2px 10px;font-size:12px" onclick="unignoreGroup(\''+esc(g).replace(/'/g,"\\'")+'\')">恢复到列表</button></div>';
+    }).join('');
+  }catch(e){}
+}
+async function unignoreGroup(g){
+  if(!confirm('把「'+g+'」移出忽略名单？之后会重新出现在重复检测结果里。')) return;
+  try{
+    await api('/manage/api/duplicates/unignore',{method:'POST',body:JSON.stringify({group:g})});
+    $('ignoredMsg').textContent='已恢复：'+g;
+    loadIgnored();
+  }catch(e){ toast('失败：'+e.message); }
+}
 async function detectDup(){
   $('dupMsg').textContent='检测中（含影片计数）…';
   try{
