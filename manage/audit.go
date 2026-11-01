@@ -204,16 +204,34 @@ func matchesProblem(problems []string, filter string) bool {
 	return false
 }
 
-// normalizeCode keeps only letters and digits, upper-cased, so "MIAB-585" and
-// "miab00585" compare equal.
-func normalizeCode(s string) string {
-	var b strings.Builder
+// canonicalCode keeps letters and digits, upper-cased, and drops the leading
+// zeros of every digit run so "MIAB-585", "miab00585" and "MIAB585" all match.
+func canonicalCode(s string) string {
+	var out, digits strings.Builder
+	flush := func() {
+		if digits.Len() == 0 {
+			return
+		}
+		d := strings.TrimLeft(digits.String(), "0")
+		if d == "" {
+			d = "0"
+		}
+		out.WriteString(d)
+		digits.Reset()
+	}
 	for _, r := range strings.ToUpper(s) {
-		if (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
+		switch {
+		case r >= '0' && r <= '9':
+			digits.WriteRune(r)
+		case r >= 'A' && r <= 'Z':
+			flush()
+			out.WriteRune(r)
+		default:
+			flush()
 		}
 	}
-	return b.String()
+	flush()
+	return out.String()
 }
 
 // titleMissing reports whether the name carries no real title, only the code
@@ -229,7 +247,7 @@ func titleMissing(name, number string) bool {
 	if !hasText(name) {
 		return true
 	}
-	base, num := normalizeCode(name), normalizeCode(number)
+	base, num := canonicalCode(name), canonicalCode(number)
 	if num == "" {
 		return false
 	}
