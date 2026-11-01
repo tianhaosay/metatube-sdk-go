@@ -458,10 +458,13 @@ func buildTranslator() translate.Translator {
 	if primary == nil {
 		return nil
 	}
+	// The secondary engine is always the free Google engine: it needs no key,
+	// never costs money, and is exactly what the Emby plugin used to provide.
+	// If the primary already is googlefree there is nothing to fail over to.
 	var secondary translate.Translator
 	secondaryName := ""
-	if len(engineNames) > 1 && engineNames[1] != "" {
-		secondary, secondaryName = build(engineNames[1])
+	if !strings.EqualFold(primaryName, "googlefree") {
+		secondary, secondaryName = build("googlefree")
 		if secondary == nil {
 			secondaryName = ""
 		}

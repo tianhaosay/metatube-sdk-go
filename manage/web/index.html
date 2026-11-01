@@ -155,13 +155,19 @@
     </div>
     <div class="card">
       <h2>元数据翻译</h2>
-      <p class="muted" style="margin:0 0 8px"><b>翻译统归后端管理</b>：引擎、凭据、目标语言都在这里配置；Emby 插件的「翻译模式」保持 Disabled 即可（插件页会自动检测冲突）。</p>
+      <p class="muted" style="margin:0 0 8px"><b>翻译由后端独占</b>：引擎、凭据、语言都在这里配；Emby 插件里的「翻译模式」必须保持 <b>Disabled</b>，否则同一段文字会被翻译两次、还会互相覆盖。</p>
       <div class="row">
         <label class="muted"><input type="checkbox" id="sTranslate"> 启用翻译</label>
       </div>
-      <label class="fld">引擎（主,次）</label>
-      <input id="sEngines" placeholder="baidu,googlefree" style="width:100%">
-      <span class="muted">主引擎失败/超时自动由次引擎接管；连续 5 次接管自动晋升。可用引擎：baidu、deepl、google、googlefree、openai。</span>
+      <label class="fld">主翻译引擎</label>
+      <select id="sPrimary" style="width:100%">
+        <option value="baidu">百度（有免费额度，中文质量最好）</option>
+        <option value="deepl">DeepL（付费，质量最好）</option>
+        <option value="openai">OpenAI 兼容接口（本地/自建）</option>
+        <option value="google">Google 官方 API（需 key）</option>
+        <option value="googlefree">Google 免费接口（无需 key）</option>
+      </select>
+      <span class="muted">次引擎<b>固定为 Google（免费）</b>：主引擎失败或超时会自动接管，不需要任何 key。</span>
       <label class="fld">目标语言</label>
       <input id="sLang" placeholder="zh-CN" style="width:200px">
       <div class="row" style="margin-top:8px">
@@ -428,7 +434,8 @@ async function loadSettings(){
     $('sFanza').value = s.fanza_rate_limit || '0';
     $('sJavdb').value = s.javdb_rate_limit || '10s';
     $('sTranslate').checked = !!s.translate;
-    $('sEngines').value = s.translate_engines || 'baidu,googlefree';
+    const primary = (s.translate_engines || 'baidu').split(',')[0].trim() || 'baidu';
+  const sel = $('sPrimary'); if (sel) { if (![...sel.options].some(o=>o.value===primary)) { const o=document.createElement('option'); o.value=primary; o.textContent=primary; sel.appendChild(o); } sel.value = primary; }
     $('sLang').value = s.translate_lang || 'zh-CN';
     $('sNoSummary').checked = !!s.disable_summary;
     $('sBaiduID').value = s.baidu_app_id || '';
@@ -448,7 +455,7 @@ async function saveSettings(){
       fanza_rate_limit: $('sFanza').value.trim() || '0',
       javdb_rate_limit: $('sJavdb').value.trim() || '10s',
       translate: $('sTranslate').checked,
-      translate_engines: $('sEngines').value.trim() || 'baidu,googlefree',
+      translate_engines: ($('sPrimary').value || 'baidu') + ',googlefree',
       translate_lang: $('sLang').value.trim() || 'zh-CN',
       disable_summary: $('sNoSummary').checked,
       baidu_app_id: $('sBaiduID').value.trim(),

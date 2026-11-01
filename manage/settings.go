@@ -148,8 +148,8 @@ func buildFailoverTranslator(enginesCSV string, s Settings) translate.Translator
 	}
 	var secondary translate.Translator
 	sn := ""
-	if len(names) > 1 {
-		secondary, sn = build(names[1])
+	if !strings.EqualFold(pn, "googlefree") {
+		secondary, sn = build("googlefree")
 	}
 	return translate.NewFailover(primary, pn, secondary, sn, 15*time.Second, 5)
 }
