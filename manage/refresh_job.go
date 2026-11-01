@@ -83,11 +83,18 @@ func StartRefresh(opts RefreshOptions) (map[string]any, error) {
 	}
 
 	refreshJob.mu.Lock()
-	*refreshJob = RefreshJob{
-		running:   true,
-		total:     len(ids),
-		startedAt: time.Now(),
-	}
+	// Reset fields individually: replacing the whole struct would copy the
+	// mutex that is currently held.
+	refreshJob.running = true
+	refreshJob.stopFlag = false
+	refreshJob.total = len(ids)
+	refreshJob.done = 0
+	refreshJob.ok = 0
+	refreshJob.failed = 0
+	refreshJob.current = ""
+	refreshJob.err = ""
+	refreshJob.finished = false
+	refreshJob.startedAt = time.Now()
 	refreshJob.mu.Unlock()
 
 	go runRefresh(client, ids, opts)
