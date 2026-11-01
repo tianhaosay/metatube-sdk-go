@@ -1,6 +1,7 @@
 package manage
 
 import (
+	"strings"
 	"fmt"
 	"net/http"
 	"net/url"
