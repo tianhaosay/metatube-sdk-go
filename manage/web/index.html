@@ -401,8 +401,9 @@ function renderLogMini(logs){
 const ISSUE_LABEL={title_missing:'无标题',title_japanese:'标题日文',actor_japanese:'演员日文',no_actors:'无演员',genre_japanese:'流派日文',no_image:'无封面'};
 const NOTE_LABEL={actor_unmapped:'演员未收录（需人工）'};
 let auditOffset=0, auditLimit=50, auditData=null, auditFilter='';
-async function runAudit(filter){
-  if(filter!==undefined){ auditFilter = filter||''; auditOffset = 0; }
+async function runAudit(filter, keepOffset){
+  if(filter!==undefined){ auditFilter = filter||''; }
+  if(!keepOffset){ auditOffset = 0; }
   $('auditMsg').textContent='扫描中…';
   try{
     const pp=$('pathSel')?$('pathSel').value:'';
@@ -452,8 +453,8 @@ function toggleIssues(){
   $('auditTools').classList.toggle('hide', issuesCollapsed);
   $('auditToggle').textContent = issuesCollapsed ? '展开' : '收起';
 }
-function auditNext(){ auditOffset += auditLimit; runAudit(auditFilter); }
-function auditPrev(){ auditOffset = Math.max(0, auditOffset-auditLimit); runAudit(auditFilter); }
+function auditNext(){ auditOffset += auditLimit; runAudit(undefined, true); }
+function auditPrev(){ auditOffset = Math.max(0, auditOffset-auditLimit); runAudit(undefined, true); }
 async function refreshSelected(){
   const ids=[].slice.call(document.querySelectorAll('.auditPick:checked')).map(c=>c.value);
   if(!ids.length) return toast('先选择要重刮的条目');
