@@ -1,8 +1,12 @@
 package manage
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -55,6 +59,8 @@ func Fix(req FixRequest) (*FixResult, error) {
 	switch strings.ToLower(strings.TrimSpace(req.Action)) {
 	case "refresh":
 		return fixRefresh(client, req.IDs, limit, req.ReplaceAll)
+	case "retitle":
+		return fixRetitle(client, req.IDs, limit)
 	case "rename_actors":
 		return fixRenameActors(client, req.IDs, limit)
 	default:
@@ -142,4 +148,134 @@ func fixRenameActors(client *EmbyClient, ids []string, limit int) (*FixResult, e
 	}
 	log.Printf("[manage] fix rename_actors: %d/%d ok, %d untouched", res.OK, res.Total, len(persons))
 	return res, nil
+}
+
+// fixRetitle rewrites the title from the backend whenever Emby refused to take
+// it during a refresh. A manually edited name (for example a "（夸克）" prefix)
+// is kept as a prefix, everything after it is replaced with the Chinese title.
+func fixRetitle(client *EmbyClient, ids []string, limit int) (*FixResult, error) {
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("retitle 需要 ids")
+	}
+	if len(ids) > limit {
+		ids = ids[:limit]
+	}
+	res := &FixResult{Action: "retitle", Total: len(ids)}
+	for _, id := range ids {
+		name, err := retitleOne(client, id)
+		if err != nil {
+			res.Failed++
+			res.Details = append(res.Details, fmt.Sprintf("%s: %v", id, err))
+			continue
+		}
+		res.OK++
+		res.Details = append(res.Details, name)
+		time.Sleep(embyWriteDelay)
+	}
+	log.Printf("[manage] fix retitle: %d/%d ok", res.OK, res.Total)
+	return res, nil
+}
+
+// retitleOne resolves the Chinese title for one item and writes it back.
+func retitleOne(client *EmbyClient, id string) (string, error) {
+	dto, err := client.itemDTO(id)
+	if err != nil {
+		return "", err
+	}
+	name, _ := dto["Name"].(string)
+	code, title := splitTitle(name)
+	providerID := ""
+	if ids, ok := dto["ProviderIds"].(map[string]any); ok {
+		for k, v := range ids {
+			if strings.EqualFold(k, "MetaTube") {
+				providerID, _ = v.(string)
+			}
+		}
+	}
+	if providerID == "" {
+		return "", fmt.Errorf("条目没有 MetaTube 番号，无法定位")
+	}
+	parts := strings.SplitN(providerID, ":", 2)
+	if len(parts) != 2 {
+		return "", fmt.Errorf("番号格式异常: %s", providerID)
+	}
+	fresh, err := fetchBackendMovie(parts[0], parts[1])
+	if err != nil {
+		return "", err
+	}
+	newTitle := strings.TrimSpace(fresh.Title)
+	if newTitle == "" {
+		return "", fmt.Errorf("后端没有返回标题")
+	}
+	newName := strings.TrimSpace(code + " " + newTitle)
+	if newName == strings.TrimSpace(name) {
+		return newName, nil
+	}
+	if err := client.RenameItem(id, newName); err != nil {
+		return "", err
+	}
+	return newName, nil
+}
+
+// splitTitle separates a manual prefix / code from the descriptive title:
+// "（夸克）REAL-885 日本語..." -> ("（夸克）REAL-885", "日本語...").
+func splitTitle(name string) (string, string) {
+	s := strings.TrimSpace(name)
+	prefix := ""
+	if strings.HasPrefix(s, "（") || strings.HasPrefix(s, "(") {
+		open := "（"
+		close := "）"
+		if strings.HasPrefix(s, "(") {
+			open, close = "(", ")"
+		}
+		if idx := strings.Index(s, close); idx > 0 {
+			prefix = s[:idx+len(close)] + " "
+			s = strings.TrimSpace(s[idx+len(close):])
+		}
+		_ = open
+	}
+	code, rest := "", s
+	if idx := strings.Index(s, " "); idx > 0 {
+		code, rest = s[:idx], strings.TrimSpace(s[idx+1:])
+	}
+	return strings.TrimSpace(prefix + code), rest
+}
+// backendURL is the address of this server, used when a repair needs to read
+// freshly scraped metadata (the console runs inside the same process).
+var backendURL = "http://127.0.0.1:8080"
+
+// SetBackendURL lets the command package publish the real listen address.
+func SetBackendURL(u string) {
+	if strings.TrimSpace(u) != "" {
+		backendURL = strings.TrimRight(u, "/")
+	}
+}
+
+type backendMovie struct {
+	Title string `json:"title"`
+}
+
+// fetchBackendMovie asks this server for the current metadata of one provider id.
+func fetchBackendMovie(provider, id string) (*backendMovie, error) {
+	endpoint := backendURL + "/v1/movies/" + url.PathEscape(provider) + "/" + url.PathEscape(id)
+	client := &http.Client{Timeout: 90 * time.Second}
+	resp, err := client.Get(endpoint)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("后端返回 %d", resp.StatusCode)
+	}
+	var payload struct {
+		Data backendMovie `json:"data"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, err
+	}
+	return &payload.Data, nil
 }
