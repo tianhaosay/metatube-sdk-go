@@ -93,6 +93,9 @@ func parseLogLine(line string) LogEntry {
 	if e, ok := parseStructured(line); ok {
 		return e
 	}
+	if kind == "TRANSLATE" && (fields["number"] == "" || fields["field"] == "") {
+		return LogEntry{}, false
+	}
 	e := LogEntry{
 		Time:    time.Now().Format("15:04:05.000"),
 		Level:   "INFO",
