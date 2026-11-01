@@ -391,7 +391,8 @@ async function runAudit(filter){
     auditData = await api('/manage/api/audit?offset='+auditOffset+'&limit='+auditLimit
       +(pp?('&path_prefix='+encodeURIComponent(pp)):'')
       +(auditFilter?('&problem='+encodeURIComponent(auditFilter)):''));
-    $('auditMsg').textContent = '扫描完成：共 '+auditData.total+' 部，合格 '+auditData.ok+'，有问题 '+auditData.problem_count;
+    $('auditMsg').textContent = '扫描完成：共 '+auditData.total+' 部，合格 '+auditData.ok+'，有问题 '+auditData.problem_count
+      +((auditData.duplicate_count||0)?('（其中 '+auditData.duplicate_count+' 个番号在不同库里各有一份副本）'):'');
     const g = auditData.groups||{};
     $('auditSummary').innerHTML = Object.keys(ISSUE_LABEL).map(k=>{
       const active = auditFilter===k;
@@ -407,7 +408,13 @@ function renderIssues(){
   const total = auditData.issue_count||0;
   $('auditCount').textContent = '共 '+total+' 条'+(items.length?('，当前显示 '+(auditData.offset||0)+'–'+((auditData.offset||0)+items.length)):'');
   $('auditIssues').innerHTML = items.length
-    ? '<table><tr><th></th><th>名称</th><th>问题</th></tr>'+items.map(i=>'<tr><td><input type="checkbox" class="auditPick" value="'+esc(i.id)+'" style="width:auto"></td><td>'+esc(i.name)+'<div class="muted">'+esc(i.number||'')+'</div></td><td>'+(i.problems||[]).map(p=>'<span class="pill bad" style="margin-right:4px">'+esc(ISSUE_LABEL[p]||p)+'</span>').join('')+'</td></tr>').join('')+'</table>'
+    ? '<table><tr><th></th><th>名称 / 所在库</th><th>问题</th></tr>'+items.map(i=>{
+        const p = i.path||'';
+        let lib = '';
+        if(p.indexOf('/litepan-strm/')>=0) lib = 'JAV 库';
+        else if(p.indexOf('/strm-quark/')>=0) lib = '夸克库';
+        return '<tr><td><input type="checkbox" class="auditPick" value="'+esc(i.id)+'" style="width:auto"></td><td>'+esc(i.name)+'<div class="muted">'+esc(i.number||'')+(lib?(' · <b>'+lib+'</b>'):'')+(p?(' · '+esc(p.slice(-46))):'')+'</div></td><td>'+(i.problems||[]).map(x=>'<span class="pill bad" style="margin-right:4px">'+esc(ISSUE_LABEL[x]||x)+'</span>').join('')+'</td></tr>';
+      }).join('')+'</table>'
     : '<p class="muted">没有符合条件的问题</p>';
 }
 function selectAllIssues(){ document.querySelectorAll('.auditPick').forEach(c=>c.checked=true); }

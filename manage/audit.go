@@ -42,6 +42,7 @@ type AuditIssue struct {
 	ID       string   `json:"id"`
 	Name     string   `json:"name"`
 	Number   string   `json:"number"`
+	Path     string   `json:"path"`
 	Problems []string `json:"problems"`
 }
 
@@ -53,7 +54,9 @@ type AuditResult struct {
 	ProblemCount int            `json:"problem_count"`
 	Groups       map[string]int `json:"groups"`
 	IssueCount   int            `json:"issue_count"`
-	Issues       []AuditIssue   `json:"issues"`
+	// DuplicateCount counts numbers that exist in more than one library copy.
+	DuplicateCount int          `json:"duplicate_count"`
+	Issues         []AuditIssue `json:"issues"`
 	Offset       int            `json:"offset"`
 	Limit        int            `json:"limit"`
 	ScannedAt    string         `json:"scanned_at"`
@@ -102,6 +105,8 @@ func Audit(req AuditRequest) (*AuditResult, error) {
 	if libraryID == "*" {
 		libraries = c.EmbyLibraryIDs
 	}
+	// Count how many copies of each number exist (cross-library duplicates).
+	numberCount := map[string]int{}
 	for _, lib := range libraries {
 		start := 0
 		for {
@@ -117,6 +122,12 @@ func Audit(req AuditRequest) (*AuditResult, error) {
 					continue
 				}
 				res.Checked++
+				// The same movie often exists twice (JAV library + quark
+				// library). Count those copies so the summary can explain why
+				// one entry looks Japanese while the other looks translated.
+				if num := it.Number(); num != "" {
+					numberCount[num]++
+				}
 				problems := auditItem(it)
 				if len(problems) == 0 {
 					res.OK++
@@ -127,7 +138,7 @@ func Audit(req AuditRequest) (*AuditResult, error) {
 					res.Groups[pr]++
 				}
 				if matchesProblem(problems, req.Problem) && len(res.Issues) < maxAuditIssues {
-					res.Issues = append(res.Issues, AuditIssue{ID: it.Id, Name: it.Name, Number: it.Number(), Problems: problems})
+					res.Issues = append(res.Issues, AuditIssue{ID: it.Id, Name: it.Name, Number: it.Number(), Path: it.Path, Problems: problems})
 				}
 			}
 			start += len(items)
@@ -138,6 +149,13 @@ func Audit(req AuditRequest) (*AuditResult, error) {
 	}
 	if req.PathPrefix != "" {
 		res.Total = res.Checked
+	}
+	// Numbers that appear more than once are the same film stored twice (one
+	// copy per library); each copy is audited on its own.
+	for _, n := range numberCount {
+		if n > 1 {
+			res.DuplicateCount++
+		}
 	}
 	// Paginate the issue list itself: the UI asks for "issues 50..100", not
 	// "items 50..100". Slicing here keeps offsets stable across requests.
