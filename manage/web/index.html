@@ -121,6 +121,7 @@
             <span id="auditTools">
               <button class="sec" onclick="selectAllIssues()">全选本页</button>
               <button onclick="refreshSelected()">重刮选中</button>
+              <button class="sec" onclick="retitleSelected()">标题修正</button>
               <button class="sec" onclick="auditPrev()">上一页</button>
               <button class="sec" onclick="auditNext()">下一页</button>
             </span>
@@ -536,6 +537,15 @@ function pollAvatars(){
       }
     }catch(e){ clearInterval(t); }
   },1500);
+}
+async function retitleSelected(){
+  const ids=[].slice.call(document.querySelectorAll('.auditPick:checked')).map(c=>c.value);
+  if(!ids.length) return toast('先选择要修正标题的条目');
+  try{
+    const r=await api('/manage/api/fix',{method:'POST',body:JSON.stringify({action:'retitle',ids:ids,limit:ids.length})});
+    toast('标题修正：成功 '+r.ok+'，失败 '+r.failed);
+    if(r.details&&r.details.length) console.log(r.details);
+  }catch(e){ toast('失败：'+e.message); }
 }
 async function renameActors(){
   if(!confirm('按映射表把日文演员名改成中文（每批 200，可重复执行）？')) return;

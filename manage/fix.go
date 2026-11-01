@@ -183,7 +183,7 @@ func retitleOne(client *EmbyClient, id string) (string, error) {
 		return "", err
 	}
 	name, _ := dto["Name"].(string)
-	code, _ := splitTitle(name)
+	code, marker := splitTitle(name)
 	providerID := ""
 	if ids, ok := dto["ProviderIds"].(map[string]any); ok {
 		for k, v := range ids {
@@ -207,7 +207,7 @@ func retitleOne(client *EmbyClient, id string) (string, error) {
 	if newTitle == "" {
 		return "", fmt.Errorf("后端没有返回标题")
 	}
-	newName := strings.TrimSpace(code + " " + newTitle)
+	newName := strings.TrimSpace(strings.Join(strings.Fields(code+" "+marker+" "+newTitle), " "))
 	if newName == strings.TrimSpace(name) {
 		return newName, nil
 	}
@@ -219,26 +219,21 @@ func retitleOne(client *EmbyClient, id string) (string, error) {
 
 // splitTitle separates a manual prefix / code from the descriptive title:
 // "（夸克）REAL-885 日本語..." -> ("（夸克）REAL-885", "日本語...").
-func splitTitle(name string) (string, string) {
+func splitTitle(name string) (code, marker string) {
 	s := strings.TrimSpace(name)
-	prefix := ""
-	if strings.HasPrefix(s, "（") || strings.HasPrefix(s, "(") {
-		open := "（"
-		close := "）"
-		if strings.HasPrefix(s, "(") {
-			open, close = "(", ")"
+	// A manual marker such as "（夸克）" may sit before or after the code; keep
+	// it visible so duplicate copies stay distinguishable.
+	if idx := strings.IndexAny(s, "（("); idx >= 0 {
+		rest := s[idx:]
+		if end := strings.IndexAny(rest, "）)"); end > 0 && end <= 8 {
+			marker = rest[:end+1]
+			s = strings.TrimSpace(strings.Replace(s, marker, "", 1))
 		}
-		if idx := strings.Index(s, close); idx > 0 {
-			prefix = s[:idx+len(close)] + " "
-			s = strings.TrimSpace(s[idx+len(close):])
-		}
-		_ = open
 	}
-	code, rest := "", s
 	if idx := strings.Index(s, " "); idx > 0 {
-		code, rest = s[:idx], strings.TrimSpace(s[idx+1:])
+		return s[:idx], marker
 	}
-	return strings.TrimSpace(prefix + code), rest
+	return s, marker
 }
 // backendURL is the address of this server, used when a repair needs to read
 // freshly scraped metadata (the console runs inside the same process).
