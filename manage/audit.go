@@ -304,10 +304,18 @@ func auditItem(it embyItem) []string {
 	}
 
 	for _, g := range it.GenresForAudit() {
-		if kanaRe.MatchString(g) {
-			problems = append(problems, IssueGenreJapanese)
-			break
+		if !kanaRe.MatchString(g) {
+			continue
 		}
+		// Providers sometimes pack performer names into the genre list. Those
+		// belong to the actor rule (already reported there), not to 类型.
+		if am := ActorMapping(); am != nil {
+			if _, isPerson := am.Lookup(g); isPerson {
+				continue
+			}
+		}
+		problems = append(problems, IssueGenreJapanese)
+		break
 	}
 
 	if _, ok := it.ImageTags["Primary"]; !ok {
