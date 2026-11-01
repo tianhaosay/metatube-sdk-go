@@ -204,6 +204,45 @@ func matchesProblem(problems []string, filter string) bool {
 	return false
 }
 
+// normalizeCode keeps only letters and digits, upper-cased, so "MIAB-585" and
+// "miab00585" compare equal.
+func normalizeCode(s string) string {
+	var b strings.Builder
+	for _, r := range strings.ToUpper(s) {
+		if (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+// titleMissing reports whether the name carries no real title, only the code
+// (optionally with a short suffix such as "-C" or "[4K]").
+func titleMissing(name, number string) bool {
+	if strings.TrimSpace(name) == "" {
+		return true
+	}
+	// Any Han means a title exists ("中文标题"), so it cannot be missing.
+	if hanRe.MatchString(name) {
+		return false
+	}
+	if !hasText(name) {
+		return true
+	}
+	base, num := normalizeCode(name), normalizeCode(number)
+	if num == "" {
+		return false
+	}
+	if base == num {
+		return true
+	}
+	// "MIAB585C", "MIAB5854K" — the code plus a 1–2 char marker.
+	if strings.HasPrefix(base, num) && len(base)-len(num) <= 2 {
+		return true
+	}
+	return false
+}
+
 // auditItem applies the completeness rules to one movie.
 func auditItem(it embyItem) []string {
 	problems := make([]string, 0, 4)
@@ -220,7 +259,7 @@ func auditItem(it embyItem) []string {
 			titleForTest = strings.ReplaceAll(titleForTest, a, "")
 		}
 	}
-	if name == "" || (number != "" && strings.EqualFold(name, number)) || !hasText(name) {
+	if titleMissing(name, number) {
 		problems = append(problems, IssueTitleMissing)
 	} else if looksJapanese(titleForTest) {
 		problems = append(problems, IssueTitleJapanese)
