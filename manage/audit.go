@@ -154,8 +154,26 @@ func Audit(req AuditRequest) (*AuditResult, error) {
 	return res, nil
 }
 
-// matchesProblem reports whether an issue belongs to the requested filter.
-func matchesProblem(problems []string, filter string) bool {
+// looksJapanese reports whether the text is really Japanese rather than a
+// translated title with a few leftover kana (typically an actress name).
+// A title counts as Japanese when there is no Han at all, or when kana make up
+// a meaningful share of the characters.
+func looksJapanese(s string) bool {
+	if !kanaRe.MatchString(s) {
+		return false
+	}
+	if !hanRe.MatchString(s) {
+		return true
+	}
+	runes := []rune(s)
+	if len(runes) == 0 {
+		return false
+	}
+	kana := len(kanaRe.FindAllString(s, -1))
+	return float64(kana)/float64(len(runes)) >= 0.2
+}
+
+// matchesProblem reports whether an issue belongs to the requested filter.func matchesProblem(problems []string, filter string) bool {
 	if filter == "" {
 		return true
 	}
@@ -185,7 +203,7 @@ func auditItem(it embyItem) []string {
 	}
 	if name == "" || (number != "" && strings.EqualFold(name, number)) || !hasText(name) {
 		problems = append(problems, IssueTitleMissing)
-	} else if kanaRe.MatchString(titleForTest) {
+	} else if looksJapanese(titleForTest) {
 		problems = append(problems, IssueTitleJapanese)
 	}
 	if len(actors) == 0 {
