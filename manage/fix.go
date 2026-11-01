@@ -54,7 +54,7 @@ func Fix(req FixRequest) (*FixResult, error) {
 
 	switch strings.ToLower(strings.TrimSpace(req.Action)) {
 	case "refresh":
-		return fixRefresh(client, req.IDs, limit)
+		return fixRefresh(client, req.IDs, limit, req.ReplaceAll)
 	case "rename_actors":
 		return fixRenameActors(client, req.IDs, limit)
 	default:
@@ -62,10 +62,10 @@ func Fix(req FixRequest) (*FixResult, error) {
 	}
 }
 
-// fixRefresh asks Emby to re-scrape the given items. ReplaceAllMetadata stays
-// false on purpose: "replace all" is what previously overwrote local metadata
-// with Japanese values.
-func fixRefresh(client *EmbyClient, ids []string, limit int) (*FixResult, error) {
+// fixRefresh asks Emby to re-scrape the given items. replaceAll decides whether
+// the provider output overwrites existing values; without it Emby keeps every
+// field that is already set, so stale Japanese titles stay put.
+func fixRefresh(client *EmbyClient, ids []string, limit int, replaceAll bool) (*FixResult, error) {
 	if len(ids) == 0 {
 		return nil, fmt.Errorf("refresh 需要 ids")
 	}
@@ -74,7 +74,7 @@ func fixRefresh(client *EmbyClient, ids []string, limit int) (*FixResult, error)
 	}
 	res := &FixResult{Action: "refresh", Total: len(ids)}
 	for _, id := range ids {
-		if err := client.RefreshMetadata(id, req.ReplaceAll); err != nil {
+		if err := client.RefreshMetadata(id, replaceAll); err != nil {
 			res.Failed++
 			res.Details = append(res.Details, fmt.Sprintf("%s: %v", id, err))
 			continue
