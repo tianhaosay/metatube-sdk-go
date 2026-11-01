@@ -162,7 +162,12 @@ func buildFailoverTranslator(enginesCSV string, s Settings) translate.Translator
 	if !strings.EqualFold(pn, "googlefree") {
 		secondary, sn = build("googlefree")
 	}
-	return translate.NewFailover(primary, pn, secondary, sn, 15*time.Second, 5)
+	timeout := 15 * time.Second
+	if s.TranslateTimeout > 0 {
+		timeout = time.Duration(s.TranslateTimeout) * time.Second
+	}
+	log.Printf("[manage] translator: primary=%s secondary=%s timeout=%s", pn, sn, timeout)
+	return translate.NewFailover(primary, pn, secondary, sn, timeout, 5)
 }
 
 // parseTranslateEnvParams mirrors cmd.parseTranslateEngineParams.

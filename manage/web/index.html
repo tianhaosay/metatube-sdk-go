@@ -167,7 +167,10 @@
         <option value="google">Google 官方 API（需 key）</option>
         <option value="googlefree">Google 免费接口（无需 key）</option>
       </select>
-      <span class="muted">次引擎<b>固定为 Google（免费）</b>：主引擎失败或超时会自动接管，不需要任何 key。</span>
+      <span class="muted">次引擎<b>固定为 Google（免费）</b>：主引擎超时或报错时自动接管，不需要任何 key。</span>
+      <label class="fld">主引擎超时（秒）</label>
+      <input id="sTimeout" placeholder="15" style="width:120px">
+      <span class="muted">超过这个时间就切到 Google 免费，默认 15 秒。</span>
       <label class="fld">目标语言</label>
       <input id="sLang" placeholder="zh-CN" style="width:200px">
       <div class="row" style="margin-top:8px">
@@ -437,6 +440,7 @@ async function loadSettings(){
     const primary = (s.translate_engines || 'baidu').split(',')[0].trim() || 'baidu';
   const sel = $('sPrimary'); if (sel) { if (![...sel.options].some(o=>o.value===primary)) { const o=document.createElement('option'); o.value=primary; o.textContent=primary; sel.appendChild(o); } sel.value = primary; }
     $('sLang').value = s.translate_lang || 'zh-CN';
+  if ($('sTimeout')) $('sTimeout').value = s.translate_timeout || 15;
     $('sNoSummary').checked = !!s.disable_summary;
     $('sBaiduID').value = s.baidu_app_id || '';
     $('sBaiduKey').value = s.baidu_app_key || '';
@@ -457,6 +461,7 @@ async function saveSettings(){
       translate: $('sTranslate').checked,
       translate_engines: ($('sPrimary').value || 'baidu') + ',googlefree',
       translate_lang: $('sLang').value.trim() || 'zh-CN',
+    translate_timeout: parseInt($('sTimeout')?.value || '15', 10) || 15,
       disable_summary: $('sNoSummary').checked,
       baidu_app_id: $('sBaiduID').value.trim(),
       baidu_app_key: $('sBaiduKey').value.trim(),
