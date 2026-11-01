@@ -225,7 +225,8 @@ func (c *EmbyClient) FetchPersons(libraries []string) ([]Person, error) {
 	return persons, nil
 }
 
-// CountPersonMovies returns how many movies link to the person.func (c *EmbyClient) CountPersonMovies(personID string) (int, error) {
+// CountPersonMovies returns how many movies link to the person.
+func (c *EmbyClient) CountPersonMovies(personID string) (int, error) {
 	var page struct {
 		TotalRecordCount int `json:"TotalRecordCount"`
 	}
