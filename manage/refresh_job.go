@@ -210,6 +210,7 @@ func runRefresh(client *EmbyClient, ids []string, opts RefreshOptions, key strin
 		log.Printf("[manage] refresh job stopped/finished: done=%d ok=%d failed=%d", done, ok, failed)
 	}()
 
+	baseline := progress.Answers()
 	for i, id := range ids {
 		refreshJob.mu.Lock()
 		if refreshJob.stopFlag {
@@ -244,6 +245,30 @@ func runRefresh(client *EmbyClient, ids []string, opts RefreshOptions, key strin
 		if opts.BatchPauseSec > 0 && (i+1)%opts.BatchSize == 0 {
 			time.Sleep(time.Duration(opts.BatchPauseSec) * time.Second)
 		}
+	}
+
+	if opts.Mode == "wipe" {
+		return
+	}
+
+	// Emby only queues its refresh, so keep the job alive until this
+	// service has actually answered for every queued item.
+	deadline := time.Now().Add(3 * time.Hour)
+	for time.Now().Before(deadline) {
+		refreshJob.mu.Lock()
+		stopped := refreshJob.stopFlag
+		refreshJob.mu.Unlock()
+		if stopped {
+			return
+		}
+		answered := int(progress.Answers() - baseline)
+		if answered > len(ids) {
+			answered = len(ids)
+		}
+		if answered >= len(ids) {
+			return
+		}
+		time.Sleep(2 * time.Second)
 	}
 }
 

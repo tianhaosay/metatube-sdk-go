@@ -169,7 +169,10 @@
             不勾：只补空白字段，已有的标题/简介/演员/流派一律不动（旧日文不会消失、隐藏简介也不会清空）。<br>
             勾上：用后端结果覆盖已有字段。后端已做中文映射与翻译，所以覆盖后是中文；「隐藏作品简介」也才会真正清空简介。
           </p>
-          <div class="bar" style="margin-top:10px"><i id="rfBar"></i></div>
+          <div class="muted" style="margin-top:10px">派发进度（请求已送进 Emby 队列）</div>
+          <div class="bar"><i id="rfBar"></i></div>
+          <div class="muted">后台完成（本服务已返回元数据）</div>
+          <div class="bar"><i id="rfBar2" style="background:#16a34a"></i></div>
           <div class="muted" id="rfText">空闲</div>
         </div>
       </section>
@@ -630,7 +633,9 @@ function pollRefresh(){
   rfTimer=setInterval(async function(){
     try{
       const s=await api('/manage/api/refresh/status');
+      const ansPct = s.total? Math.round(ans*100/s.total):0;
       $('rfBar').style.width=(s.percent||0)+'%';
+      if($('rfBar2')) $('rfBar2').style.width=ansPct+'%';
       const ans=(s.answered!=null? s.answered : s.done);
       if(!s.running && !s.total){ $('rfText').textContent='空闲'; }
       else if(s.running){ $('rfText').textContent = '已派发 '+s.done+'/'+s.total+' · 后台已完成 '+ans+'/'+s.total+' · 成功 '+s.ok+' · 失败 '+s.failed+' · 已用 '+s.elapsed; }
