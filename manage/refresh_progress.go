@@ -18,10 +18,10 @@ var progressMu sync.Mutex
 
 func progressFilePath() string {
 	cfg := getConfig()
-	if cfg == nil || cfg.MappingActorFile == "" {
+	if cfg == nil || cfg.ActorMappingPath == "" {
 		return ""
 	}
-	return filepath.Join(filepath.Dir(cfg.MappingActorFile), "refresh_progress.json")
+	return filepath.Join(filepath.Dir(cfg.ActorMappingPath), "refresh_progress.json")
 }
 
 func loadRefreshProgress() refreshProgress {
