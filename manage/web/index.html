@@ -113,9 +113,11 @@
     </div>
     <div class="card">
       <h2>重名演员管理</h2>
-      <p class="muted">同一演员的多个重复条目（不同艺名或同名不同人）检测与合并。需要 Emby 安装 <b>Avdb Magic Tools</b> 插件。</p>
+      <p class="muted">同一演员的多个重复条目（不同艺名）检测与合并。<b>无需任何 Emby 插件</b>：把影片关联转到保留的条目，再由媒体库扫描清理空条目。合并前会自动写入回滚日志。</p>
       <div class="row">
         <button id="dupBtn" onclick="detectDuplicates()">开始检测</button>
+        <button class="danger" onclick="resolveAll()">全部合并（推荐项）</button>
+        <button class="secondary" onclick="rollbackMerge()">撤销上次合并</button>
         <span id="dupMsg" class="muted"></span>
       </div>
       <div id="dupResult"></div>
@@ -330,6 +332,22 @@ async function loadLogs(){
 
 /* ---------- duplicates ---------- */
 let dupGroups = [];
+async function resolveAll(){
+  if (!confirm('将合并全部检测到的重复演员（保留影片数最多的条目），确认继续？')) return;
+  $('dupMsg').textContent = '合并中…';
+  try {
+    const r = await api('/manage/api/duplicates/resolve-all', {method:'POST'});
+    $('dupMsg').textContent = `合并 ${r.groups} 组、${r.movies} 部影片，失败 ${r.failed}；回滚日志：${r.rollback_log||'-'}；扫描已启动，稍后刷新查看`;
+  } catch(e){ $('dupMsg').textContent = '失败：' + e.message; }
+}
+async function rollbackMerge(){
+  if (!confirm('按回滚日志恢复上一次合并的影片关联？')) return;
+  $('dupMsg').textContent = '回滚中…';
+  try {
+    const r = await api('/manage/api/duplicates/rollback', {method:'POST'});
+    $('dupMsg').textContent = `已恢复 ${r.restored} 部影片，失败 ${r.failed}`;
+  } catch(e){ $('dupMsg').textContent = '失败：' + e.message; }
+}
 async function detectDuplicates(){
   $('dupBtn').disabled = true; $('dupMsg').textContent = '检测中（含影片计数，可能需要几分钟）…';
   $('dupResult').innerHTML = '';
