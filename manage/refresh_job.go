@@ -85,6 +85,12 @@ func StartRefresh(opts RefreshOptions) (map[string]any, error) {
 	}
 	refreshJob.mu.Unlock()
 
+	// Wiping through the API fires item-update events; with the plugin auto
+	// update on, Emby immediately re-scrapes, so wipe and scrape race.
+	if opts.Mode == "wipe" && PluginAutoUpdate() {
+		return nil, fmt.Errorf("插件「自动更新」开着：清空后会立刻被自动重刮覆盖。请先到 Emby → 插件 → MetaTube 关闭「自动更新」，再执行清空")
+	}
+
 	ids, err := collectRefreshIDs(client, c, opts)
 	if err != nil {
 		return nil, err
