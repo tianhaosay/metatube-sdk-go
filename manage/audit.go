@@ -87,45 +87,42 @@ func Audit(req AuditRequest) (*AuditResult, error) {
 		ScannedAt: time.Now().Format(time.RFC3339),
 	}
 
-	start := 0
-	for {
-		items, total, err := client.FetchMovies(libraryID, start, auditPageSize)
-		if err != nil {
-			return nil, fmt.Errorf("读取媒体库失败: %w", err)
-		}
-		if start == 0 {
-			res.Total = total
-		}
-		for _, it := range items {
-			if req.PathPrefix != "" && !pathInScope(it.Path, req.PathPrefix) {
-				continue
+	libraries := []string{libraryID}
+	if libraryID == "*" {
+		libraries = c.EmbyLibraryIDs
+	}
+	for _, lib := range libraries {
+		start := 0
+		for {
+			items, total, err := client.FetchMovies(lib, start, auditPageSize)
+			if err != nil {
+				return nil, fmt.Errorf("读取媒体库失败: %w", err)
 			}
-			res.Checked++
-			problems := auditItem(it)
-			if len(problems) == 0 {
-				res.OK++
-				continue
+			res.Total += total
+			for _, it := range items {
+				if req.PathPrefix != "" && !pathInScope(it.Path, req.PathPrefix) {
+					continue
+				}
+				res.Checked++
+				problems := auditItem(it)
+				if len(problems) == 0 {
+					res.OK++
+					continue
+				}
+				res.ProblemCount++
+				for _, pr := range problems {
+					res.Groups[pr]++
+				}
+				if res.Checked > req.Offset && len(res.Issues) < req.Limit {
+					res.Issues = append(res.Issues, AuditIssue{ID: it.Id, Name: it.Name, Number: it.Number(), Problems: problems})
+				}
 			}
-			res.ProblemCount++
-			for _, p := range problems {
-				res.Groups[p]++
+			start += len(items)
+			if len(items) == 0 || (total > 0 && start >= total) {
+				break
 			}
-			if res.Checked > req.Offset && len(res.Issues) < req.Limit {
-				res.Issues = append(res.Issues, AuditIssue{
-					ID:       it.Id,
-					Name:     it.Name,
-					Number:   it.Number(),
-					Problems: problems,
-				})
-			}
-		}
-		start += len(items)
-		if len(items) == 0 || (total > 0 && start >= total) {
-			break
 		}
 	}
-	// When a folder filter is active the "total" must describe that folder,
-	// not the whole library.
 	if req.PathPrefix != "" {
 		res.Total = res.Checked
 	}

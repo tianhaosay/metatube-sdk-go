@@ -87,6 +87,9 @@ func getAudit(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "200"))
 	libID := c.Query("library_id")
 	prefix := c.Query("path_prefix")
+	if libID == "" && prefix == "" {
+		libID = "*"
+	}
 	if libID == "" && prefix != "" {
 		if cl, cerr := newEmbyClient(getConfig()); cerr == nil {
 			libID = ResolveLibraryForPath(cl, getConfig(), prefix)
