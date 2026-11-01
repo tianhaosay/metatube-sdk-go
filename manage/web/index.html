@@ -639,6 +639,33 @@ function pollRefresh(){
     }catch(e){ clearInterval(rfTimer); rfTimer=null; }
   }, 1500);
 }
+// ---- 记住控制台的常用设置（浏览器本地） ----
+const PREF_KEY='mt_console_prefs_v1';
+const PREF_FIELDS=['pathSel','rfScope','rfLimit','rfDelay','rfBatch','rfPause','logLevel','logSource'];
+function savePrefs(){
+  try{
+    const o={};
+    PREF_FIELDS.forEach(id=>{ const el=$(id); if(el) o[id]=(el.type==='checkbox'?el.checked:el.value); });
+    const r=$('rfReplace'); if(r) o.rfReplace=r.checked;
+    localStorage.setItem(PREF_KEY, JSON.stringify(o));
+  }catch(e){}
+}
+function loadPrefs(){
+  try{
+    const raw=localStorage.getItem(PREF_KEY); if(!raw) return;
+    const o=JSON.parse(raw||'{}');
+    PREF_FIELDS.forEach(id=>{ const el=$(id); if(el && o[id]!==undefined){ el.value=o[id]; } });
+    if($('rfReplace') && o.rfReplace!==undefined) $('rfReplace').checked=o.rfReplace;
+    if($('rfScope') && o.rfScope) $('rfScope').value=o.rfScope;
+  }catch(e){}
+}
+function bindPrefs(){
+  ['pathSel','rfScope','rfLimit','rfDelay','rfBatch','rfPause','rfReplace','logLevel','logSource'].forEach(id=>{
+    const el=$(id); if(!el) return;
+    el.addEventListener('change', savePrefs);
+    el.addEventListener('input', savePrefs);
+  });
+}
 async function loadPaths(){
   try{
     const groups = await api('/manage/api/paths');
@@ -652,6 +679,7 @@ async function loadPaths(){
       });
     });
   }catch(e){}
+  loadPrefs();
 }
 function onPathChange(){
   const v=$('pathSel').value;
@@ -760,6 +788,7 @@ async function loadConsistency(){
 
 refreshAll();
 loadPaths();
+bindPrefs();
 loadSettings();
 pollRefresh();
 setInterval(loadStatus, 30000);

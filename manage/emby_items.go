@@ -173,9 +173,9 @@ func (c *EmbyClient) WipeMetadata(itemID string) error {
 	if code == "" {
 		return fmt.Errorf("无法确定番号")
 	}
-	dto["Name"] = code
-	dto["SortName"] = code
-	dto["ForcedSortName"] = code
+	dto["Name"] = ""
+	dto["SortName"] = ""
+	dto["ForcedSortName"] = ""
 	dto["OriginalTitle"] = ""
 	dto["Overview"] = ""
 	dto["Taglines"] = []any{}
