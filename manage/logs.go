@@ -81,7 +81,7 @@ func QueryLogs(number, level, source string, limit int) []LogEntry {
 var (
 	numberRe = regexp.MustCompile(`\b([A-Z]{2,7}-\d{2,6})\b`)
 	ginLine  = regexp.MustCompile(`\[GIN\].*\|\s*(\d{3})\s*\|`)
-	srcRe    = regexp.MustCompile(`^\[(ENGINE|TRANSLATE|JavDB|manage|mapping|GIN|SCRAPE|FALLBACK)\]`)
+	srcRe    = regexp.MustCompile(`^\[(ENGINE|JavDB|manage|mapping|GIN)\]`)
 	stdDate  = regexp.MustCompile(`^\d{4}/\d{2}/\d{2}[ T]`)
 	goFileRe = regexp.MustCompile(`^[\w/\\.\-]+\.go:\d+:\s*`)
 )
