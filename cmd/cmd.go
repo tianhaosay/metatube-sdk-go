@@ -277,6 +277,8 @@ func Router(names ...string) *gin.Engine {
 	}
 
 	ginApp := route.New(app, token)
+	// Liveness probe is always mounted, independent of the console.
+	ginApp.GET("/healthz", manage.HealthHandler)
 
 	// Manage module (actor management web UI).
 	if Config.Manage && Config.ManageEmbyURL != "" {

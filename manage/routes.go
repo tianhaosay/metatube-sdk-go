@@ -14,8 +14,6 @@ import (
 // the console respect the server token.
 func RegisterRoutes(r gin.IRouter, apiMiddleware ...gin.HandlerFunc) {
 	// /healthz is the container healthcheck: no auth, no Emby calls.
-	r.GET("/healthz", healthHandler)
-
 	r.GET("/manage/", uiHandler)
 	r.GET("/manage", uiHandler)
 
@@ -287,7 +285,7 @@ func getAvatarProgress(c *gin.Context) {
 }
 
 // healthHandler is a dependency-free liveness probe for docker healthcheck.
-func healthHandler(c *gin.Context) {
+func HealthHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "ok",
 		"mapping": MappingStatus()["entries"],
