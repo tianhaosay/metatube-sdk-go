@@ -116,11 +116,14 @@
         <div class="card hide" id="auditListCard">
           <div class="row">
             <strong style="font-size:13px">问题清单</strong>
+            <button class="sec" id="auditToggle" onclick="toggleIssues()">收起</button>
             <span class="muted" id="auditCount"></span>
-            <button class="sec" onclick="selectAllIssues()">全选本页</button>
-            <button onclick="refreshSelected()">重刮选中</button>
-            <button class="sec" onclick="auditPrev()">上一页</button>
-            <button class="sec" onclick="auditNext()">下一页</button>
+            <span id="auditTools">
+              <button class="sec" onclick="selectAllIssues()">全选本页</button>
+              <button onclick="refreshSelected()">重刮选中</button>
+              <button class="sec" onclick="auditPrev()">上一页</button>
+              <button class="sec" onclick="auditNext()">下一页</button>
+            </span>
           </div>
           <div id="auditIssues" style="margin-top:10px"></div>
         </div>
@@ -419,6 +422,13 @@ function renderIssues(){
     : '<p class="muted">没有符合条件的问题</p>';
 }
 function selectAllIssues(){ document.querySelectorAll('.auditPick').forEach(c=>c.checked=true); }
+let issuesCollapsed=false;
+function toggleIssues(){
+  issuesCollapsed=!issuesCollapsed;
+  $('auditIssues').classList.toggle('hide', issuesCollapsed);
+  $('auditTools').classList.toggle('hide', issuesCollapsed);
+  $('auditToggle').textContent = issuesCollapsed ? '展开' : '收起';
+}
 function auditNext(){ auditOffset += auditLimit; runAudit(auditFilter); }
 function auditPrev(){ auditOffset = Math.max(0, auditOffset-auditLimit); runAudit(auditFilter); }
 async function refreshSelected(){
