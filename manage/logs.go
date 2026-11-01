@@ -257,8 +257,8 @@ func parseStructured(line string) (LogEntry, bool) {
 	case "FALLBACK":
 		switch result {
 		case "ok":
-			e.Message = fmt.Sprintf("%s · %s · 兜底成功 · 补到 %s 位演员 · %sms",
-				fields["number"], provider, fields["actors"], ms)
+			e.Message = fmt.Sprintf("%s · %s · 兜底成功 · 补到 %s 位演员",
+				fields["number"], provider, fields["actors"])
 		case "none":
 			e.Message = fmt.Sprintf("%s · %s · 兜底无演员 · %sms", fields["number"], provider, ms)
 		case "miss":
