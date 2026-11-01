@@ -116,7 +116,6 @@ type embyItem struct {
 	ImageTags   map[string]string `json:"ImageTags"`
 	ProviderIds map[string]string `json:"ProviderIds"`
 	Genres      []string          `json:"Genres"`
-	Studios     []struct {
 	Overview    string            `json:"Overview"`
 	Path        string            `json:"Path"`
 	Studios     []struct {
