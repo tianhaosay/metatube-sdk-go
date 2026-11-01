@@ -358,15 +358,25 @@ async function detectDuplicates(){
     if (!dupGroups.length) { $('dupResult').innerHTML = '<p class="muted">未发现重名演员 🎉</p>'; $('dupBtn').disabled = false; return; }
     let html = '';
     dupGroups.forEach((g, gi) => {
-      html += `<details open><summary><b>${esc(g.recommended_name)}</b>（${g.actors.length} 个重复条目，共 ${g.total_movies} 部影片）</summary><table><tr><th>保留</th><th>名称</th><th>影片数</th><th>头像</th></tr>`;
+      html += `<details open><summary><b>${esc(g.recommended_name)}</b>（${g.actors.length} 个重复条目，共 ${g.total_movies} 部影片）</summary><table><tr><th>保留</th><th>名称</th><th>影片数</th><th>头像</th><th>证据</th></tr>`;
       g.actors.forEach((a, ai) => {
-        html += `<tr><td><input type="radio" name="g${gi}" value="${esc(a.id)}" ${ai===0?'checked':''}></td><td>${esc(a.name)}${ai===0?' <span class="pill ok">推荐</span>':''}</td><td>${a.movie_count}</td><td>${a.has_avatar?'<span class="pill ok">有</span>':'<span class="pill no">无</span>'}</td></tr>`;
+        const movies = a.movies || [];
+        const list = movies.length ? `<details><summary class="muted">查看 ${movies.length} 部</summary><div class="muted" style="max-height:180px;overflow:auto">${movies.map(m=>`${esc(m.number||'')} ${esc(m.title||'')}`).join('<br>')}</div></details>` : '<span class="muted">-</span>';
+        html += `<tr><td><input type="radio" name="g${gi}" value="${esc(a.id)}" ${ai===0?'checked':''}></td><td>${esc(a.name)}${ai===0?' <span class="pill ok">推荐</span>':''}</td><td>${a.movie_count}</td><td>${a.has_avatar?'<span class="pill ok">有</span>':'<span class="pill no">无</span>'}</td><td>${list}</td></tr>`;
       });
-      html += `</table><div class="row" style="margin-top:6px"><button class="danger" onclick="resolveGroup(${gi})">确认合并</button><span class="muted">将转移影片关联并删除未选中的重复演员</span></div></details>`;
+      html += `</table><div class="row" style="margin-top:6px"><button class="danger" onclick="resolveGroup(${gi})">确认合并</button><button class="secondary" onclick="ignoreGroup(${gi})">不是同一人，跳过</button><span class="muted">合并会把影片关联转到保留条目，并写入回滚日志</span></div></details>`;
     });
     $('dupResult').innerHTML = html;
   } catch(e){ $('dupMsg').textContent = '失败：' + e.message; }
   $('dupBtn').disabled = false;
+}
+async function ignoreGroup(gi){
+  const g = dupGroups[gi];
+  if (!confirm(`把「${g.recommended_name}」加入忽略名单？以后不再提示合并。`)) return;
+  try {
+    await api('/manage/api/duplicates/ignore', {method:'POST', body: JSON.stringify({group: g.mapping_id || g.recommended_name})});
+    detectDuplicates();
+  } catch(e){ $('dupMsg').textContent = '失败：' + e.message; }
 }
 async function resolveGroup(gi){
   const g = dupGroups[gi];
