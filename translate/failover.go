@@ -13,6 +13,10 @@ import (
 // ErrTranslateTimeout is returned when a translation exceeds its deadline.
 var ErrTranslateTimeout = errors.New("translate: timeout")
 
+// ErrEmptyResult is returned when an engine reports success but produces no
+// text (several free engines do this on quota/error paths).
+var ErrEmptyResult = errors.New("translate: empty result")
+
 // RefTranslator is an optional extension of Translator that accepts a
 // reference string (e.g. the movie number) for diagnostics logging.
 type RefTranslator interface {
@@ -93,6 +97,12 @@ func (f *Failover) TranslateWithRef(text, from, to, ref string) (string, error) 
 	f.mu.Unlock()
 
 	result, err := translateWithTimeout(primary, text, from, to, f.timeout)
+	// An empty result counts as a failure: several engines swallow their own
+	// errors and return "" instead of an error, which used to silently stop
+	// the failover chain.
+	if err == nil && strings.TrimSpace(result) == "" {
+		err = ErrEmptyResult
+	}
 	if err == nil {
 		f.resetConsecutive()
 		return result, nil
@@ -106,6 +116,9 @@ func (f *Failover) TranslateWithRef(text, from, to, ref string) (string, error) 
 	}
 
 	result, err = translateWithTimeout(secondary, text, from, to, f.timeout)
+	if err == nil && strings.TrimSpace(result) == "" {
+		err = ErrEmptyResult
+	}
 	if err != nil {
 		log.Printf("[TRANSLATE] all engines failed for %s (primary %s: %v; secondary %s: %v), keep original", ref, primaryName, primaryErr, secondaryName, err)
 		return "", err
