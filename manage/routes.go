@@ -34,7 +34,6 @@ func RegisterRoutes(r gin.IRouter, apiMiddleware ...gin.HandlerFunc) {
 		api.GET("/refresh/status", getRefreshStatus)
 		api.POST("/refresh/reset", postRefreshReset)
 		api.GET("/paths", getPaths)
-		api.GET("/debug/actor", getDebugActor)
 		api.POST("/mapping/sync", postSyncMapping)
 		api.GET("/duplicates", getDuplicates)
 		api.POST("/duplicates/resolve", postResolveDuplicate)
@@ -434,25 +433,4 @@ func postRefreshReset(c *gin.Context) {
 	}
 	_ = c.ShouldBindJSON(&body)
 	jsonOK(c, ResetRefreshProgress(body.Scope, body.PathPrefix))
-}
-// getDebugActor reports what the mapping table says about one name.
-func getDebugActor(c *gin.Context) {
-	name := c.Query("name")
-	am := ActorMapping()
-	if am == nil {
-		jsonOK(c, map[string]any{"lookup": false, "reason": "mapping not loaded"})
-		return
-	}
-	entry, ok := am.Lookup(name)
-	if !ok || entry == nil {
-		jsonOK(c, map[string]any{"lookup": false})
-		return
-	}
-	jsonOK(c, map[string]any{
-		"lookup":  true,
-		"name":    entry.Name,
-		"jp":      entry.Jp,
-		"has_han": hanRe.MatchString(entry.Name),
-		"has_kana": kanaRe.MatchString(entry.Name),
-	})
 }
