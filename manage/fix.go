@@ -183,7 +183,7 @@ func retitleOne(client *EmbyClient, id string) (string, error) {
 		return "", err
 	}
 	name, _ := dto["Name"].(string)
-	code, title := splitTitle(name)
+	code, _ := splitTitle(name)
 	providerID := ""
 	if ids, ok := dto["ProviderIds"].(map[string]any); ok {
 		for k, v := range ids {
