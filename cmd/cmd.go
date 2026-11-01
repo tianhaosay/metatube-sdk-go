@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	goflag "flag"
 	"log"
 	"os"
@@ -362,7 +363,63 @@ var (
 
 const negativeTTL = 12 * time.Hour
 
+// negativeFilePath stores the negative cache next to the mapping tables so a
+// restart does not re-query JavDB for titles that have no actors anywhere.
+func negativeFilePath() string {
+	if Config.MappingActorFile == "" {
+		return ""
+	}
+	return filepath.Join(filepath.Dir(Config.MappingActorFile), "negative_actors.json")
+}
+
+var negativeLoaded bool
+
+func loadNegativeCache() {
+	negativeMu.Lock()
+	defer negativeMu.Unlock()
+	if negativeLoaded {
+		return
+	}
+	negativeLoaded = true
+	path := negativeFilePath()
+	if path == "" {
+		return
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	var raw map[string]int64
+	if json.Unmarshal(data, &raw) != nil {
+		return
+	}
+	now := time.Now()
+	for k, v := range raw {
+		if t := time.Unix(v, 0); t.After(now) {
+			negativeUntil[k] = t
+		}
+	}
+	if len(negativeUntil) > 0 {
+		log.Printf("[enrich] negative actor cache loaded: %d entries", len(negativeUntil))
+	}
+}
+
+func saveNegativeCacheLocked() {
+	path := negativeFilePath()
+	if path == "" {
+		return
+	}
+	raw := make(map[string]int64, len(negativeUntil))
+	for k, v := range negativeUntil {
+		raw[k] = v.Unix()
+	}
+	if data, err := json.Marshal(raw); err == nil {
+		_ = os.WriteFile(path, data, 0o644)
+	}
+}
+
 func negativeHit(number string) bool {
+	loadNegativeCache()
 	negativeMu.Lock()
 	defer negativeMu.Unlock()
 	until, ok := negativeUntil[number]
@@ -377,9 +434,12 @@ func negativeHit(number string) bool {
 }
 
 func negativeMark(number string) {
+	loadNegativeCache()
 	negativeMu.Lock()
 	negativeUntil[number] = time.Now().Add(negativeTTL)
+	saveNegativeCacheLocked()
 	negativeMu.Unlock()
+	log.Printf("[enrich] %s: no actors from fallback, remembered for 12h", number)
 }
 
 // genreDictPath resolves the tag dictionary location: explicit config wins,
