@@ -108,6 +108,7 @@ func CompleteMissingAvatars(persons []Person) (map[string]any, error) {
 
 	am := ActorMapping()
 	gf, err := provider.GetActorProviderByName("Gfriends")
+	tmdb := newTMDBClient(c)
 	if err != nil {
 		avatarStatus.fail("Gfriends provider 不可用: " + err.Error())
 		return nil, fmt.Errorf("Gfriends provider 不可用: %w", err)
@@ -151,6 +152,22 @@ func CompleteMissingAvatars(persons []Person) (map[string]any, error) {
 			}
 
 			imageURL, err := resolveAvatarURL(am, gf, p.Name)
+			// TMDB: skip male actors (女优过滤) and use its picture when
+			// Gfriends has nothing.
+			if tmdb != nil {
+				if person, terr := lookupTMDBPerson(tmdb, am, p.Name); terr == nil && person != nil {
+					if person.Gender == GenderMale {
+						avatarProgressMu.Lock()
+						avatarProgress.Skipped++
+						avatarProgressMu.Unlock()
+						time.Sleep(200 * time.Millisecond)
+						continue
+					}
+					if imageURL == "" {
+						imageURL = person.imageURL()
+					}
+				}
+			}
 			if err != nil || imageURL == "" {
 				avatarProgressMu.Lock()
 				avatarProgress.Failed++
@@ -251,4 +268,38 @@ func detectImageContentType(data []byte) string {
 	default:
 		return "image/jpeg"
 	}
+}
+
+// lookupTMDBPerson resolves an Emby person name (and its aliases) to a TMDB
+// person record.
+func lookupTMDBPerson(tmdb *tmdbClient, am *mapping.ActorMap, name string) (*TMDBPerson, error) {
+	candidates := []string{name}
+	if am != nil {
+		if entry, ok := am.Lookup(name); ok {
+			for _, n := range []string{entry.Name, entry.Jp, entry.ZhTw} {
+				if n != "" && n != name {
+					candidates = append(candidates, n)
+				}
+			}
+		}
+	}
+	seen := map[string]struct{}{}
+	for _, cand := range candidates {
+		cand = strings.TrimSpace(cand)
+		if cand == "" {
+			continue
+		}
+		if _, dup := seen[cand]; dup {
+			continue
+		}
+		seen[cand] = struct{}{}
+		person, err := tmdb.searchPerson(cand)
+		if err != nil {
+			return nil, err
+		}
+		if person != nil {
+			return person, nil
+		}
+	}
+	return nil, nil
 }

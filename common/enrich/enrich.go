@@ -232,17 +232,39 @@ func (p *Pipeline) Apply(info *model.MovieInfo) {
 	}
 }
 
+// hanRe matches Chinese characters. A zh-CN translation that contains none is
+// treated as a failed translation (free engines occasionally return a bare
+// romanization or an empty-ish fragment instead of Chinese).
+var hanRe = regexp.MustCompile(`[\x{4e00}-\x{9fff}]`)
+
 func translateField(t translate.Translator, text, target, ref string) string {
 	if rt, ok := t.(translate.RefTranslator); ok {
-		if out, err := rt.TranslateWithRef(text, "auto", target, ref); err == nil && out != "" {
+		if out, err := rt.TranslateWithRef(text, "auto", target, ref); err == nil && acceptableTranslation(text, out, target) {
 			return out
 		}
 		return ""
 	}
-	if out, err := t.Translate(text, "auto", target); err == nil && out != "" {
+	if out, err := t.Translate(text, "auto", target); err == nil && acceptableTranslation(text, out, target) {
 		return out
 	}
 	return ""
+}
+
+// acceptableTranslation rejects results that cannot be a Chinese translation:
+// no Han characters, or still full of kana.
+func acceptableTranslation(src, out, target string) bool {
+	if out == "" {
+		return false
+	}
+	if strings.HasPrefix(strings.ToLower(target), "zh") {
+		if !hanRe.MatchString(out) {
+			return false
+		}
+		if kanaRe.MatchString(out) && !kanaRe.MatchString(src) {
+			return false
+		}
+	}
+	return true
 }
 
 var newlinePattern = regexp.MustCompile(`\r?\n(\r?\n)+`)
