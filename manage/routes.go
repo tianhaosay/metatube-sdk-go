@@ -29,6 +29,7 @@ func RegisterRoutes(r gin.IRouter, apiMiddleware ...gin.HandlerFunc) {
 		api.GET("/duplicates", getDuplicates)
 		api.POST("/duplicates/resolve", postResolveDuplicate)
 		api.POST("/duplicates/resolve-all", postResolveAllDuplicates)
+		api.POST("/duplicates/ignore", postIgnoreDuplicate)
 		api.POST("/duplicates/rollback", postRollbackMerge)
 		api.GET("/avatars/missing", getMissingAvatars)
 		api.POST("/avatars/complete", postCompleteAvatars)
@@ -186,7 +187,7 @@ func postSyncMapping(c *gin.Context) {
 }
 
 func getDuplicates(c *gin.Context) {
-	res, err := DetectDuplicates()
+	res, err := DetectDuplicates(true)
 	if err != nil {
 		jsonErr(c, err)
 		return
@@ -211,6 +212,32 @@ func postResolveDuplicate(c *gin.Context) {
 		return
 	}
 	jsonOK(c, res)
+}
+
+// postIgnoreDuplicate hides a duplicate group from future detections.
+func postIgnoreDuplicate(c *gin.Context) {
+	var req struct {
+		Group  string `json:"group"`
+		Ignore *bool  `json:"ignore"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		jsonErr(c, err)
+		return
+	}
+	ignore := true
+	if req.Ignore != nil {
+		ignore = *req.Ignore
+	}
+	if ignore {
+		if err := IgnoreDuplicateGroup(req.Group); err != nil {
+			jsonErr(c, err)
+			return
+		}
+	} else if err := UnignoreDuplicateGroup(req.Group); err != nil {
+		jsonErr(c, err)
+		return
+	}
+	jsonOK(c, gin.H{"group": req.Group, "ignored": ignore})
 }
 
 // postResolveAllDuplicates merges every detected duplicate group at once.

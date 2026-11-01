@@ -131,3 +131,31 @@ func (c *EmbyClient) SetPeople(itemID string, people any) error {
 	dto["People"] = people
 	return c.do(http.MethodPost, "/Items/"+url.PathEscape(itemID), nil, dto, nil)
 }
+// verifyPeopleLink reports whether the item now links the target person and no
+// longer links any of the source persons.
+func verifyPeopleLink(c *EmbyClient, itemID string, sourceIDs []string, targetID string) (bool, error) {
+	dto, err := c.itemDTO(itemID)
+	if err != nil {
+		return false, err
+	}
+	src := make(map[string]struct{}, len(sourceIDs))
+	for _, s := range sourceIDs {
+		src[s] = struct{}{}
+	}
+	hasTarget := false
+	people, _ := dto["People"].([]any)
+	for _, p := range people {
+		m, ok := p.(map[string]any)
+		if !ok {
+			continue
+		}
+		id, _ := m["Id"].(string)
+		if id == targetID {
+			hasTarget = true
+		}
+		if _, bad := src[id]; bad {
+			return false, nil
+		}
+	}
+	return hasTarget, nil
+}

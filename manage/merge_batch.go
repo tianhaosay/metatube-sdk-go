@@ -22,6 +22,9 @@ type mergeGroup struct {
 	TargetName string        `json:"target_name"`
 	Sources    []string      `json:"sources"`
 	Movies     []movieBackup `json:"movies"`
+	// Unverified lists movies whose link could not be confirmed after the
+	// update (Emby ignored or re-resolved the People entry).
+	Unverified []string `json:"unverified,omitempty"`
 }
 
 type movieBackup struct {
@@ -89,9 +92,13 @@ func mergeOneGroup(client *EmbyClient, targetID, targetName string, sourceIDs []
 		}
 		if changed {
 			group.Movies = append(group.Movies, movieBackup{ID: movieID, People: before})
-		}
-		if changed {
 			ok++
+			// Verify the write actually stuck: Emby resolves People by name and
+			// can silently re-attach the old person.
+			if verified, err := verifyPeopleLink(client, movieID, sourceIDs, targetID); err != nil || !verified {
+				group.Unverified = append(group.Unverified,
+					fmt.Sprintf("%s: 关联未生效 (%v)", movieID, err))
+			}
 		}
 		time.Sleep(embyWriteDelay)
 	}
@@ -110,7 +117,7 @@ func ResolveAllDuplicates() (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	detected, err := DetectDuplicates()
+	detected, err := DetectDuplicates(false)
 	if err != nil {
 		return nil, err
 	}

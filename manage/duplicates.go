@@ -7,28 +7,40 @@ import (
 	"time"
 )
 
+// MovieRef is one movie linked to an actor, shown as merge evidence so a
+// human can tell whether two entries really are the same person.
+type MovieRef struct {
+	ID     string `json:"id"`
+	Number string `json:"number"`
+	Title  string `json:"title"`
+}
+
 // DuplicateActor is one Emby person inside a duplicate group.
 type DuplicateActor struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	MovieCount int    `json:"movie_count"`
-	HasAvatar  bool   `json:"has_avatar"`
+	ID         string     `json:"id"`
+	Name       string     `json:"name"`
+	MovieCount int        `json:"movie_count"`
+	HasAvatar  bool       `json:"has_avatar"`
+	Movies     []MovieRef `json:"movies,omitempty"`
 }
 
 // DuplicateGroup groups Emby persons that the actor mapping resolves to the
 // same canonical actor.
 type DuplicateGroup struct {
-	MappingID      string           `json:"mapping_id"`
-	Recommended    string           `json:"recommended_name"`
-	TmdbID         string           `json:"tmdb_id,omitempty"`
-	Actors         []DuplicateActor `json:"actors"`
-	TotalMovies    int              `json:"total_movies"`
+	MappingID   string           `json:"mapping_id"`
+	Recommended string           `json:"recommended_name"`
+	TmdbID      string           `json:"tmdb_id,omitempty"`
+	Actors      []DuplicateActor `json:"actors"`
+	TotalMovies int              `json:"total_movies"`
+	Ignored     bool             `json:"ignored,omitempty"`
 }
 
+const maxEvidenceMovies = 100
+
 // DetectDuplicates scans Emby persons and groups duplicates by the actor
-// mapping table. This is the same detection model as avdb's
-// check_actor_duplicates: mapping index x Emby persons.
-func DetectDuplicates() (map[string]any, error) {
+// mapping table. When includeMovies is true each entry also carries its movie
+// list (number + title) so the operator can verify before merging.
+func DetectDuplicates(includeMovies bool) (map[string]any, error) {
 	c := getConfig()
 	if c == nil {
 		return nil, ErrNotConfigured
@@ -47,8 +59,6 @@ func DetectDuplicates() (map[string]any, error) {
 	}
 	log.Printf("[manage] duplicates: fetched %d persons", len(persons))
 
-	// Group persons by mapping entry (match on any alias / canonical name).
-	// Entries with the same canonical name are the same actor.
 	groups := map[string][]Person{}
 	matched := 0
 	for _, p := range persons {
@@ -63,7 +73,8 @@ func DetectDuplicates() (map[string]any, error) {
 		groups[entry.Name] = append(groups[entry.Name], p)
 	}
 
-	var out []DuplicateGroup
+	out := make([]DuplicateGroup, 0, len(groups))
+	ignored := 0
 	for name, members := range groups {
 		if len(members) < 2 {
 			continue
@@ -75,20 +86,32 @@ func DetectDuplicates() (map[string]any, error) {
 			TmdbID:      entry.TmdbID,
 		}
 		for _, m := range members {
-			count, err := client.CountPersonMovies(m.ID)
-			if err != nil {
-				log.Printf("[manage] duplicates: count movies for %s(%s) failed: %v", m.Name, m.ID, err)
+			actor := DuplicateActor{ID: m.ID, Name: m.Name, HasAvatar: m.HasPrimary}
+			if includeMovies {
+				items, err := client.ListPersonMovies(m.ID)
+				if err != nil {
+					log.Printf("[manage] duplicates: list movies for %s(%s) failed: %v", m.Name, m.ID, err)
+				}
+				actor.MovieCount = len(items)
+				for i, it := range items {
+					if i >= maxEvidenceMovies {
+						break
+					}
+					actor.Movies = append(actor.Movies, MovieRef{
+						ID:     it.Id,
+						Number: it.Number(),
+						Title:  it.Name,
+					})
+				}
+			} else {
+				if count, err := client.CountPersonMovies(m.ID); err == nil {
+					actor.MovieCount = count
+				}
 			}
-			group.Actors = append(group.Actors, DuplicateActor{
-				ID:         m.ID,
-				Name:       m.Name,
-				MovieCount: count,
-				HasAvatar:  m.HasPrimary,
-			})
-			group.TotalMovies += count
+			group.Actors = append(group.Actors, actor)
+			group.TotalMovies += actor.MovieCount
 		}
-		// Recommendation: keep the person with the most movies; prefer one
-		// that already has an avatar on ties (same UX as avdb).
+		// Keep the person with the most movies; prefer one with an avatar.
 		sort.SliceStable(group.Actors, func(i, j int) bool {
 			a, b := group.Actors[i], group.Actors[j]
 			if a.MovieCount != b.MovieCount {
@@ -96,27 +119,32 @@ func DetectDuplicates() (map[string]any, error) {
 			}
 			return a.HasAvatar && !b.HasAvatar
 		})
+		if isIgnored(name) {
+			group.Ignored = true
+			ignored++
+			continue
+		}
 		out = append(out, group)
 	}
-	log.Printf("[manage] duplicates: matched=%d groups=%d duplicate_groups=%d",
-		matched, len(groups), len(out))
+	sort.SliceStable(out, func(i, j int) bool {
+		return out[i].TotalMovies > out[j].TotalMovies
+	})
+	log.Printf("[manage] duplicates: matched=%d groups=%d ignored=%d", matched, len(out), ignored)
 	return map[string]any{
 		"scanned": len(persons),
 		"matched": matched,
 		"groups":  out,
+		"ignored": ignored,
 	}, nil
 }
 
 // ResolveDuplicate merges duplicate persons natively, without any Emby plugin:
 //
-//  1. re-point every movie of the source persons at the surviving person
-//     (read the item DTO, rewrite its People list, write it back);
-//  2. try to delete the now-empty source items (Emby only prunes virtual
-//     items during a scan, so this is best-effort);
-//  3. kick off a library scan, which is what actually removes the orphans.
-//
-// Everything is idempotent: re-running reports "skipped" for movies that are
-// already pointing at the target.
+//  1. re-point every movie of the source persons at the surviving person;
+//  2. verify each movie really lost the source and gained the target;
+//  3. try to delete the emptied source items (a library scan is what actually
+//     prunes them);
+//  4. record the original People lists so the merge can be rolled back.
 func ResolveDuplicate(targetID string, sourceIDs []string) (map[string]any, error) {
 	c := getConfig()
 	if c == nil {
@@ -134,39 +162,14 @@ func ResolveDuplicate(targetID string, sourceIDs []string) (map[string]any, erro
 		return nil, fmt.Errorf("读取保留演员失败: %w", err)
 	}
 
-	// Collect every movie linked to any source person.
-	movieIDs := map[string]struct{}{}
-	for _, sid := range sourceIDs {
-		items, err := client.ListPersonMovies(sid)
-		if err != nil {
-			return nil, fmt.Errorf("列出演员 %s 的影片失败: %w", sid, err)
-		}
-		for _, it := range items {
-			movieIDs[it.Id] = struct{}{}
-		}
+	rec := &mergeRecord{Time: time.Now().Format(time.RFC3339)}
+	group, ok, failed, notes := mergeOneGroup(client, targetID, targetName, sourceIDs)
+	if len(group.Movies) > 0 {
+		rec.Groups = append(rec.Groups, group)
 	}
+	logPath, _ := saveMergeRecord(rec)
 
-	transferred, skipped, failed := 0, 0, 0
-	var failures []string
-	for movieID := range movieIDs {
-		changed, err := client.MovePeopleLinks(movieID, sourceIDs, targetID, targetName)
-		if err != nil {
-			failed++
-			failures = append(failures, fmt.Sprintf("影片 %s: %v", movieID, err))
-			log.Printf("[manage] resolve: move links failed movie=%s: %v", movieID, err)
-			continue
-		}
-		if changed {
-			transferred++
-		} else {
-			skipped++
-		}
-		time.Sleep(embyWriteDelay)
-	}
-
-	// Best-effort delete of the emptied source items.
 	deleted := 0
-	var notes []string
 	for _, sid := range sourceIDs {
 		if count, err := client.CountPersonMovies(sid); err == nil && count > 0 {
 			notes = append(notes, fmt.Sprintf("演员 %s 仍有 %d 部关联影片，保留", sid, count))
@@ -178,30 +181,25 @@ func ResolveDuplicate(targetID string, sourceIDs []string) (map[string]any, erro
 		}
 		deleted++
 	}
-
-	// The scan is what removes the orphan person entries.
 	scanStarted, scanErr := client.TriggerLibraryScan()
 	if scanErr != nil {
 		notes = append(notes, "触发媒体库扫描失败: "+scanErr.Error())
 	}
 
-	log.Printf("[manage] resolve: target=%s movies=%d transferred=%d skipped=%d failed=%d deleted=%d scan=%v",
-		targetName, len(movieIDs), transferred, skipped, failed, deleted, scanStarted)
-
-	result := map[string]any{
-		"target":      targetName,
-		"movies":      len(movieIDs),
-		"transferred": transferred,
-		"skipped":     skipped,
-		"failed":      failed,
-		"deleted":     deleted,
+	res := map[string]any{
+		"target":       targetName,
+		"movies":       len(group.Movies),
+		"transferred":  ok,
+		"failed":       failed,
+		"deleted":      deleted,
 		"scan_started": scanStarted,
+		"rollback_log": logPath,
 	}
-	if len(failures) > 0 {
-		result["failures"] = failures
+	if len(group.Unverified) > 0 {
+		res["unverified"] = group.Unverified
 	}
 	if len(notes) > 0 {
-		result["notes"] = notes
+		res["notes"] = notes
 	}
-	return result, nil
+	return res, nil
 }

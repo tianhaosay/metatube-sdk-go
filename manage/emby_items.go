@@ -84,3 +84,16 @@ func (c *EmbyClient) RenameItem(itemID, name string) error {
 	dto["SortName"] = name
 	return c.do(http.MethodPost, "/Items/"+url.PathEscape(itemID), nil, dto, nil)
 }
+
+// UpdatePersonFields patches an item (usually a Person) with the given fields
+// and writes it back. Used for biography / TMDB id completion.
+func (c *EmbyClient) UpdatePersonFields(itemID string, patch map[string]any) error {
+	dto, err := c.itemDTO(itemID)
+	if err != nil {
+		return err
+	}
+	for k, v := range patch {
+		dto[k] = v
+	}
+	return c.do(http.MethodPost, "/Items/"+url.PathEscape(itemID), nil, dto, nil)
+}

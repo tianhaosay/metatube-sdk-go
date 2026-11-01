@@ -43,12 +43,13 @@ func ScanMissingAvatars() (map[string]any, error) {
 
 // AvatarProgress is the per-run progress snapshot for the UI.
 type AvatarProgress struct {
-	Total   int      `json:"total"`
-	Done    int      `json:"done"`
-	Updated int      `json:"updated"`
-	Failed  int      `json:"failed"`
-	Current string   `json:"current"`
-	Fails   []string `json:"fails,omitempty"`
+	Total    int      `json:"total"`
+	Done     int      `json:"done"`
+	Updated  int      `json:"updated"`
+	Profiles int      `json:"profiles"`
+	Failed   int      `json:"failed"`
+	Current  string   `json:"current"`
+	Fails    []string `json:"fails,omitempty"`
 }
 
 var (
@@ -124,6 +125,31 @@ func CompleteMissingAvatars(persons []Person) (map[string]any, error) {
 			avatarProgress.Current = p.Name
 			avatarProgressMu.Unlock()
 
+			// Profile first: biography + TMDB id from the mapping table.
+			// avdb fills these too; without them a "fixed" actor still looks
+			// like an empty shell in Emby.
+			if entry, ok := am.Lookup(p.Name); ok {
+				patch := map[string]any{}
+				if !p.HasOverview && entry.BioGraphy != "" {
+					patch["Overview"] = entry.BioGraphy
+				}
+				if entry.TmdbID != "" && p.ProviderIDs["Tmdb"] == "" {
+					ids := map[string]string{}
+					for k, v := range p.ProviderIDs {
+						ids[k] = v
+					}
+					ids["Tmdb"] = entry.TmdbID
+					patch["ProviderIds"] = ids
+				}
+				if len(patch) > 0 {
+					if err := client.UpdatePersonFields(p.ID, patch); err == nil {
+						avatarProgressMu.Lock()
+						avatarProgress.Profiles++
+						avatarProgressMu.Unlock()
+					}
+				}
+			}
+
 			imageURL, err := resolveAvatarURL(am, gf, p.Name)
 			if err != nil || imageURL == "" {
 				avatarProgressMu.Lock()
@@ -158,15 +184,16 @@ func CompleteMissingAvatars(persons []Person) (map[string]any, error) {
 		}
 		avatarProgressMu.Lock()
 		result := map[string]any{
-			"total":   avatarProgress.Total,
-			"updated": avatarProgress.Updated,
-			"failed":  avatarProgress.Failed,
-			"fails":   avatarProgress.Fails,
-			"elapsed": time.Since(start).Round(time.Second).String(),
+			"total":    avatarProgress.Total,
+			"updated":  avatarProgress.Updated,
+			"profiles": avatarProgress.Profiles,
+			"failed":   avatarProgress.Failed,
+			"fails":    avatarProgress.Fails,
+			"elapsed":  time.Since(start).Round(time.Second).String(),
 		}
 		avatarProgressMu.Unlock()
-		log.Printf("[manage] avatars: completion done total=%d updated=%d failed=%d elapsed=%s",
-			result["total"], result["updated"], result["failed"], result["elapsed"])
+		log.Printf("[manage] avatars: completion done total=%d updated=%d profiles=%d failed=%d elapsed=%s",
+			result["total"], result["updated"], result["profiles"], result["failed"], result["elapsed"])
 		avatarStatus.finish(result)
 	}()
 

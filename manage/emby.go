@@ -105,6 +105,7 @@ type Person struct {
 	ID           string            `json:"id"`
 	Name         string            `json:"name"`
 	HasPrimary   bool              `json:"has_primary"`
+	HasOverview  bool              `json:"has_overview"`
 	MovieCount   int               `json:"movie_count"`
 	ProviderIDs  map[string]string `json:"provider_ids,omitempty"`
 }
@@ -156,6 +157,7 @@ func (i embyItem) toPerson() Person {
 	p := Person{
 		ID:          i.Id,
 		Name:        i.Name,
+		HasOverview: strings.TrimSpace(i.Overview) != "",
 		ProviderIDs: i.ProviderIds,
 	}
 	_, p.HasPrimary = i.ImageTags["Primary"]
@@ -175,7 +177,7 @@ func (c *EmbyClient) FetchPersons(libraries []string) ([]Person, error) {
 			}
 			q := url.Values{}
 			q.Set("Recursive", "true")
-			q.Set("Fields", "ProviderIds")
+			q.Set("Fields", "ProviderIds,Overview")
 			q.Set("StartIndex", fmt.Sprint(start))
 			q.Set("Limit", "2000")
 			if err := c.do(http.MethodGet, "/Persons", q, nil, &page); err != nil {
@@ -203,7 +205,7 @@ func (c *EmbyClient) FetchPersons(libraries []string) ([]Person, error) {
 			q.Set("ParentId", lib)
 			q.Set("IncludeItemTypes", "Person")
 			q.Set("Recursive", "true")
-			q.Set("Fields", "ProviderIds")
+			q.Set("Fields", "ProviderIds,Overview")
 			q.Set("StartIndex", fmt.Sprint(start))
 			q.Set("Limit", "1000")
 			if err := c.do(http.MethodGet, "/Items", q, nil, &page); err != nil {
@@ -250,7 +252,7 @@ func (c *EmbyClient) ListPersonMovies(personID string) ([]embyItem, error) {
 	q.Set("PersonIds", personID)
 	q.Set("Recursive", "true")
 	q.Set("IncludeItemTypes", "Movie")
-	q.Set("Fields", "ProviderIds")
+	q.Set("Fields", "ProviderIds,Overview")
 	q.Set("Limit", "10000")
 	if err := c.do(http.MethodGet, "/Items", q, nil, &page); err != nil {
 		return nil, err
