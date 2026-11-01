@@ -189,13 +189,9 @@ func collectRefreshIDs(client *EmbyClient, c *Config, opts RefreshOptions) ([]st
 	}
 
 	if opts.Scope == "problems" {
-		res, err := Audit(AuditRequest{LibraryID: libraryID, PathPrefix: opts.PathPrefix, Offset: 0, Limit: 100000})
+		ids, _, err := CollectProblemIDs(client, libraryID, opts.PathPrefix)
 		if err != nil {
-			return nil, err
-		}
-		ids := make([]string, 0, len(res.Issues))
-		for _, it := range res.Issues {
-			ids = append(ids, it.ID)
+			return nil, fmt.Errorf("体检扫描失败: %w", err)
 		}
 		return ids, nil
 	}

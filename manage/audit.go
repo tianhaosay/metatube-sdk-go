@@ -192,3 +192,31 @@ func pathInScope(path, prefix string) bool {
 	}
 	return strings.HasPrefix(path, prefix+"/")
 }
+// CollectProblemIDs returns every item id in scope that fails the audit rules.
+// Audit() itself caps the returned issue window, so a full run cannot rely on
+// it; this walks the library directly.
+func CollectProblemIDs(client *EmbyClient, libraryID, pathPrefix string) ([]string, int, error) {
+	ids := make([]string, 0, 256)
+	scanned := 0
+	start := 0
+	for {
+		items, total, err := client.FetchMovies(libraryID, start, 500)
+		if err != nil {
+			return nil, scanned, err
+		}
+		for _, it := range items {
+			if pathPrefix != "" && !pathInScope(it.Path, pathPrefix) {
+				continue
+			}
+			scanned++
+			if len(auditItem(it)) > 0 {
+				ids = append(ids, it.Id)
+			}
+		}
+		start += len(items)
+		if len(items) == 0 || (total > 0 && start >= total) {
+			break
+		}
+	}
+	return ids, scanned, nil
+}
