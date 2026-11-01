@@ -32,6 +32,7 @@ func RegisterRoutes(r gin.IRouter, apiMiddleware ...gin.HandlerFunc) {
 		api.POST("/refresh/start", postRefreshStart)
 		api.POST("/refresh/stop", postRefreshStop)
 		api.GET("/refresh/status", getRefreshStatus)
+		api.POST("/refresh/reset", postRefreshReset)
 		api.GET("/paths", getPaths)
 		api.POST("/mapping/sync", postSyncMapping)
 		api.GET("/duplicates", getDuplicates)
@@ -422,4 +423,14 @@ func getPaths(c *gin.Context) {
 		res = append(res, map[string]any{"library_id": lib, "items": items})
 	}
 	jsonOK(c, res)
+}
+
+// postRefreshReset forgets which items a scope already refreshed.
+func postRefreshReset(c *gin.Context) {
+	var body struct {
+		Scope      string `json:"scope"`
+		PathPrefix string `json:"path_prefix"`
+	}
+	_ = c.ShouldBindJSON(&body)
+	jsonOK(c, ResetRefreshProgress(body.Scope, body.PathPrefix))
 }

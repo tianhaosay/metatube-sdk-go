@@ -77,11 +77,32 @@ func StartRefresh(opts RefreshOptions) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Skip items this scope already refreshed in an earlier run, so a batch job
+	// can be stopped and resumed (or run day by day) without redoing work.
+	key := opts.Scope + "|" + opts.PathPrefix
+	prog := loadRefreshProgress()
+	alreadyDone := 0
+	if prog.Key == key && len(prog.Done) > 0 {
+		done := make(map[string]struct{}, len(prog.Done))
+		for _, id := range prog.Done {
+			done[id] = struct{}{}
+		}
+		pending := make([]string, 0, len(ids))
+		for _, id := range ids {
+			if _, ok := done[id]; ok {
+				alreadyDone++
+				continue
+			}
+			pending = append(pending, id)
+		}
+		ids = pending
+	}
 	if opts.Limit > 0 && len(ids) > opts.Limit {
 		ids = ids[:opts.Limit]
 	}
 	if len(ids) == 0 {
-		return nil, fmt.Errorf("没有需要刷新的条目")
+		return map[string]any{"started": false, "total": 0, "skipped": alreadyDone,
+			"message": "该范围已全部刷新完成（如需重刷请点「重置进度」）"}, nil
 	}
 
 	refreshJob.mu.Lock()
@@ -99,11 +120,11 @@ func StartRefresh(opts RefreshOptions) (map[string]any, error) {
 	refreshJob.startedAt = time.Now()
 	refreshJob.mu.Unlock()
 
-	go runRefresh(client, ids, opts)
-	log.Printf("[manage] refresh job started: %d items, scope=%s delay=%dms batch=%d/%ds",
-		len(ids), opts.Scope, opts.ItemDelayMs, opts.BatchSize, opts.BatchPauseSec)
+	go runRefresh(client, ids, opts, key)
+	log.Printf("[manage] refresh job started: %d items (skipped %d already done), scope=%s delay=%dms batch=%d/%ds",
+		len(ids), alreadyDone, opts.Scope, opts.ItemDelayMs, opts.BatchSize, opts.BatchPauseSec)
 
-	return map[string]any{"started": true, "total": len(ids)}, nil
+	return map[string]any{"started": true, "total": len(ids), "skipped": alreadyDone}, nil
 }
 
 // StopRefresh asks the running job to stop after the current item.
@@ -143,15 +164,32 @@ func RefreshStatus() map[string]any {
 	}
 }
 
-func runRefresh(client *EmbyClient, ids []string, opts RefreshOptions) {
+func runRefresh(client *EmbyClient, ids []string, opts RefreshOptions, key string) {
+	prog := loadRefreshProgress()
+	if prog.Key != key {
+		prog = refreshProgress{Key: key}
+	}
+	doneSet := make(map[string]struct{}, len(prog.Done)+len(ids))
+	for _, id := range prog.Done {
+		doneSet[id] = struct{}{}
+	}
+	persist := func() {
+		list := make([]string, 0, len(doneSet))
+		for id := range doneSet {
+			list = append(list, id)
+		}
+		prog.Done = list
+		saveRefreshProgress(prog)
+	}
 	defer func() {
+		persist()
 		refreshJob.mu.Lock()
 		refreshJob.running = false
 		refreshJob.finished = true
 		refreshJob.current = ""
 		done, ok, failed := refreshJob.done, refreshJob.ok, refreshJob.failed
 		refreshJob.mu.Unlock()
-		log.Printf("[manage] refresh job finished: done=%d ok=%d failed=%d", done, ok, failed)
+		log.Printf("[manage] refresh job stopped/finished: done=%d ok=%d failed=%d", done, ok, failed)
 	}()
 
 	for i, id := range ids {
@@ -171,7 +209,12 @@ func runRefresh(client *EmbyClient, ids []string, opts RefreshOptions) {
 		} else {
 			refreshJob.ok++
 		}
+		finished := refreshJob.done
 		refreshJob.mu.Unlock()
+		doneSet[id] = struct{}{}
+		if finished%20 == 0 {
+			persist()
+		}
 
 		time.Sleep(time.Duration(opts.ItemDelayMs) * time.Millisecond)
 
