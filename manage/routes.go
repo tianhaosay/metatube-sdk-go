@@ -85,9 +85,16 @@ func getConsistency(c *gin.Context) {
 func getAudit(c *gin.Context) {
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "200"))
+	libID := c.Query("library_id")
+	prefix := c.Query("path_prefix")
+	if libID == "" && prefix != "" {
+		if cl, cerr := newEmbyClient(getConfig()); cerr == nil {
+			libID = ResolveLibraryForPath(cl, getConfig(), prefix)
+		}
+	}
 	res, err := Audit(AuditRequest{
-		LibraryID: c.Query("library_id"),
-		PathPrefix: c.Query("path_prefix"),
+		LibraryID: libID,
+		PathPrefix: prefix,
 		Offset:    offset,
 		Limit:     limit,
 	})

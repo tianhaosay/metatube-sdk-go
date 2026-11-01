@@ -220,3 +220,22 @@ func CollectProblemIDs(client *EmbyClient, libraryID, pathPrefix string) ([]stri
 	}
 	return ids, scanned, nil
 }
+// ResolveLibraryForPath picks the library whose root contains the given path
+// prefix, so a folder scope works without the caller naming its library.
+func ResolveLibraryForPath(client *EmbyClient, cfg *Config, prefix string) string {
+	if cfg == nil || len(cfg.EmbyLibraryIDs) == 0 {
+		return ""
+	}
+	if prefix == "" {
+		return cfg.EmbyLibraryIDs[0]
+	}
+	locs := client.LibraryLocations()
+	for _, lib := range cfg.EmbyLibraryIDs {
+		for _, root := range locs[lib] {
+			if root != "" && pathInScope(prefix, strings.TrimRight(root, "/")) {
+				return lib
+			}
+		}
+	}
+	return cfg.EmbyLibraryIDs[0]
+}

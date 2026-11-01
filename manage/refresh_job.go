@@ -183,10 +183,7 @@ func runRefresh(client *EmbyClient, ids []string, opts RefreshOptions) {
 
 // collectRefreshIDs returns the item ids this run should touch.
 func collectRefreshIDs(client *EmbyClient, c *Config, opts RefreshOptions) ([]string, error) {
-	libraryID := ""
-	if len(c.EmbyLibraryIDs) > 0 {
-		libraryID = c.EmbyLibraryIDs[0]
-	}
+	libraryID := ResolveLibraryForPath(client, c, opts.PathPrefix)
 
 	if opts.Scope == "problems" {
 		ids, _, err := CollectProblemIDs(client, libraryID, opts.PathPrefix)
