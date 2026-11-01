@@ -85,6 +85,7 @@ func getAudit(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "200"))
 	res, err := Audit(AuditRequest{
 		LibraryID: c.Query("library_id"),
+		PathPrefix: c.Query("path_prefix"),
 		Offset:    offset,
 		Limit:     limit,
 	})
