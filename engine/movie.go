@@ -13,6 +13,7 @@ import (
 	"github.com/metatube-community/metatube-sdk-go/collection/slices"
 	"github.com/metatube-community/metatube-sdk-go/common/comparer"
 	"github.com/metatube-community/metatube-sdk-go/common/number"
+	"github.com/metatube-community/metatube-sdk-go/common/enrich"
 	"github.com/metatube-community/metatube-sdk-go/engine/providerid"
 	"github.com/metatube-community/metatube-sdk-go/model"
 	mt "github.com/metatube-community/metatube-sdk-go/provider"
@@ -217,6 +218,13 @@ func (e *Engine) getMovieInfoWithCallback(provider mt.MovieProvider, id string, 
 	// Query DB first (by id).
 	if lazy {
 		if info, err = e.getMovieInfoFromDB(provider, id); err == nil && info.IsValid() {
+			// Cached rows may still hold untranslated metadata; enrich once and
+			// persist so a library refresh fixes them without re-scraping.
+			if e.enrich != nil && enrich.NeedsWork(info) {
+				e.enrich.Apply(info)
+				e.db.Clauses(clause.OnConflict{UpdateAll: true}).Create(info)
+				e.logger.Printf("enriched cached entry %s/%s on read", provider.Name(), id)
+			}
 			return // ignore DB query error.
 		}
 	}

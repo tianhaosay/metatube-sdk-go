@@ -298,3 +298,26 @@ func dedupe(in []string) []string {
 	}
 	return out
 }
+
+// NeedsWork reports whether the metadata still contains Japanese text that the
+// pipeline could improve. Cached rows are enriched through this check so a
+// library refresh can fix old entries without re-scraping them.
+func NeedsWork(info *model.MovieInfo) bool {
+	if info == nil {
+		return false
+	}
+	if kanaRe.MatchString(info.Title) || kanaRe.MatchString(info.Summary) {
+		return true
+	}
+	for _, g := range info.Genres {
+		if kanaRe.MatchString(g) {
+			return true
+		}
+	}
+	for _, a := range info.Actors {
+		if kanaRe.MatchString(a) {
+			return true
+		}
+	}
+	return false
+}
