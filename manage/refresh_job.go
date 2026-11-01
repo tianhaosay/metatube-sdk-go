@@ -209,7 +209,7 @@ func collectRefreshIDs(client *EmbyClient, c *Config, opts RefreshOptions) ([]st
 			return nil, fmt.Errorf("读取媒体库失败: %w", err)
 		}
 		for _, it := range items {
-			if opts.PathPrefix != "" && !strings.HasPrefix(it.Path, opts.PathPrefix) {
+			if opts.PathPrefix != "" && !pathInScope(it.Path, opts.PathPrefix) {
 				continue
 			}
 			ids = append(ids, it.Id)

@@ -97,7 +97,7 @@ func Audit(req AuditRequest) (*AuditResult, error) {
 			res.Total = total
 		}
 		for _, it := range items {
-			if req.PathPrefix != "" && !strings.HasPrefix(it.Path, req.PathPrefix) {
+			if req.PathPrefix != "" && !pathInScope(it.Path, req.PathPrefix) {
 				continue
 			}
 			res.Checked++
@@ -123,6 +123,11 @@ func Audit(req AuditRequest) (*AuditResult, error) {
 		if len(items) == 0 || (total > 0 && start >= total) {
 			break
 		}
+	}
+	// When a folder filter is active the "total" must describe that folder,
+	// not the whole library.
+	if req.PathPrefix != "" {
+		res.Total = res.Checked
 	}
 	return res, nil
 }
@@ -176,4 +181,14 @@ func hasText(s string) bool {
 		}
 	}
 	return false
+}
+
+// pathInScope reports whether path is the folder itself or inside it. A plain
+// prefix match would make ".../JAV" also swallow ".../JAV2".
+func pathInScope(path, prefix string) bool {
+	prefix = strings.TrimRight(prefix, "/")
+	if path == prefix {
+		return true
+	}
+	return strings.HasPrefix(path, prefix+"/")
 }
