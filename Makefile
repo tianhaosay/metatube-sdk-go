@@ -130,3 +130,17 @@ lint:
 
 clean:
 	rm -rf $(BUILD_DIR)
+
+# ---- metatube-plus additions -------------------------------------------------
+# Build the deployable image (used by fnOS / docker compose).
+IMAGE_NAME ?= metatube-plus:latest
+.PHONY: image
+image:
+	docker build -t $(IMAGE_NAME) .
+
+# Local quality gate: format check, vet, unit tests (no network tests).
+.PHONY: check
+check:
+	gofmt -l common engine manage cmd translate provider/javdb | tee /tmp/gofmt.out; test ! -s /tmp/gofmt.out
+	go vet ./common/... ./engine/... ./manage/... ./cmd/... ./translate/...
+	go test ./common/... -count=1
