@@ -634,10 +634,10 @@ function pollRefresh(){
   rfTimer=setInterval(async function(){
     try{
       const s=await api('/manage/api/refresh/status');
+      const ans=(s.answered!=null? s.answered : s.done);
       const ansPct = s.total? Math.round(ans*100/s.total):0;
       $('rfBar').style.width=(s.percent||0)+'%';
       if($('rfBar2')) $('rfBar2').style.width=ansPct+'%';
-      const ans=(s.answered!=null? s.answered : s.done);
       if(!s.running && !s.total){ $('rfText').textContent='空闲'; }
       else if(s.running){ $('rfText').textContent = '已派发 '+s.done+'/'+s.total+' · 后台已完成 '+ans+'/'+s.total+' · 成功 '+s.ok+' · 失败 '+s.failed+' · 已用 '+s.elapsed; }
       else { $('rfText').textContent = '已结束：派发 '+s.done+'/'+s.total+' · 后台完成 '+ans+'/'+s.total+' · 成功 '+s.ok+' 失败 '+s.failed+' · 进度已保存'; }
