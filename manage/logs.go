@@ -204,17 +204,22 @@ var structuredDateRe = regexp.MustCompile(`^\d{4}/\d{2}/\d{2}[ T]\d{2}:\d{2}:\d{
 func parseStructured(line string) (LogEntry, bool) {
 	s := strings.TrimSpace(line)
 	kind := ""
-	for {
-		m := srcBracketRe.FindStringSubmatch(s)
-		if m == nil {
-			break
+	// The date may come first ("2026/11/01 13:46:09 [SCRAPE] …") or after a
+	// source bracket ("[ENGINE] 2026/11/01 …"), so strip both repeatedly.
+	for i := 0; i < 4; i++ {
+		if m := srcBracketRe.FindStringSubmatch(s); m != nil {
+			if m[1] == "SCRAPE" || m[1] == "FALLBACK" {
+				kind = m[1]
+			}
+			s = strings.TrimSpace(s[len(m[0]):])
+			continue
 		}
-		if m[1] == "SCRAPE" || m[1] == "FALLBACK" {
-			kind = m[1]
+		if structuredDateRe.MatchString(s) {
+			s = strings.TrimSpace(structuredDateRe.ReplaceAllString(s, ""))
+			continue
 		}
-		s = strings.TrimSpace(s[len(m[0]):])
+		break
 	}
-	s = strings.TrimSpace(structuredDateRe.ReplaceAllString(s, ""))
 	if kind == "" {
 		return LogEntry{}, false
 	}
