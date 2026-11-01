@@ -159,6 +159,7 @@
             <button onclick="startRefresh()">开始 / 继续</button>
             <button class="sec" onclick="stopRefresh()">暂停</button>
             <button class="sec" onclick="resetRefresh()">重置进度</button>
+            <button class="sec" onclick="wipeMetadata()">清空元数据和缓存</button>
             <span class="muted" id="rfMsg"></span>
           </div>
           <label class="f" style="margin-top:10px">
@@ -594,6 +595,24 @@ async function startRefresh(){
 async function stopRefresh(){
   try{ await api('/manage/api/refresh/stop',{method:'POST'}); $('rfMsg').textContent='正在暂停（进度已保存，可继续）…'; }
   catch(e){ $('rfMsg').textContent='失败：'+e.message; }
+}
+async function wipeMetadata(){
+  const scope=$('rfScope').value, pp=$('pathSel')?$('pathSel').value:'';
+  if(!confirm('清空所选范围的元数据（标题只留番号，简介/流派/演员/标签/工作室清空），图片与字幕保留，然后可重新刮削。继续？')) return;
+  const body={
+    mode:'wipe',
+    scope: scope,
+    path_prefix: pp,
+    limit: parseInt($('rfLimit').value||'0',10)||0,
+    item_delay_ms: parseInt($('rfDelay').value||'200',10)||200,
+    batch_size: parseInt($('rfBatch').value||'200',10)||200,
+    batch_pause_sec: parseInt($('rfPause').value||'5',10)||0
+  };
+  try{
+    const r=await api('/manage/api/refresh/start',{method:'POST',body:JSON.stringify(body)});
+    $('rfMsg').textContent = r.started? ('开始清空，共 '+r.total+' 部（图片保留）') : (r.message||'没有需要处理的条目');
+    pollRefresh();
+  }catch(e){ $('rfMsg').textContent='失败：'+e.message; }
 }
 async function resetRefresh(){
   const scope=$('rfScope').value, pp=$('pathSel')?$('pathSel').value:'';

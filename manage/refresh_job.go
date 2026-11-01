@@ -39,6 +39,8 @@ type RefreshOptions struct {
 	// BatchSize / BatchPauseSec insert a longer pause every N items.
 	BatchSize     int `json:"batch_size"`
 	BatchPauseSec int `json:"batch_pause_sec"`
+	// Mode: "" / "refresh" re-scrapes, "wipe" clears metadata but keeps images.
+	Mode string `json:"mode"`
 	// ReplaceAll lets provider output overwrite existing metadata (needed to
 	// refresh a stale Japanese title or clear a summary).
 	ReplaceAll bool `json:"replace_all"`
@@ -82,7 +84,7 @@ func StartRefresh(opts RefreshOptions) (map[string]any, error) {
 	}
 	// Skip items this scope already refreshed in an earlier run, so a batch job
 	// can be stopped and resumed (or run day by day) without redoing work.
-	key := opts.Scope + "|" + opts.PathPrefix
+	key := opts.Mode + "|" + opts.Scope + "|" + opts.PathPrefix
 	prog := loadRefreshProgress()
 	alreadyDone := 0
 	if prog.Key == key && len(prog.Done) > 0 {
@@ -204,7 +206,12 @@ func runRefresh(client *EmbyClient, ids []string, opts RefreshOptions, key strin
 		refreshJob.current = id
 		refreshJob.mu.Unlock()
 
-		err := client.RefreshMetadata(id, opts.ReplaceAll)
+		var err error
+		if opts.Mode == "wipe" {
+			err = client.WipeMetadata(id)
+		} else {
+			err = client.RefreshMetadata(id, opts.ReplaceAll)
+		}
 		refreshJob.mu.Lock()
 		refreshJob.done++
 		if err != nil {

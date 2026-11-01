@@ -145,3 +145,46 @@ func (c *EmbyClient) LibraryLocations() map[string][]string {
 	}
 	return out
 }
+// WipeMetadata clears every metadata field of one item except its images, so a
+// following refresh rebuilds the entry from scratch. The file path and image
+// tags stay untouched.
+func (c *EmbyClient) WipeMetadata(itemID string) error {
+	dto, err := c.itemDTO(itemID)
+	if err != nil {
+		return err
+	}
+	code := ""
+	if ids, ok := dto["ProviderIds"].(map[string]any); ok {
+		for k, v := range ids {
+			if strings.EqualFold(k, "MetaTube") {
+				if s, _ := v.(string); s != "" {
+					parts := strings.SplitN(s, ":", 2)
+					code = strings.ToUpper(parts[len(parts)-1])
+				}
+			}
+		}
+	}
+	if code == "" {
+		if name, _ := dto["Name"].(string); name != "" {
+			code = strings.ToUpper(strings.Fields(name)[0])
+		}
+	}
+	if code == "" {
+		return fmt.Errorf("无法确定番号")
+	}
+	dto["Name"] = code
+	dto["SortName"] = code
+	dto["ForcedSortName"] = code
+	dto["OriginalTitle"] = ""
+	dto["Overview"] = ""
+	dto["Taglines"] = []any{}
+	dto["Genres"] = []any{}
+	dto["Tags"] = []any{}
+	dto["Studios"] = []any{}
+	dto["People"] = []any{}
+	dto["OfficialRating"] = ""
+	dto["CustomRating"] = ""
+	dto["ProductionYear"] = 0
+	dto["PremiereDate"] = nil
+	return c.do(http.MethodPost, "/Items/"+url.PathEscape(itemID), nil, dto, nil)
+}
