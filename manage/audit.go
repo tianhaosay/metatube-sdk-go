@@ -173,7 +173,8 @@ func looksJapanese(s string) bool {
 	return float64(kana)/float64(len(runes)) >= 0.2
 }
 
-// matchesProblem reports whether an issue belongs to the requested filter.func matchesProblem(problems []string, filter string) bool {
+// matchesProblem reports whether an issue belongs to the requested filter.
+func matchesProblem(problems []string, filter string) bool {
 	if filter == "" {
 		return true
 	}
