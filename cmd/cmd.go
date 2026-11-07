@@ -257,7 +257,9 @@ func Router(names ...string) *gin.Engine {
 		Config.DBAutoMigrate = true
 	}
 
-	// The manage console mutates the same pipeline at runtime.
+	// The manage console mutates the same pipeline at runtime. Translation is
+	// built from the native Emby plugin settings after manage.Setup() because
+	// that is when the plugin-config directory becomes available.
 	manage.SetPipeline(pipe)
 	if err = app.DBAutoMigrate(Config.DBAutoMigrate); err != nil {
 		log.Fatal(err)
@@ -291,6 +293,7 @@ func Router(names ...string) *gin.Engine {
 			MappingSyncInterval: Config.MappingSyncInterval,
 		})
 		manage.SetBackendURL("http://127.0.0.1:" + Config.Port)
+		manage.StartPluginTranslationWatch()
 		manage.RegisterRoutes(ginApp, route.RequireToken(token))
 	} else if Config.MappingOnline && Config.MappingActorFile != "" {
 		// Mapping sync without the manage UI still runs in the background.
@@ -311,18 +314,16 @@ func Router(names ...string) *gin.Engine {
 // of staying off until the next restart.
 func buildEnrichPipeline() *enrich.Pipeline {
 	cfg := enrich.Config{
-		TranslateLang:  Config.TranslateLang,
-		DisableSummary: Config.DisableSummary,
-		CleanSummary:   true,
+		TranslateLang:        Config.TranslateLang,
+		DisableSummary:       Config.DisableSummary,
+		CleanSummary:         true,
+		ActorFallbackEnabled: true, // console switch default on; settings may turn it off
 	}
 	if Config.MappingActorFile != "" {
 		cfg.Actors = enrich.NewLazyActor(Config.MappingActorFile)
 	}
 	if Config.MappingInfoFile != "" {
 		cfg.Info = enrich.NewLazyInfo(Config.MappingInfoFile)
-	}
-	if Config.Translate && Config.TranslateEngines != "" {
-		cfg.Translator = buildTranslator()
 	}
 	cfg.Genres = enrich.LoadGenreDict(genreDictPath())
 	cfg.ActorFallback = buildActorFallback()
@@ -480,68 +481,3 @@ func buildActorFallback() func(number string) []string {
 	}
 }
 
-// buildTranslator creates a failover-capable metadata translator from the
-// translate* config. Engine parameters come from environment variables in
-// the form MT_TRANSLATE_<ENGINE>__<PARAM>, where PARAM matches the engine's
-// JSON-tagged fields case-insensitively ignoring '-'/'_'
-// (e.g. MT_TRANSLATE_DEEPL__DEEPL_API_URL=...).
-func buildTranslator() translate.Translator {
-	engineNames := strings.Split(Config.TranslateEngines, ",")
-	for i := range engineNames {
-		engineNames[i] = strings.TrimSpace(engineNames[i])
-	}
-	if engineNames[0] == "" {
-		return nil
-	}
-	params := parseTranslateEngineParams()
-	build := func(name string) (translate.Translator, string) {
-		if name == "" {
-			return nil, ""
-		}
-		if !translate.Exists(name) {
-			log.Printf("[TRANSLATE] unknown engine: %s", name)
-			return nil, ""
-		}
-		return translate.Build(name, params[strings.ToUpper(name)]), name
-	}
-	primary, primaryName := build(engineNames[0])
-	if primary == nil {
-		return nil
-	}
-	// The secondary engine is always the free Google engine: it needs no key,
-	// never costs money, and is exactly what the Emby plugin used to provide.
-	// If the primary already is googlefree there is nothing to fail over to.
-	var secondary translate.Translator
-	secondaryName := ""
-	if !strings.EqualFold(primaryName, "googlefree") {
-		secondary, secondaryName = build("googlefree")
-		if secondary == nil {
-			secondaryName = ""
-		}
-	}
-	log.Printf("[TRANSLATE] enabled: primary=%s secondary=%s lang=%s timeout=%s switch-threshold=%d",
-		primaryName, secondaryName, Config.TranslateLang, Config.TranslateTimeout, Config.TranslateSwitchThreshold)
-	return translate.NewFailover(primary, primaryName, secondary, secondaryName, Config.TranslateTimeout, Config.TranslateSwitchThreshold)
-}
-
-// parseTranslateEngineParams collects MT_TRANSLATE_<ENGINE>__<PARAM> envs.
-func parseTranslateEngineParams() map[string]map[string]string {
-	result := map[string]map[string]string{}
-	const prefix = "MT_TRANSLATE_"
-	for _, env := range os.Environ() {
-		key, value, found := strings.Cut(env, "=")
-		if !found || !strings.HasPrefix(key, prefix) {
-			continue
-		}
-		rest := strings.TrimPrefix(key, prefix)
-		engine, param, found := strings.Cut(rest, "__")
-		if !found || engine == "" || param == "" {
-			continue
-		}
-		if result[engine] == nil {
-			result[engine] = map[string]string{}
-		}
-		result[engine][param] = value
-	}
-	return result
-}

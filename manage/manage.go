@@ -50,13 +50,13 @@ var (
 	syncState = jobStatus{}
 )
 
-// SetPipeline attaches the shared enrich pipeline (which owns the actor
-// mapping table) and re-applies persisted settings. Called from cmd.Router.
+// SetPipeline attaches the shared enrich pipeline. Settings (including the
+// actor-fallback default) are applied later by Setup → initSettings, which
+// runs after the config (mapping path, plugin dir) is available.
 func SetPipeline(p *enrich.Pipeline) {
 	mu.Lock()
 	pipeline = p
 	mu.Unlock()
-	applySettings(GetSettings())
 }
 
 func getPipeline() *enrich.Pipeline {

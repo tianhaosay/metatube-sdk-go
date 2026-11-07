@@ -40,6 +40,7 @@ func RegisterRoutes(r gin.IRouter, apiMiddleware ...gin.HandlerFunc) {
 		api.POST("/settings", postSettings)
 		api.GET("/consistency", getConsistency)
 		api.GET("/plugin-state", getPluginState)
+		api.GET("/plugin-translation", getPluginTranslation)
 		api.POST("/translate-test", postTranslateTest)
 	}
 }
@@ -62,14 +63,15 @@ func corsMiddleware(c *gin.Context) {
 // used by the plugin config page to warn about conflicts.
 func getConsistency(c *gin.Context) {
 	s := GetSettings()
+	ti := GetPluginTranslationInfo()
 	jsonOK(c, gin.H{
-		"translate":            s.Translate,
-		"translate_engines":    s.TranslateEngines,
-		"disable_summary":      s.DisableSummary,
-		"fanza_rate_limit":     s.FanzaRateLimit,
-		"javdb_rate_limit":     s.JavdbRateLimit,
-		"javdb_mapping_active": isJavdbMappingActive(),
-		"mapping_entries":      MappingStatus()["entries"],
+		"translation":           ti,
+		"disable_summary":       s.DisableSummary,
+		"actor_fallback":        s.ActorFallback,
+		"fanza_rate_limit":      s.FanzaRateLimit,
+		"javdb_rate_limit":      s.JavdbRateLimit,
+		"javdb_mapping_active":  isJavdbMappingActive(),
+		"mapping_entries":       MappingStatus()["entries"],
 	})
 }
 
@@ -208,6 +210,12 @@ func HealthHandler(c *gin.Context) {
 // file) so the console can show conflicts like "plugin translates too".
 func getPluginState(c *gin.Context) {
 	jsonOK(c, GetPluginState())
+}
+
+// getPluginTranslation exposes the read-only translation linkage view: the
+// engine/key come from the native plugin settings page.
+func getPluginTranslation(c *gin.Context) {
+	jsonOK(c, GetPluginTranslationInfo())
 }
 
 // postTranslateTest runs the current translator on a sample text so the

@@ -54,6 +54,11 @@ type Config struct {
 	// This replaces the old "merge arbitrary fields across providers" design:
 	// one narrow rule, one place, no per-field matrix.
 	ActorFallback func(number string) []string
+
+	// ActorFallbackEnabled gates the fallback. When false, no JavDB lookup
+	// happens at all, even if the primary provider returned zero actors.
+	// Default true.
+	ActorFallbackEnabled bool
 }
 
 // Pipeline applies a Config to movie metadata. It is safe for concurrent use
@@ -108,6 +113,12 @@ func (p *Pipeline) SetDisableSummary(v bool) {
 	p.Configure(func(c *Config) { c.DisableSummary = v })
 }
 
+// SetActorFallbackEnabled toggles the JavDB actor fallback without rebuilding
+// the pipeline (so the console switch takes effect immediately).
+func (p *Pipeline) SetActorFallbackEnabled(v bool) {
+	p.Configure(func(c *Config) { c.ActorFallbackEnabled = v })
+}
+
 func (p *Pipeline) SetMaps(actors ActorLookup, info InfoLookup) {
 	p.Configure(func(c *Config) {
 		c.Actors = actors
@@ -124,8 +135,8 @@ func (p *Pipeline) Apply(info *model.MovieInfo) {
 	cfg := p.Snapshot()
 
 	// 0. Actor fallback: only when the provider gave us nothing, so the
-	// common path never pays for an extra request.
-	if len(info.Actors) == 0 && info.Number != "" && cfg.ActorFallback != nil {
+	// common path never pays for an extra request. Gated by a console switch.
+	if cfg.ActorFallbackEnabled && len(info.Actors) == 0 && info.Number != "" && cfg.ActorFallback != nil {
 		if extra := cfg.ActorFallback(info.Number); len(extra) > 0 {
 			info.Actors = extra
 		}

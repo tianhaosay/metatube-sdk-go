@@ -8,9 +8,8 @@
   :root{--bg:#f6f7f9;--panel:#fff;--line:#e5e8ee;--text:#0f172a;--muted:#64748b;--brand:#2563eb;--ok:#16a34a;--warn:#d97706;--bad:#dc2626}
   *{box-sizing:border-box}
   body{margin:0;font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text)}
-  a{color:var(--brand);text-decoration:none}
   .app{display:flex;min-height:100vh}
-  .side{width:190px;background:#0f172a;color:#cbd5e1;padding:14px 10px;position:sticky;top:0;height:100vh}
+  .side{width:180px;background:#0f172a;color:#cbd5e1;padding:14px 10px;position:sticky;top:0;height:100vh}
   .side h1{font-size:14px;color:#fff;margin:4px 8px 14px;letter-spacing:.5px}
   .nav{display:block;padding:8px 10px;border-radius:8px;color:#cbd5e1;font-size:13.5px;cursor:pointer;margin-bottom:2px}
   .nav:hover{background:#1e293b}
@@ -24,16 +23,13 @@
   .wrap{padding:16px 18px 40px;max-width:1180px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px}
   .card h2{font-size:14px;margin:0 0 10px}
-  .grid{display:grid;gap:12px}
-  .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
-  @media(max-width:900px){.g2,.g3{grid-template-columns:1fr}.side{display:none}}
+  .grid{display:grid;gap:12px}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  @media(max-width:900px){.g2{grid-template-columns:1fr}.side{display:none}}
   .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   button{background:var(--brand);color:#fff;border:0;border-radius:8px;padding:7px 13px;font-size:13px;cursor:pointer}
-  button:disabled{opacity:.5;cursor:not-allowed}
   button.sec{background:#eef2f7;color:var(--text)}
   button.danger{background:var(--bad)}
-  input,select,textarea{padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:#fff;width:100%}
+  input,select{padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:#fff;width:100%}
   label.f{display:block;font-size:12px;color:var(--muted);margin:8px 0 4px}
   .muted{color:var(--muted);font-size:12.5px}
   .kv{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:4px 0;border-bottom:1px dashed var(--line)}
@@ -45,19 +41,17 @@
   .pill.ok{background:#dcfce7;color:#15803d}.pill.bad{background:#fee2e2;color:#b91c1c}.pill.warn{background:#fef3c7;color:#b45309}.pill.gray{background:#f1f5f9;color:#475569}
   .bar{height:8px;background:#e5e8ee;border-radius:999px;overflow:hidden;margin:8px 0}
   .bar>i{display:block;height:100%;background:var(--brand);width:0;transition:width .3s}
-  .log{background:#0f172a;border-radius:10px;padding:10px 12px;max-height:440px;overflow:auto;font-family:ui-monospace,Consolas,monospace;font-size:11.5px;line-height:1.7;color:#cbd5e1}
-  .log .t{color:#64748b}.log .src{color:#7dd3fc;margin:0 6px}.log .num{color:#fbbf24;margin:0 6px}
+  .log{background:#0f172a;border-radius:10px;padding:10px 12px;max-height:460px;overflow:auto;font-family:ui-monospace,Consolas,monospace;font-size:11.5px;line-height:1.7;color:#cbd5e1}
   .log .logline{display:flex;gap:8px;align-items:baseline;padding:1px 0}
   .log .t{color:#64748b;width:84px;flex:none;font-variant-numeric:tabular-nums}
-  .log .src{color:#7dd3fc;width:76px;flex:none}
-  .log .num{color:#fbbf24;width:104px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .log .src{color:#7dd3fc;width:80px;flex:none}
+  .log .num{color:#fbbf24;width:108px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .log .msg{color:#cbd5e1;flex:1;word-break:break-all}
-  .log .lv-ERROR{color:#f87171;font-weight:700}.log .lv-WARN{color:#f59e0b}.log .lv-INFO{color:#94a3b8}
   .hide{display:none}
   .notice{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:10px;padding:9px 12px;font-size:12.5px;margin:8px 0}
   .okbox{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:10px;padding:9px 12px;font-size:12.5px;margin:8px 0}
-  details summary{cursor:pointer;color:var(--muted);font-size:12.5px}
-  .moviebox{max-height:150px;overflow:auto;font-size:12px;color:var(--muted);margin-top:4px}
+  .switch{display:flex;align-items:center;gap:10px;padding:6px 0}
+  .switch input{width:auto}
   .toast{position:fixed;right:16px;bottom:16px;background:#0f172a;color:#fff;padding:9px 14px;border-radius:10px;font-size:13px;opacity:0;transition:.25s;z-index:99}
   .toast.show{opacity:1}
 </style>
@@ -66,13 +60,10 @@
 <div class="app">
   <aside class="side">
     <h1>metatube-plus</h1>
-    <div class="nav active" data-page="overview">概览</div>
-    <div class="nav" data-page="audit">库体检</div>
-    <div class="nav" data-page="translate">翻译</div>
-    <div class="nav" data-page="sources">数据源与映射</div>
+    <div class="nav active" data-page="audit">库体检</div>
+    <div class="nav" data-page="sources">数据源与映射同步</div>
     <div class="nav" data-page="logs">日志</div>
-    <div class="nav" data-page="advanced">高级</div>
-    <p class="muted" style="margin:18px 8px 0;font-size:11px;line-height:1.6">Emby 插件那侧：<br>Token 留空、翻译 Disabled<br>其余交给这里</p>
+    <p class="muted" style="margin:18px 8px 0;font-size:11px;line-height:1.6">翻译、鉴权、图片等基础设置<br>都在 Emby 的 MetaTube 插件页<br>本控制台只管治理</p>
   </aside>
 
   <main class="main">
@@ -85,22 +76,8 @@
     </div>
 
     <div class="wrap">
-      <section id="page-overview">
-        <div class="card">
-          <h2>运行状态</h2>
-          <div class="grid g3" id="statCards"></div>
-        </div>
-        <div class="card">
-          <h2>Emby 插件联动</h2>
-          <div id="pluginState" class="muted">读取中…</div>
-        </div>
-        <div class="card">
-          <h2>最近日志</h2>
-          <div class="log" id="overviewLog">加载中…</div>
-        </div>
-      </section>
-
-      <section id="page-audit" class="hide">
+      <!-- 库体检 -->
+      <section id="page-audit">
         <div class="card">
           <div class="row">
             <label class="muted">范围：</label>
@@ -113,7 +90,7 @@
         <div class="card">
           <div class="row">
             <button onclick="runAudit()">开始体检</button>
-            <span class="muted" id="auditMsg">扫描全库，找出不符合“中文标题 / 中文流派 / 演员已归一 / 有封面”的条目</span>
+            <span class="muted" id="auditMsg">扫描全库，找出不符合"中文标题 / 中文流派 / 演员已归一 / 有封面"的条目</span>
           </div>
           <div id="auditSummary" style="margin-top:12px"></div>
         </div>
@@ -134,30 +111,13 @@
         </div>
         <div class="card">
           <h2>批量刷新（带进度）</h2>
-          <div class="grid g3">
-            <div>
-              <label class="f">范围</label>
-              <select id="rfScope">
-                <option value="problems">只刷有问题的（体检结果）</option>
-                <option value="all">整个媒体库</option>
-              </select>
-            </div>
-            <div>
-              <label class="f">本次数量（0=全部）</label>
-              <input id="rfLimit" value="0">
-            </div>
-            <div>
-              <label class="f">每部间隔（毫秒）</label>
-              <input id="rfDelay" value="200">
-            </div>
-            <div>
-              <label class="f">每批数量</label>
-              <input id="rfBatch" value="200">
-            </div>
-            <div>
-              <label class="f">批间休息（秒）</label>
-              <input id="rfPause" value="5">
-            </div>
+          <div class="grid g2">
+            <div><label class="f">范围</label>
+              <select id="rfScope"><option value="problems">只刷有问题的（体检结果）</option><option value="all">整个媒体库</option></select></div>
+            <div><label class="f">本次数量（0=全部）</label><input id="rfLimit" value="0"></div>
+            <div><label class="f">每部间隔（毫秒）</label><input id="rfDelay" value="200"></div>
+            <div><label class="f">每批数量</label><input id="rfBatch" value="200"></div>
+            <div><label class="f">批间休息（秒）</label><input id="rfPause" value="5"></div>
           </div>
           <div class="row" style="margin-top:10px">
             <button onclick="startRefresh()">开始 / 继续</button>
@@ -169,10 +129,7 @@
           <label class="f" style="margin-top:10px">
             <input type="checkbox" id="rfReplace" style="width:auto"> 覆盖已有元数据（推荐）
           </label>
-          <p class="muted" style="margin:2px 0 0">
-            不勾：只补空白字段，已有的标题/简介/演员/流派一律不动（旧日文不会消失、隐藏简介也不会清空）。<br>
-            勾上：用后端结果覆盖已有字段。后端已做中文映射与翻译，所以覆盖后是中文；「隐藏作品简介」也才会真正清空简介。
-          </p>
+          <p class="muted" style="margin:2px 0 0">不勾只补空白；勾上用后端中文结果覆盖已有字段（隐藏简介也会生效）。</p>
           <div class="muted" style="margin-top:10px">派发进度（请求已送进 Emby 队列）</div>
           <div class="bar"><i id="rfBar"></i></div>
           <div class="muted">后台完成（本服务已返回元数据）</div>
@@ -182,67 +139,30 @@
         </div>
       </section>
 
-
-      <section id="page-translate" class="hide">
-        <div class="card">
-          <h2>翻译设置</h2>
-          <p class="muted" style="margin:0 0 6px">由后端独占。Emby 插件里「翻译模式」必须是 <b>Disabled</b>，否则同一段文字会被翻两次。</p>
-          <div class="grid g2">
-            <div>
-              <label class="f"><input type="checkbox" id="tEnable" style="width:auto"> 启用翻译</label>
-              <label class="f">主翻译引擎</label>
-              <select id="tPrimary">
-                <option value="baidu">百度</option>
-                <option value="deepl">DeepL</option>
-                <option value="openai">OpenAI</option>
-                <option value="google">Google</option>
-                <option value="googlefree">Google 免费</option>
-              </select>
-              <label class="f">目标语言</label>
-              <input id="tLang" placeholder="zh-CN">
-              <label class="f">主引擎超时（秒）</label>
-              <input id="tTimeout" placeholder="15">
-              <p class="muted">次引擎固定为 <b>Google 免费</b>；主引擎超时 / 报错 / 返回空时自动接管。</p>
-              <label class="f"><input type="checkbox" id="tNoSummary" style="width:auto"> 隐藏作品简介（不写简介、也不翻译简介）</label>
-            </div>
-            <div>
-              <label class="f">百度 App ID</label>
-              <input id="kBaiduId">
-              <label class="f">百度 App Key</label>
-              <input id="kBaiduKey" type="password">
-              <label class="f">DeepL API Key</label>
-              <input id="kDeeplKey" type="password">
-              <label class="f">DeepL API URL（可选）</label>
-              <input id="kDeeplUrl" placeholder="https://api-free.deepl.com/v2">
-              <label class="f">OpenAI Key / URL / 模型</label>
-              <input id="kOpenaiKey" type="password" placeholder="sk-...">
-              <input id="kOpenaiUrl" placeholder="http://192.168.1.3:1234/v1" style="margin-top:6px">
-              <input id="kOpenaiModel" placeholder="model" style="margin-top:6px">
-            </div>
-          </div>
-          <div class="row" style="margin-top:12px">
-            <button onclick="saveTranslate()">保存并立即生效</button>
-            <button class="sec" onclick="testTranslate()">测试翻译</button>
-            <span class="muted" id="tMsg"></span>
-          </div>
-          <div id="tResult" style="margin-top:8px"></div>
-        </div>
-      </section>
-
+      <!-- 数据源与映射同步 -->
       <section id="page-sources" class="hide">
         <div class="card">
-          <h2>数据源</h2>
+          <h2>演员兜底</h2>
+          <label class="switch">
+            <input type="checkbox" id="fbEnable" onchange="saveFallback()">
+            <span>开启 JavDB 演员兜底（默认开）</span>
+          </label>
+          <p class="muted" style="margin:2px 0 0">只在「开」时，主源（FANZA）返回 0 位演员才去 JavDB 确认一次；查不到记住 12 小时。JavBus 与 DMM 同源，无用。</p>
+          <div class="kv" style="margin-top:8px"><span>兜底数据源</span><b>JavDB</b></div>
+        </div>
+        <div class="card">
+          <h2>Emby 插件联动（只读）</h2>
+          <div id="pluginTrans" class="muted">读取中…</div>
+          <p class="muted" style="margin:6px 0 0">
+            翻译引擎 / 密钥 / 翻译模式等基础设置，请在 <b>Emby → 插件 → MetaTube</b> 里改。
+            本后端会自动读取并跟随（约 15 秒内生效）。为避免重复翻译，插件的「翻译模式」保持 <b>Disabled</b>。
+          </p>
+        </div>
+        <div class="card">
+          <h2>数据源冷却</h2>
           <div class="grid g2">
-            <div>
-              <label class="f">FANZA(DMM) 冷却间隔</label>
-              <input id="sFanza" placeholder="0 = 关闭（默认）">
-              <p class="muted">DMM 反爬是间歇性的；批量大刮削可设 3s。</p>
-            </div>
-            <div>
-              <label class="f">JavDB 冷却间隔（该源默认关闭）</label>
-              <input id="sJavdb" placeholder="10s">
-              <p class="muted">实测：1 秒间隔短时可跑（约 35 次/分钟后被 403），批量补演员建议 3–10 秒。JavDB 仅作「缺演员」兜底。</p>
-            </div>
+            <div><label class="f">FANZA(DMM) 冷却间隔</label><input id="sFanza" placeholder="0 = 关闭（默认）"></div>
+            <div><label class="f">JavDB 冷却间隔</label><input id="sJavdb" placeholder="5s"></div>
           </div>
           <div class="row" style="margin-top:8px">
             <button onclick="saveRateLimits()">保存冷却</button>
@@ -250,52 +170,29 @@
           </div>
         </div>
         <div class="card">
-          <h2>演员映射表</h2>
+          <h2>演员映射表同步</h2>
           <div id="mappingInfo" class="muted">读取中…</div>
           <div class="row" style="margin-top:8px">
             <button onclick="syncMapping()">立即同步</button>
             <span class="muted" id="syncMsg"></span>
           </div>
-          <p class="muted">来源：GitHub <b>li-peifeng/Jav-Actors-Mapping</b>（raw / jsDelivr 多路回落）。
-            <b>与 avdb 容器无关</b>，只要这台机器能访问 GitHub 即可；默认每日自动同步。</p>
-        </div>
-        <div class="card">
-          <h2>演员兜底</h2>
-          <div class="kv"><span>触发条件</span><b>仅当主源没有演员</b></div>
-          <div class="kv"><span>兜底顺序</span><b id="fbOrder">读取中…</b></div>
-          <div class="kv"><span>负缓存</span><b>查不到记住 12 小时</b></div>
-          <p class="muted">JavBus 的演员信息照搬 DMM，所以 DMM 缺的它也缺；真正能补的是 JavDB。
-            改动请设环境变量 <code>MT_ACTOR_FALLBACK</code>（默认 JavDB）。</p>
+          <p class="muted">来源 GitHub <b>li-peifeng/Jav-Actors-Mapping</b>，默认每日自动同步；与 avdb 容器无关。</p>
         </div>
       </section>
 
+      <!-- 日志 -->
       <section id="page-logs" class="hide">
         <div class="card">
           <div class="row">
             <input id="logNum" placeholder="按番号过滤，如 START-015" style="max-width:220px" onkeydown="if(event.key=='Enter')loadLogs()">
             <select id="logLevel" style="max-width:150px"><option value="">级别：全部</option><option value="ERROR">仅错误</option><option value="WARN">警告</option><option value="INFO">信息</option></select>
-            <select id="logSource" style="max-width:170px"><option value="">来源：全部</option><option value="SCRAPE">抓取（SCRAPE）</option><option value="FALLBACK">兜底（FALLBACK）</option><option value="TRANSLATE">翻译</option><option value="ENGINE">引擎</option><option value="API">接口</option><option value="MANAGE">控制台</option></select>
+            <select id="logSource" style="max-width:170px"><option value="">来源：全部</option><option value="SCRAPE">抓取</option><option value="FALLBACK">兜底</option><option value="TRANSLATE">翻译</option><option value="ENGINE">引擎</option><option value="API">接口</option><option value="MANAGE">控制台</option></select>
             <button onclick="loadLogs()">刷新</button>
             <label class="muted"><input type="checkbox" id="logAuto" style="width:auto" onchange="toggleAuto()"> 自动刷新</label>
             <span class="muted" id="logCount"></span>
           </div>
           <div class="log" id="logbox" style="margin-top:10px">输入番号或直接刷新…</div>
         </div>
-      </section>
-
-      <section id="page-advanced" class="hide">
-        <div class="card">
-          <h2>一致性信息</h2>
-          <pre class="muted" id="consistency" style="white-space:pre-wrap">读取中…</pre>
-        </div>
-        <div class="card">
-          <h2>维护</h2>
-          <div class="row">
-            <button class="sec" onclick="syncMapping()">重新同步映射表</button>
-          </div>
-          <p class="muted">运行时数据都在映射表目录：<code>genre_dict.json</code> / <code>gui_settings.json</code> / <code>refresh_progress.json</code>。</p>
-        </div>
-        
       </section>
     </div>
   </main>
@@ -322,369 +219,221 @@ document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>{
   document.querySelectorAll('section').forEach(s=>s.classList.add('hide'));
   $('page-'+p).classList.remove('hide');
   if(p==='logs') loadLogs();
-  if(p==='translate') loadSettings();
-  if(p==='sources'){ loadSettings(); loadMappingInfo(); }
-  if(p==='advanced') loadConsistency();
+  if(p==='sources'){ loadSettings(); loadPluginTrans(); loadMappingInfo(); }
 });
 
-let lastStatus=null;
+// ---- 状态胶囊 ----
 async function loadStatus(){
-  try{ lastStatus = await api('/manage/api/status'); }catch(e){ lastStatus=null; }
-  const emby = (lastStatus && lastStatus.emby) || {};
-  const map = (lastStatus && lastStatus.mapping) || {};
-  setChip('chipEmby', emby.connected ? 'Emby 已连接' : 'Emby 未连接', emby.connected?'ok':'bad');
-  setChip('chipMapping', `映射 ${map.entries||0} 条`, (map.entries>0)?'ok':'warn');
-  const s = await api('/manage/api/settings').catch(()=>null);
-  setChip('chipTranslate', s && s.translate ? `翻译 ${(s.translate_engines||'').split(',')[0]}` : '翻译未启用', (s&&s.translate)?'ok':'warn');
-  renderStats(s, map, emby);
+  let st=null; try{ st=await api('/manage/api/status'); }catch(e){}
+  const emby=(st&&st.emby)||{}, map=(st&&st.mapping)||{};
+  setChip('chipEmby', emby.connected?'Emby 已连接':'Emby 未连接', emby.connected?'ok':'bad');
+  setChip('chipMapping', '映射 '+(map.entries||0)+' 条', map.entries>0?'ok':'warn');
+  let ti={}; try{ ti=await api('/manage/api/plugin-translation'); }catch(e){}
+  const on=ti.enabled;
+  setChip('chipTranslate', on?('翻译 '+esc(ti.engine||'')):'翻译未启用', on?'ok':'warn');
 }
-function setChip(id, text, cls){
-  const el=$(id); if(!el) return;
-  el.className='chip'+(cls?' '+cls:''); el.innerHTML='<span class="dot"></span>'+esc(text);
-}
-function renderStats(s, map, emby){
-  const cards = [
-    ['媒体库', emby.person_count!=null?`${emby.person_count} 位演员`:'—', emby.connected?'Emby 已连接':'Emby 未连接'],
-    ['映射表', (map.entries||0)+' 条', map.version?('版本 '+String(map.version).slice(0,8)):'未同步'],
-    ['翻译', s&&s.translate?(s.translate_engines||'').split(',')[0]:'未启用', s&&s.translate?('次引擎 googlefree · 超时 '+(s.translate_timeout||15)+'s'):'在「翻译」页开启'],
-  ];
-  $('statCards').innerHTML = cards.map(([t,v,d])=>`<div class="card" style="margin:0"><div class="muted">${esc(t)}</div><div style="font-size:20px;margin:6px 0">${esc(v)}</div><div class="muted">${esc(d)}</div></div>`).join('');
-}
-async function loadPluginState(){
+function setChip(id,text,cls){ const el=$(id); if(!el)return; el.className='chip'+(cls?' '+cls:''); el.innerHTML='<span class="dot"></span>'+esc(text); }
+
+async function refreshAll(){ await loadStatus(); if($('pluginTrans')) loadPluginTrans(); }
+
+// ---- 插件翻译联动（只读）----
+async function loadPluginTrans(){
   try{
-    const p = await api('/manage/api/plugin-state');
-    if(!p.found){ $('pluginState').innerHTML = '<span class="muted">'+esc(p.reason||'未读取到插件配置')+'</span>'; return; }
-    const warns = (p.warnings||[]).map(w=>'<div class="notice">⚠ '+esc(w)+'</div>').join('');
-    $('pluginState').innerHTML = `
-      <div class="kv"><span>插件地址</span><b>${esc(p.server||'-')}</b></div>
-      <div class="kv"><span>插件 Token</span><b>${p.token_present?'已填写':'留空（推荐）'}</b></div>
-      <div class="kv"><span>插件翻译模式</span><b>${esc(p.translation_mode||'-')}</b></div>
-      <div class="kv"><span>插件翻译引擎</span><b>${esc(p.translation_engine||'-')}</b></div>
-      ${warns || '<div class="okbox">✔ 插件与本控制台没有冲突</div>'}`;
-  }catch(e){ $('pluginState').innerHTML = '<span class="muted">读取失败：'+esc(e.message)+'</span>'; }
-}
-async function refreshAll(){
-  await loadStatus(); await loadPluginState();
-  try{ const r=await api('/manage/api/logs?limit=8'); renderLogMini(r.logs); }catch(e){}
-}
-function renderLogMini(logs){
-  if(!logs||!logs.length){ $('overviewLog').textContent='暂无日志'; return; }
-  $('overviewLog').innerHTML = logs.map(l=>'<div><span class="t">'+esc((l.time||'').slice(11,19))+'</span><span class="src">'+esc(l.source||'')+'</span><span class="num">'+esc(l.number||'')+'</span><span class="msg">'+esc(l.message||'')+'</span></div>').join('');
+    const t=await api('/manage/api/plugin-translation');
+    if(!t.found){ $('pluginTrans').innerHTML='<span class="muted">'+esc(t.reason||'未读取到插件配置')+'</span>'; return; }
+    const rows=[
+      ['翻译引擎', esc(t.engine||'-')],
+      ['后端引擎', esc(t.backend_engine||'-')],
+      ['密钥', t.key_present?'已填写':'未填写'],
+      ['插件翻译模式', esc(t.mode||'-')],
+      ['后端翻译', t.enabled?'已启用':'未启用'],
+    ];
+    $('pluginTrans').innerHTML=rows.map(r=>'<div class="kv"><span>'+r[0]+'</span><b>'+r[1]+'</b></div>').join('')
+      + (t.enabled?'<div class="okbox">✔ 后端正按插件设置翻译；插件模式保持 Disabled 即可</div>'
+                  :'<div class="notice">⚠ 插件里没有可用引擎/密钥，后端翻译未启用</div>');
+  }catch(e){ $('pluginTrans').innerHTML='<span class="muted">读取失败：'+esc(e.message)+'</span>'; }
 }
 
+// ---- 体检 ----
 const ISSUE_LABEL={title_missing:'无标题',title_japanese:'标题日文',actor_japanese:'演员日文',no_actors:'无演员',genre_japanese:'流派日文',no_image:'无封面'};
 const NOTE_LABEL={actor_unmapped:'演员未收录（需人工）'};
-let auditOffset=0, auditLimit=50, auditData=null, auditFilter='';
-async function runAudit(filter, keepOffset){
-  if(filter!==undefined){ auditFilter = filter||''; }
-  if(!keepOffset){ auditOffset = 0; }
+let auditOffset=0,auditLimit=50,auditData=null,auditFilter='';
+async function runAudit(filter,keepOffset){
+  if(filter!==undefined){ auditFilter=filter||''; }
+  if(!keepOffset){ auditOffset=0; }
   $('auditMsg').textContent='扫描中…';
   try{
     const pp=$('pathSel')?$('pathSel').value:'';
-    auditData = await api('/manage/api/audit?offset='+auditOffset+'&limit='+auditLimit
+    auditData=await api('/manage/api/audit?offset='+auditOffset+'&limit='+auditLimit
       +(pp?('&path_prefix='+encodeURIComponent(pp)):'')
       +(auditFilter?('&problem='+encodeURIComponent(auditFilter)):''));
-    $('auditMsg').textContent = '扫描完成：共 '+auditData.total+' 部，合格 '+auditData.ok+'，有问题 '+auditData.problem_count
-      +((auditData.note_count||0)?('，另有需人工处理 '+auditData.note_count+' 部'):'')
-      +((auditData.duplicate_count||0)?('（其中 '+auditData.duplicate_count+' 个番号在不同库里各有一份副本）'):'');
-    const g = auditData.groups||{};
-    const ng = auditData.note_groups||{};
-    $('auditSummary').innerHTML = Object.keys(ISSUE_LABEL).map(k=>{
-      const active = auditFilter===k;
-      return '<span class="pill '+(active?'ok':'gray')+'" style="cursor:pointer;margin:4px 6px 0 0" onclick="runAudit(\''+k+'\')">'+ISSUE_LABEL[k]+' '+(g[k]||0)+'</span>';
-    }).join('')
-      + Object.keys(NOTE_LABEL).map(k=>{
-          const n = ng[k]||0;
-          if(!n) return '';
-          const active = auditFilter===k;
-          return ' <span class="pill '+(active?'warn':'gray')+'" style="cursor:pointer;margin:4px 6px 0 0" onclick="runAudit(\''+k+'\')">'+NOTE_LABEL[k]+' '+n+'</span>';
-        }).join('')
-      + (auditFilter?' <span class="pill warn" style="cursor:pointer" onclick="runAudit(\'\')">清除筛选</span>':'');
-    renderIssues();
-    $('auditListCard').classList.remove('hide');
+    $('auditMsg').textContent='扫描完成：共 '+auditData.total+' 部，合格 '+auditData.ok+'，有问题 '+auditData.problem_count
+      +((auditData.note_count||0)?('，另有需人工 '+auditData.note_count+' 部'):'')
+      +((auditData.duplicate_count||0)?('（同番号跨库副本 '+auditData.duplicate_count+'）':''));
+    const g=auditData.groups||{}, ng=auditData.note_groups||{};
+    $('auditSummary').innerHTML=Object.keys(ISSUE_LABEL).map(k=>
+      '<span class="pill '+(auditFilter===k?'ok':'gray')+'" style="cursor:pointer;margin:4px 6px 0 0" onclick="runAudit(\''+k+'\')">'+ISSUE_LABEL[k]+' '+(g[k]||0)+'</span>').join('')
+      +Object.keys(NOTE_LABEL).map(k=>{const n=ng[k]||0;return n?(' <span class="pill '+(auditFilter===k?'warn':'gray')+'" style="cursor:pointer;margin:4px 6px 0 0" onclick="runAudit(\''+k+'\')">'+NOTE_LABEL[k]+' '+n+'</span>'):'';}).join('')
+      +(auditFilter?' <span class="pill warn" style="cursor:pointer" onclick="runAudit(\'\')">清除筛选</span>':'');
+    renderIssues(); $('auditListCard').classList.remove('hide');
   }catch(e){ $('auditMsg').textContent='失败：'+e.message; }
 }
 function renderIssues(){
-  if(!auditData) return;
-  const items = auditData.issues||[];
-  const total = auditData.issue_count||0;
-  $('auditCount').textContent = '共 '+total+' 条'+(items.length?('，当前显示 '+(auditData.offset||0)+'–'+((auditData.offset||0)+items.length)):'');
-  $('auditIssues').innerHTML = items.length
-    ? '<table><tr><th></th><th>名称 / 所在库</th><th>问题</th></tr>'+items.map(i=>{
-        const p = i.path||'';
-        let lib = '';
-        if(p.indexOf('/litepan-strm/')>=0) lib = 'JAV 库';
-        else if(p.indexOf('/strm-quark/')>=0) lib = '夸克库';
+  if(!auditData)return;
+  const items=auditData.issues||[], total=auditData.issue_count||0;
+  $('auditCount').textContent='共 '+total+' 条'+(items.length?('，当前显示 '+(auditData.offset||0)+'–'+((auditData.offset||0)+items.length)):'');
+  $('auditIssues').innerHTML=items.length
+    ?'<table><tr><th></th><th>名称 / 所在库</th><th>问题</th></tr>'+items.map(i=>{
+        const p=i.path||''; let lib='';
+        if(p.indexOf('/litepan-strm/')>=0)lib='JAV 库'; else if(p.indexOf('/strm-quark/')>=0)lib='夸克库';
         return '<tr><td><input type="checkbox" class="auditPick" value="'+esc(i.id)+'" style="width:auto"></td><td>'+esc(i.name)+'<div class="muted">'+esc(i.number||'')+(lib?(' · <b>'+lib+'</b>'):'')+(p?(' · '+esc(p.slice(-46))):'')+'</div></td><td>'+(i.problems||[]).map(x=>'<span class="pill bad" style="margin-right:4px">'+esc(ISSUE_LABEL[x]||x)+'</span>').join('')+(i.notes||[]).map(x=>'<span class="pill gray" style="margin-right:4px">'+esc(NOTE_LABEL[x]||x)+'</span>').join('')+'</td></tr>';
       }).join('')+'</table>'
-    : '<p class="muted">没有符合条件的问题</p>';
+    :'<p class="muted">没有符合条件的问题</p>';
 }
 function selectAllIssues(){ document.querySelectorAll('.auditPick').forEach(c=>c.checked=true); }
 let issuesCollapsed=false;
 function toggleIssues(){
   issuesCollapsed=!issuesCollapsed;
-  $('auditIssues').classList.toggle('hide', issuesCollapsed);
-  $('auditTools').classList.toggle('hide', issuesCollapsed);
-  $('auditToggle').textContent = issuesCollapsed ? '展开' : '收起';
+  $('auditIssues').classList.toggle('hide',issuesCollapsed);
+  $('auditTools').classList.toggle('hide',issuesCollapsed);
+  $('auditToggle').textContent=issuesCollapsed?'展开':'收起';
 }
-function auditNext(){ auditOffset += auditLimit; runAudit(undefined, true); }
-function auditPrev(){ auditOffset = Math.max(0, auditOffset-auditLimit); runAudit(undefined, true); }
+function auditNext(){ auditOffset+=auditLimit; runAudit(undefined,true); }
+function auditPrev(){ auditOffset=Math.max(0,auditOffset-auditLimit); runAudit(undefined,true); }
 async function refreshSelected(){
   const ids=[].slice.call(document.querySelectorAll('.auditPick:checked')).map(c=>c.value);
-  if(!ids.length) return toast('先选择要重刮的条目');
-  try{
-    const r=await api('/manage/api/fix',{method:'POST',body:JSON.stringify({action:'refresh',ids:ids,limit:ids.length,replace_all:!!($('rfReplace')&&$('rfReplace').checked)})});
-    toast('已触发重刮：成功 '+r.ok+'，失败 '+r.failed);
-  }catch(e){ toast('失败：'+e.message); }
+  if(!ids.length)return toast('先选择要重刮的条目');
+  try{ const r=await api('/manage/api/fix',{method:'POST',body:JSON.stringify({action:'refresh',ids:ids,limit:ids.length,replace_all:!!($('rfReplace')&&$('rfReplace').checked)})}); toast('已触发重刮：成功 '+r.ok+'，失败 '+r.failed); }
+  catch(e){ toast('失败：'+e.message); }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 async function retitleSelected(){
   const ids=[].slice.call(document.querySelectorAll('.auditPick:checked')).map(c=>c.value);
-  if(!ids.length) return toast('先选择要修正标题的条目');
-  try{
-    const r=await api('/manage/api/fix',{method:'POST',body:JSON.stringify({action:'retitle',ids:ids,limit:ids.length})});
-    toast('标题修正：成功 '+r.ok+'，失败 '+r.failed);
-    if(r.details&&r.details.length) console.log(r.details);
-  }catch(e){ toast('失败：'+e.message); }
+  if(!ids.length)return toast('先选择要修正标题的条目');
+  try{ const r=await api('/manage/api/fix',{method:'POST',body:JSON.stringify({action:'retitle',ids:ids,limit:ids.length})}); toast('标题修正：成功 '+r.ok+'，失败 '+r.failed); }
+  catch(e){ toast('失败：'+e.message); }
 }
 
-
-let settings=null;
+// ---- 批量刷新 / 清空 ----
 async function startRefresh(){
-  const body={
-    scope: $('rfScope').value,
-    replace_all: $('rfReplace')?$('rfReplace').checked:false,
-    path_prefix: $('pathSel')?$('pathSel').value:'',
-    limit: parseInt($('rfLimit').value||'0',10)||0,
-    item_delay_ms: parseInt($('rfDelay').value||'200',10)||200,
-    batch_size: parseInt($('rfBatch').value||'200',10)||200,
-    batch_pause_sec: parseInt($('rfPause').value||'5',10)||0
-  };
-  try{
-    const r=await api('/manage/api/refresh/start',{method:'POST',body:JSON.stringify(body)});
-    if(r.started){
-      $('rfMsg').textContent='已开始，共 '+r.total+' 部'+(r.skipped?('（已跳过之前刷过的 '+r.skipped+' 部）'):'');
-    }else{
-      $('rfMsg').textContent=(r.message||'没有需要刷新的条目')+(r.skipped?('，已完成 '+r.skipped+' 部'):'');
-    }
-    pollRefresh();
-  }catch(e){ $('rfMsg').textContent='失败：'+e.message; }
-}
-async function stopRefresh(){
-  try{ await api('/manage/api/refresh/stop',{method:'POST'}); $('rfMsg').textContent='正在暂停（进度已保存，可继续）…'; }
+  const body={scope:$('rfScope').value,replace_all:$('rfReplace')?$('rfReplace').checked:false,
+    path_prefix:$('pathSel')?$('pathSel').value:'',limit:parseInt($('rfLimit').value||'0',10)||0,
+    item_delay_ms:parseInt($('rfDelay').value||'200',10)||200,batch_size:parseInt($('rfBatch').value||'200',10)||200,
+    batch_pause_sec:parseInt($('rfPause').value||'5',10)||0};
+  try{ const r=await api('/manage/api/refresh/start',{method:'POST',body:JSON.stringify(body)});
+    $('rfMsg').textContent=r.started?('已开始，共 '+r.total+' 部'+(r.skipped?('（跳过已刷 '+r.skipped+'）'):'')):(r.message||'没有需要刷新的条目'); pollRefresh(); }
   catch(e){ $('rfMsg').textContent='失败：'+e.message; }
 }
+async function stopRefresh(){ try{ await api('/manage/api/refresh/stop',{method:'POST'}); $('rfMsg').textContent='正在暂停…'; }catch(e){ $('rfMsg').textContent='失败：'+e.message; } }
 async function wipeMetadata(){
-  const scope=$('rfScope').value, pp=$('pathSel')?$('pathSel').value:'';
-  if(!confirm('清空所选范围的元数据（标题只留番号，简介/流派/演员/标签/工作室清空），图片与字幕保留，然后可重新刮削。继续？')) return;
-  const body={
-    mode:'wipe',
-    scope: scope,
-    path_prefix: pp,
-    limit: parseInt($('rfLimit').value||'0',10)||0,
-    item_delay_ms: parseInt($('rfDelay').value||'200',10)||200,
-    batch_size: parseInt($('rfBatch').value||'200',10)||200,
-    batch_pause_sec: parseInt($('rfPause').value||'5',10)||0
-  };
-  try{
-    const r=await api('/manage/api/refresh/start',{method:'POST',body:JSON.stringify(body)});
-    $('rfMsg').textContent = r.started? ('开始清空，共 '+r.total+' 部（图片保留）') : (r.message||'没有需要处理的条目');
-    pollRefresh();
-  }catch(e){ $('rfMsg').textContent='失败：'+e.message; }
+  const scope=$('rfScope').value,pp=$('pathSel')?$('pathSel').value:'';
+  if(!confirm('清空所选范围的元数据（标题留空回落文件名，简介/流派/演员/标签清空），图片与字幕保留。继续？'))return;
+  const body={mode:'wipe',scope:scope,path_prefix:pp,limit:parseInt($('rfLimit').value||'0',10)||0,
+    item_delay_ms:parseInt($('rfDelay').value||'200',10)||200,batch_size:parseInt($('rfBatch').value||'200',10)||200,
+    batch_pause_sec:parseInt($('rfPause').value||'5',10)||0};
+  try{ const r=await api('/manage/api/refresh/start',{method:'POST',body:JSON.stringify(body)});
+    $('rfMsg').textContent=r.started?('开始清空，共 '+r.total+' 部（图片保留）'):(r.message||'没有需要处理的条目'); pollRefresh(); }
+  catch(e){ $('rfMsg').textContent='失败：'+e.message; }
 }
 async function resetRefresh(){
-  const scope=$('rfScope').value, pp=$('pathSel')?$('pathSel').value:'';
-  if(!confirm('重置该范围的刷新进度？之后「开始」会从头再刷一遍。')) return;
-  try{
-    await api('/manage/api/refresh/reset',{method:'POST',body:JSON.stringify({scope:scope, path_prefix:pp})});
-    $('rfMsg').textContent='进度已重置';
-    $('rfText').textContent='空闲';
-    $('rfBar').style.width='0%';
-  }catch(e){ $('rfMsg').textContent='失败：'+e.message; }
+  const scope=$('rfScope').value,pp=$('pathSel')?$('pathSel').value:'';
+  if(!confirm('重置该范围的刷新进度？'))return;
+  try{ await api('/manage/api/refresh/reset',{method:'POST',body:JSON.stringify({scope:scope,path_prefix:pp})});
+    $('rfMsg').textContent='进度已重置'; $('rfText').textContent='空闲'; $('rfBar').style.width='0%'; }
+  catch(e){ $('rfMsg').textContent='失败：'+e.message; }
 }
 let rfTimer=null;
 function pollRefresh(){
-  if(rfTimer) return;
+  if(rfTimer)return;
   rfTimer=setInterval(async function(){
     try{
       const s=await api('/manage/api/refresh/status');
-      const ans=(s.answered!=null? s.answered : s.done);
-      const ansPct = s.total? Math.round(ans*100/s.total):0;
-      $('rfBar').style.width=(s.percent||0)+'%';
-      if($('rfBar2')) $('rfBar2').style.width=ansPct+'%';
-      if(!s.running && !s.total){ $('rfText').textContent='空闲'; }
-      else if(s.running){ $('rfText').textContent = '已派发 '+s.done+'/'+s.total+' · 后台已完成 '+ans+'/'+s.total+' · 成功 '+s.ok+' · 失败 '+s.failed+' · 已用 '+s.elapsed; }
-      else { $('rfText').textContent = '已结束：派发 '+s.done+'/'+s.total+' · 后台完成 '+ans+'/'+s.total+' · 成功 '+s.ok+' 失败 '+s.failed+' · 进度已保存'; }
-      if($('rfNow')) $('rfNow').textContent = s.running ? ('正在运行：'+s.summary) : '';
+      const ans=(s.answered!=null?s.answered:s.done), ansPct=s.total?Math.round(ans*100/s.total):0;
+      $('rfBar').style.width=(s.percent||0)+'%'; if($('rfBar2'))$('rfBar2').style.width=ansPct+'%';
+      if(!s.running&&!s.total)$('rfText').textContent='空闲';
+      else if(s.running)$('rfText').textContent='已派发 '+s.done+'/'+s.total+' · 后台已完成 '+ans+'/'+s.total+' · 成功 '+s.ok+' · 失败 '+s.failed+' · 已用 '+s.elapsed;
+      else $('rfText').textContent='已结束：派发 '+s.done+'/'+s.total+' · 后台完成 '+ans+'/'+s.total+' · 成功 '+s.ok+' 失败 '+s.failed+' · 进度已保存';
+      if($('rfNow'))$('rfNow').textContent=s.running?('正在运行：'+s.summary):'';
       if(!s.running){ clearInterval(rfTimer); rfTimer=null; }
     }catch(e){ clearInterval(rfTimer); rfTimer=null; }
-  }, 1500);
+  },1500);
 }
-// ---- 记住控制台的常用设置（浏览器本地） ----
+
+// ---- 设置（冷却 / 演员兜底）----
+let settings=null;
+async function loadSettings(){
+  try{ settings=await api('/manage/api/settings'); }catch(e){ return; }
+  if(!settings)return;
+  $('sFanza').value=settings.fanza_rate_limit||'';
+  $('sJavdb').value=settings.javdb_rate_limit||'';
+  if($('fbEnable'))$('fbEnable').checked=settings.actor_fallback!==false;
+  if($('tNoSummary'))$('tNoSummary').checked=!!settings.disable_summary;
+}
+async function saveRateLimits(){
+  try{ const body=Object.assign({},settings,{fanza_rate_limit:$('sFanza').value.trim(),javdb_rate_limit:$('sJavdb').value.trim()});
+    await api('/manage/api/settings',{method:'POST',body:JSON.stringify(body)}); $('rateMsg').textContent='已保存'; }
+  catch(e){ $('rateMsg').textContent='失败：'+e.message; }
+}
+async function saveFallback(){
+  try{ const body=Object.assign({},settings,{actor_fallback:$('fbEnable').checked});
+    await api('/manage/api/settings',{method:'POST',body:JSON.stringify(body)}); toast($('fbEnable').checked?'演员兜底已开启':'演员兜底已关闭'); }
+  catch(e){ toast('失败：'+e.message); }
+}
+
+// ---- 路径 / 映射 ----
 const PREF_KEY='mt_console_prefs_v1';
 const PREF_FIELDS=['pathSel','rfScope','rfLimit','rfDelay','rfBatch','rfPause','logLevel','logSource'];
 function savePrefs(){
-  try{
-    const o={};
-    PREF_FIELDS.forEach(id=>{ const el=$(id); if(el) o[id]=(el.type==='checkbox'?el.checked:el.value); });
-    const r=$('rfReplace'); if(r) o.rfReplace=r.checked;
-    localStorage.setItem(PREF_KEY, JSON.stringify(o));
-  }catch(e){}
+  try{ const o={}; PREF_FIELDS.forEach(id=>{const el=$(id); if(el)o[id]=(el.type==='checkbox'?el.checked:el.value);});
+    const r=$('rfReplace'); if(r)o.rfReplace=r.checked; localStorage.setItem(PREF_KEY,JSON.stringify(o)); }catch(e){}
 }
 function loadPrefs(){
-  try{
-    const raw=localStorage.getItem(PREF_KEY); if(!raw) return;
-    const o=JSON.parse(raw||'{}');
-    PREF_FIELDS.forEach(id=>{ const el=$(id); if(el && o[id]!==undefined){ el.value=o[id]; } });
-    if($('rfReplace') && o.rfReplace!==undefined) $('rfReplace').checked=o.rfReplace;
-    if($('rfScope') && o.rfScope) $('rfScope').value=o.rfScope;
-  }catch(e){}
+  try{ const raw=localStorage.getItem(PREF_KEY); if(!raw)return; const o=JSON.parse(raw||'{}');
+    PREF_FIELDS.forEach(id=>{const el=$(id); if(el&&o[id]!==undefined)el.value=o[id];});
+    if($('rfReplace')&&o.rfReplace!==undefined)$('rfReplace').checked=o.rfReplace;
+    if($('rfScope')&&o.rfScope)$('rfScope').value=o.rfScope; }catch(e){}
 }
-function bindPrefs(){
-  ['pathSel','rfScope','rfLimit','rfDelay','rfBatch','rfPause','rfReplace','logLevel','logSource'].forEach(id=>{
-    const el=$(id); if(!el) return;
-    el.addEventListener('change', savePrefs);
-    el.addEventListener('input', savePrefs);
-  });
-}
+function bindPrefs(){ ['pathSel','rfScope','rfLimit','rfDelay','rfBatch','rfPause','rfReplace','logLevel','logSource'].forEach(id=>{
+  const el=$(id); if(!el)return; el.addEventListener('change',savePrefs); el.addEventListener('input',savePrefs); }); }
 async function loadPaths(){
-  try{
-    const groups = await api('/manage/api/paths');
-    const sel = $('pathSel'); if(!sel) return;
-    groups.forEach(function(g){
-      (g.items||[]).forEach(function(f){
-        if(!f.path) return;
-        const o=document.createElement('option');
-        o.value=f.path; o.textContent=f.path.replace('/media/','');
-        sel.appendChild(o);
-      });
-    });
-  }catch(e){}
+  try{ const groups=await api('/manage/api/paths'); const sel=$('pathSel'); if(!sel)return;
+    groups.forEach(function(g){ (g.items||[]).forEach(function(f){ if(!f.path)return;
+      const o=document.createElement('option'); o.value=f.path; o.textContent=f.path.replace('/media/',''); sel.appendChild(o); }); }); }catch(e){}
   loadPrefs();
 }
-function onPathChange(){
-  const v=$('pathSel').value;
-  $('pathHint').textContent = v ? ('仅处理：'+v) : '';
-  auditOffset = 0;
-}
-async function loadSettings(){
-  try{ settings=await api('/manage/api/settings'); }catch(e){ return; }
-  if(!settings) return;
-  $('tEnable').checked=!!settings.translate;
-  const primary=(settings.translate_engines||'baidu').split(',')[0];
-  const sel=$('tPrimary');
-  if(sel){
-    if(![].slice.call(sel.options).some(o=>o.value===primary)){ const o=document.createElement('option'); o.value=primary; o.textContent=primary; sel.appendChild(o); }
-    sel.value=primary;
-  }
-  $('tLang').value=settings.translate_lang||'zh-CN';
-  $('tTimeout').value=settings.translate_timeout||15;
-  if ($('tNoSummary')) $('tNoSummary').checked=!!settings.disable_summary;
-  $('kBaiduId').value=settings.baidu_app_id||'';
-  $('kBaiduKey').value=settings.baidu_app_key||'';
-  $('kDeeplKey').value=settings.deepl_api_key||'';
-  $('kDeeplUrl').value=settings.deepl_api_url||'';
-  $('kOpenaiKey').value=settings.openai_api_key||'';
-  $('kOpenaiUrl').value=settings.openai_api_url||'';
-  $('kOpenaiModel').value=settings.openai_model||'';
-  $('sFanza').value=settings.fanza_rate_limit||'';
-  $('sJavdb').value=settings.javdb_rate_limit||'';
-}
-async function saveTranslate(){
-  const body={
-    translate:$('tEnable').checked,
-    translate_engines:($('tPrimary').value||'baidu')+',googlefree',
-    translate_lang:$('tLang').value.trim()||'zh-CN',
-    translate_timeout:parseInt($('tTimeout').value||'15',10)||15,
-    baidu_app_id:$('kBaiduId').value.trim(),
-    baidu_app_key:$('kBaiduKey').value.trim(),
-    deepl_api_key:$('kDeeplKey').value.trim(),
-    deepl_api_url:$('kDeeplUrl').value.trim(),
-    openai_api_key:$('kOpenaiKey').value.trim(),
-    openai_api_url:$('kOpenaiUrl').value.trim(),
-    openai_model:$('kOpenaiModel').value.trim(),
-    disable_summary: $('tNoSummary')?$('tNoSummary').checked:false,
-    fanza_rate_limit:$('sFanza').value.trim(),
-    javdb_rate_limit:$('sJavdb').value.trim()
-  };
-  try{
-    await api('/manage/api/settings',{method:'POST',body:JSON.stringify(body)});
-    $('tMsg').textContent='已保存并生效';
-    toast('翻译设置已保存');
-    loadStatus();
-  }catch(e){ $('tMsg').textContent='失败：'+e.message; }
-}
-async function testTranslate(){
-  $('tMsg').textContent='测试中…';
-  try{
-    const r=await api('/manage/api/translate-test',{method:'POST',body:JSON.stringify({text:'高圧系女上司にパワハラされたので、快楽の虜にしてやった'})});
-    $('tResult').innerHTML='<div class="okbox">原文：'+esc(r.source)+'<br>译文：'+esc(r.translated)+'</div>';
-    $('tMsg').textContent='';
-  }catch(e){ $('tMsg').textContent='失败：'+e.message; }
-}
-async function saveRateLimits(){
-  try{
-    const body=Object.assign({},settings,{fanza_rate_limit:$('sFanza').value.trim(), javdb_rate_limit:$('sJavdb').value.trim()});
-    await api('/manage/api/settings',{method:'POST',body:JSON.stringify(body)});
-    $('rateMsg').textContent='已保存';
-  }catch(e){ $('rateMsg').textContent='失败：'+e.message; }
-}
-
+function onPathChange(){ const v=$('pathSel').value; $('pathHint').textContent=v?('仅处理：'+v):''; auditOffset=0; }
 async function loadMappingInfo(){
-  try{
-    const st=await api('/manage/api/status'); const m=st.mapping||{};
+  try{ const st=await api('/manage/api/status'); const m=st.mapping||{};
     $('mappingInfo').innerHTML='<div class="kv"><span>文件</span><b>'+esc(m.path||'-')+'</b></div>'
       +'<div class="kv"><span>条目</span><b>'+(m.entries||0)+'</b></div>'
       +'<div class="kv"><span>版本</span><b>'+esc(String(m.version||'-').slice(0,12))+'</b></div>'
-      +'<div class="kv"><span>在线同步</span><b>'+(m.online?'开启':'关闭')+'</b></div>';
-    $('fbOrder').textContent='JavDB（默认；JavBus 与 DMM 同源，无用）';
-  }catch(e){}
+      +'<div class="kv"><span>在线同步</span><b>'+(m.online?'开启':'关闭')+'</b></div>'; }catch(e){}
 }
 async function syncMapping(){
   $('syncMsg').textContent='同步中…';
   try{ const r=await api('/manage/api/mapping/sync',{method:'POST'});
-    $('syncMsg').textContent = r.updated? ('已更新到 '+String(r.version||'').slice(0,8)+'（'+(r.records||0)+' 条）') : (r.message||'无更新');
-    loadMappingInfo();
-  }catch(e){ $('syncMsg').textContent='失败：'+e.message; }
+    $('syncMsg').textContent=r.updated?('已更新到 '+String(r.version||'').slice(0,8)+'（'+(r.records||0)+' 条）'):(r.message||'无更新'); loadMappingInfo(); }
+  catch(e){ $('syncMsg').textContent='失败：'+e.message; }
 }
 
+// ---- 日志 ----
 let logTimer=null;
 async function loadLogs(){
   const q=new URLSearchParams({number:$('logNum').value.trim(),level:$('logLevel').value,source:$('logSource').value,limit:'300'});
-  try{
-    const r=await api('/manage/api/logs?'+q.toString());
-    $('logCount').textContent='共 '+(r.total||0)+' 条';
+  try{ const r=await api('/manage/api/logs?'+q.toString()); $('logCount').textContent='共 '+(r.total||0)+' 条';
     const logs=r.logs||[];
-    $('logbox').innerHTML = logs.length
-      ? logs.map(function(l){ return '<div class="logline"><span class="t">'+esc(l.time||'')+'</span><span class="src">'+esc(l.source||'')+'</span>'+(l.number?('<span class="num">'+esc(l.number)+'</span>'):'')+'<span class="msg">'+esc(l.message||'')+'</span></div>'; }).join('')
-      : '<span class="muted">没有匹配的日志</span>';
+    $('logbox').innerHTML=logs.length
+      ?logs.map(function(l){return '<div class="logline"><span class="t">'+esc(l.time||'')+'</span><span class="src">'+esc(l.source||'')+'</span>'+(l.number?('<span class="num">'+esc(l.number)+'</span>'):'')+'<span class="msg">'+esc(l.message||'')+'</span></div>';}).join('')
+      :'<span class="muted">没有匹配的日志</span>';
   }catch(e){ $('logbox').textContent='读取失败：'+e.message; }
 }
-function toggleAuto(){ if($('logAuto').checked){ loadLogs(); logTimer=setInterval(loadLogs,5000);} else { clearInterval(logTimer); logTimer=null; } }
-
-async function loadConsistency(){
-  try{ const c=await api('/manage/api/consistency'); $('consistency').textContent=JSON.stringify(c,null,2); }
-  catch(e){ $('consistency').textContent='读取失败：'+e.message; }
-}
+function toggleAuto(){ if($('logAuto').checked){ loadLogs(); logTimer=setInterval(loadLogs,5000); }else{ clearInterval(logTimer); logTimer=null; } }
 
 refreshAll();
 loadPaths();
 bindPrefs();
 loadSettings();
 pollRefresh();
-setInterval(loadStatus, 30000);
+setInterval(loadStatus,30000);
 </script>
 </body>
 </html>
