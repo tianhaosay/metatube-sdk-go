@@ -107,6 +107,14 @@ func loadSettingsFileWithStatus() (Settings, bool) {
 	if err := json.Unmarshal(data, &s); err != nil {
 		return s, false
 	}
+	// Older settings files have no actor_fallback key. Treat a missing key
+	// as the default (on), rather than Go's zero value (off).
+	var raw struct {
+		ActorFallback *bool `json:"actor_fallback"`
+	}
+	if json.Unmarshal(data, &raw) == nil && raw.ActorFallback == nil {
+		s.ActorFallback = true
+	}
 	return s, true
 }
 
