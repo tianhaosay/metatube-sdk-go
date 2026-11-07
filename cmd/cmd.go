@@ -190,9 +190,6 @@ func applyMetaTubeEnvOverrides() {
 	if v := os.Getenv("MT_EMBY_PLUGIN_DIR"); v != "" {
 		Config.EmbyPluginDir = v
 	}
-	}
-	}
-	}
 	if v := os.Getenv("MT_ACTOR_FALLBACK"); v != "" {
 		Config.ActorFallback = v
 	}

@@ -317,5 +317,3 @@ func postRefreshReset(c *gin.Context) {
 	jsonOK(c, ResetRefreshProgress(body.Scope, body.PathPrefix))
 }
 
-// getIgnoredDuplicates lists the groups the operator chose not to merge.
-}
