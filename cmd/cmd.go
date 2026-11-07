@@ -73,9 +73,6 @@ var Config = &struct {
 	// TMDB (optional) - used by the actor completion job for avatars/gender.
 	EmbyPluginDir string
 
-	TMDBAPIKey   string
-	TMDBLanguage string
-	TMDBProxy    string
 
 	// ActorFallback is a CSV of provider names consulted when a scrape
 	// returned no actors (e.g. "JavBus"). Empty disables the fallback.
@@ -116,9 +113,6 @@ func init() {
 	// Manage module (actor management web UI).
 	flag.BoolVar(&Config.Manage, "manage", false, "Enable the actor management web UI (/manage/)")
 	flag.StringVar(&Config.EmbyPluginDir, "emby-plugin-dir", "/emby-plugins", "Read-only mount of Emby plugin configurations (for conflict checks)")
-	flag.StringVar(&Config.TMDBAPIKey, "tmdb-api-key", "", "TMDB API key (optional; enables TMDB actor avatars and gender filter)")
-	flag.StringVar(&Config.TMDBLanguage, "tmdb-language", "zh-CN", "TMDB language")
-	flag.StringVar(&Config.TMDBProxy, "tmdb-proxy", "", "Proxy for TMDB requests (e.g. http://192.168.1.100:7890)")
 	flag.StringVar(&Config.ManageEmbyURL, "manage-emby-url", "", "Emby server base URL for the manage module")
 	flag.StringVar(&Config.ManageEmbyAPIKey, "manage-emby-api-key", "", "Emby API key for the manage module")
 	flag.StringVar(&Config.ManageEmbyUserID, "manage-emby-user-id", "", "Emby user id for the manage module")
@@ -196,14 +190,8 @@ func applyMetaTubeEnvOverrides() {
 	if v := os.Getenv("MT_EMBY_PLUGIN_DIR"); v != "" {
 		Config.EmbyPluginDir = v
 	}
-	if v := os.Getenv("MT_TMDB_API_KEY"); v != "" {
-		Config.TMDBAPIKey = v
 	}
-	if v := os.Getenv("MT_TMDB_LANGUAGE"); v != "" {
-		Config.TMDBLanguage = v
 	}
-	if v := os.Getenv("MT_TMDB_PROXY"); v != "" {
-		Config.TMDBProxy = v
 	}
 	if v := os.Getenv("MT_ACTOR_FALLBACK"); v != "" {
 		Config.ActorFallback = v
@@ -302,9 +290,6 @@ func Router(names ...string) *gin.Engine {
 			EmbyLibraryIDs:      libraries,
 			ActorMappingPath:    Config.MappingActorFile,
 			EmbyPluginDir:       Config.EmbyPluginDir,
-			TMDBAPIKey:          Config.TMDBAPIKey,
-			TMDBLanguage:        Config.TMDBLanguage,
-			TMDBProxy:           Config.TMDBProxy,
 			MappingOnline:       Config.MappingOnline && Config.MappingActorFile != "",
 			MappingSyncInterval: Config.MappingSyncInterval,
 		})
@@ -315,9 +300,6 @@ func Router(names ...string) *gin.Engine {
 		manage.Setup(&manage.Config{
 			ActorMappingPath:    Config.MappingActorFile,
 			EmbyPluginDir:       Config.EmbyPluginDir,
-			TMDBAPIKey:          Config.TMDBAPIKey,
-			TMDBLanguage:        Config.TMDBLanguage,
-			TMDBProxy:           Config.TMDBProxy,
 			MappingOnline:       true,
 			MappingSyncInterval: Config.MappingSyncInterval,
 		})

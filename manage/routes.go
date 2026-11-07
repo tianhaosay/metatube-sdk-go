@@ -35,16 +35,6 @@ func RegisterRoutes(r gin.IRouter, apiMiddleware ...gin.HandlerFunc) {
 		api.POST("/refresh/reset", postRefreshReset)
 		api.GET("/paths", getPaths)
 		api.POST("/mapping/sync", postSyncMapping)
-		api.GET("/duplicates", getDuplicates)
-		api.POST("/duplicates/resolve", postResolveDuplicate)
-		api.POST("/duplicates/resolve-all", postResolveAllDuplicates)
-		api.POST("/duplicates/ignore", postIgnoreDuplicate)
-		api.POST("/duplicates/unignore", postUnignoreDuplicate)
-		api.GET("/duplicates/ignored", getIgnoredDuplicates)
-		api.POST("/duplicates/rollback", postRollbackMerge)
-		api.GET("/avatars/missing", getMissingAvatars)
-		api.POST("/avatars/complete", postCompleteAvatars)
-		api.GET("/avatars/progress", getAvatarProgress)
 		api.GET("/logs", getLogs)
 		api.GET("/settings", getSettings)
 		api.POST("/settings", postSettings)
@@ -182,13 +172,6 @@ func getStatus(c *gin.Context) {
 		return
 	}
 	emby := map[string]any{"connected": true, "url": c2.EmbyURL}
-	// Quick connectivity + person count probe.
-	if persons, err := client.FetchPersons(c2.EmbyLibraryIDs); err == nil {
-		emby["person_count"] = len(persons)
-	} else {
-		emby["connected"] = false
-		emby["error"] = err.Error()
-	}
 	status["emby"] = emby
 	jsonOK(c, status)
 }
@@ -206,109 +189,6 @@ func postSyncMapping(c *gin.Context) {
 	jsonOK(c, res)
 }
 
-func getDuplicates(c *gin.Context) {
-	res, err := DetectDuplicates(true)
-	if err != nil {
-		jsonErr(c, err)
-		return
-	}
-	jsonOK(c, res)
-}
-
-type resolveRequest struct {
-	TargetID  string   `json:"target_id"`
-	SourceIDs []string `json:"source_ids"`
-}
-
-func postResolveDuplicate(c *gin.Context) {
-	var req resolveRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		jsonErr(c, err)
-		return
-	}
-	res, err := ResolveDuplicate(req.TargetID, req.SourceIDs)
-	if err != nil {
-		jsonErr(c, err)
-		return
-	}
-	jsonOK(c, res)
-}
-
-// postIgnoreDuplicate hides a duplicate group from future detections.
-func postIgnoreDuplicate(c *gin.Context) {
-	var req struct {
-		Group  string `json:"group"`
-		Ignore *bool  `json:"ignore"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		jsonErr(c, err)
-		return
-	}
-	ignore := true
-	if req.Ignore != nil {
-		ignore = *req.Ignore
-	}
-	if ignore {
-		if err := IgnoreDuplicateGroup(req.Group); err != nil {
-			jsonErr(c, err)
-			return
-		}
-	} else if err := UnignoreDuplicateGroup(req.Group); err != nil {
-		jsonErr(c, err)
-		return
-	}
-	jsonOK(c, gin.H{"group": req.Group, "ignored": ignore})
-}
-
-// postResolveAllDuplicates merges every detected duplicate group at once.
-func postResolveAllDuplicates(c *gin.Context) {
-	res, err := ResolveAllDuplicates()
-	if err != nil {
-		jsonErr(c, err)
-		return
-	}
-	jsonOK(c, res)
-}
-
-// postRollbackMerge restores the person links recorded by the last merge batch.
-func postRollbackMerge(c *gin.Context) {
-	res, err := RollbackLastMerge()
-	if err != nil {
-		jsonErr(c, err)
-		return
-	}
-	jsonOK(c, res)
-}
-
-func getMissingAvatars(c *gin.Context) {
-	res, err := ScanMissingAvatars()
-	if err != nil {
-		jsonErr(c, err)
-		return
-	}
-	jsonOK(c, res)
-}
-
-type completeRequest struct {
-	Persons []Person `json:"persons"`
-}
-
-func postCompleteAvatars(c *gin.Context) {
-	var req completeRequest
-	_ = c.ShouldBindJSON(&req) // empty body = complete all missing.
-	res, err := CompleteMissingAvatars(req.Persons)
-	if err != nil {
-		jsonErr(c, err)
-		return
-	}
-	jsonOK(c, res)
-}
-
-func getAvatarProgress(c *gin.Context) {
-	jsonOK(c, GetAvatarProgress())
-}
-
-// healthHandler is a dependency-free liveness probe for docker healthcheck.
 func HealthHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "ok",
@@ -438,19 +318,4 @@ func postRefreshReset(c *gin.Context) {
 }
 
 // getIgnoredDuplicates lists the groups the operator chose not to merge.
-func getIgnoredDuplicates(c *gin.Context) {
-	jsonOK(c, map[string]any{"groups": IgnoredDuplicateGroups()})
-}
-
-// postUnignoreDuplicate restores one ignored group to the duplicate list.
-func postUnignoreDuplicate(c *gin.Context) {
-	var body struct {
-		Group string `json:"group"`
-	}
-	_ = c.ShouldBindJSON(&body)
-	if err := UnignoreDuplicateGroup(body.Group); err != nil {
-		jsonErr(c, err)
-		return
-	}
-	jsonOK(c, map[string]any{"unignored": body.Group})
 }

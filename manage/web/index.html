@@ -68,7 +68,6 @@
     <h1>metatube-plus</h1>
     <div class="nav active" data-page="overview">概览</div>
     <div class="nav" data-page="audit">库体检</div>
-    <div class="nav" data-page="actors">演员管理</div>
     <div class="nav" data-page="translate">翻译</div>
     <div class="nav" data-page="sources">数据源与映射</div>
     <div class="nav" data-page="logs">日志</div>
@@ -183,36 +182,6 @@
         </div>
       </section>
 
-      <section id="page-actors" class="hide">
-        <div class="card">
-          <h2>重复演员（合并前请核对影片清单）</h2>
-          <div class="row">
-            <button onclick="detectDup()">开始检测</button>
-            <button class="danger" onclick="resolveAll()">全部合并（推荐项）</button>
-            <button class="sec" onclick="rollbackMerge()">撤销上次合并</button>
-            <span class="muted" id="dupMsg"></span>
-          </div>
-          <div id="dupResult" style="margin-top:10px"></div>
-          <div id="ignoredBox" style="margin-top:10px"></div>
-          <div class="card hide" id="ignoredCard" style="margin-top:10px;background:#fafafa">
-            <div class="row"><strong style="font-size:13px">忽略名单（不参与合并）</strong>
-              <span class="muted" id="ignoredMsg"></span></div>
-            <div id="ignoredList" style="margin-top:6px"></div>
-          </div>
-        </div>
-        <div class="card">
-          <h2>资料与头像补全</h2>
-          <div class="row">
-            <button onclick="scanAvatars()">扫描缺头像</button>
-            <button onclick="completeAvatars()">开始补全</button>
-            <button class="sec" onclick="renameActors()">批量改名（日文→中文）</button>
-            <span class="muted" id="avaMsg"></span>
-          </div>
-          <div class="bar"><i id="avaBar"></i></div>
-          <div class="muted" id="avaProgress"></div>
-          <div id="avaResult" style="margin-top:8px"></div>
-        </div>
-      </section>
 
       <section id="page-translate" class="hide">
         <div class="card">
@@ -322,7 +291,6 @@
         <div class="card">
           <h2>回滚与维护</h2>
           <div class="row">
-            <button class="sec" onclick="rollbackMerge()">撤销上一次演员合并</button>
             <button class="sec" onclick="syncMapping()">重新同步映射表</button>
           </div>
           <p class="muted">合并日志与忽略名单都在映射表目录：<code>merge_log.json</code> / <code>ignore_duplicates.json</code> / <code>genre_dict.json</code>。</p>
@@ -357,7 +325,6 @@ document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>{
   if(p==='translate') loadSettings();
   if(p==='sources'){ loadSettings(); loadMappingInfo(); }
   if(p==='advanced') loadConsistency();
-  if(p==='actors') loadIgnored();
 });
 
 let lastStatus=null;
@@ -471,119 +438,18 @@ async function refreshSelected(){
   }catch(e){ toast('失败：'+e.message); }
 }
 
-let dupGroups=[];
-async function loadIgnored(){
-  try{
-    const r=await api('/manage/api/duplicates/ignored');
-    const list=r.groups||[];
-    const card=$('ignoredCard');
-    if(!card) return;
-    if(!list.length){ card.classList.add('hide'); return; }
-    card.classList.remove('hide');
-    $('ignoredBox').textContent = '已忽略 '+list.length+' 组（可在下方恢复）';
-    $('ignoredList').innerHTML = list.map(function(g){
-      return '<div class="row" style="margin:4px 0"><span>'+esc(g)+'</span>'
-        +'<button class="sec" style="padding:2px 10px;font-size:12px" onclick="unignoreGroup(\''+esc(g).replace(/'/g,"\\'")+'\')">恢复到列表</button></div>';
-    }).join('');
-  }catch(e){}
-}
-async function unignoreGroup(g){
-  if(!confirm('把「'+g+'」移出忽略名单？之后会重新出现在重复检测结果里。')) return;
-  try{
-    await api('/manage/api/duplicates/unignore',{method:'POST',body:JSON.stringify({group:g})});
-    $('ignoredMsg').textContent='已恢复：'+g;
-    loadIgnored();
-  }catch(e){ toast('失败：'+e.message); }
-}
-async function detectDup(){
-  $('dupMsg').textContent='检测中（含影片计数）…';
-  try{
-    const r=await api('/manage/api/duplicates');
-    dupGroups=r.groups||[];
-    $('dupMsg').textContent='扫描 '+r.scanned+' 位演员，发现 '+dupGroups.length+' 组';
-    renderDup(r);
-  }catch(e){ $('dupMsg').textContent='失败：'+e.message; }
-}
-function renderDup(r){
-  $('ignoredBox').innerHTML = r.ignored ? '<span class="muted">已忽略 '+r.ignored+' 组</span>' : '';
-  if(!dupGroups.length){ $('dupResult').innerHTML='<p class="muted">没有需要合并的重复演员 🎉</p>'; return; }
-  $('dupResult').innerHTML = dupGroups.map(function(g,gi){
-    const rows=g.actors.map(function(a,ai){
-      const movies=(a.movies||[]).map(m=>esc(m.number||'')+' '+esc((m.title||'').slice(0,28))).join('<br>');
-      return '<tr>'
-        +'<td><input type="radio" name="g'+gi+'" value="'+esc(a.id)+'" '+(ai===0?'checked':'')+' style="width:auto"></td>'
-        +'<td>'+esc(a.name)+(ai===0?' <span class="pill ok">推荐</span>':'')+'</td>'
-        +'<td>'+a.movie_count+'</td>'
-        +'<td>'+(a.has_avatar?'<span class="pill ok">有</span>':'<span class="pill gray">无</span>')+'</td>'
-        +'<td>'+(movies?'<details><summary>'+a.movie_count+' 部</summary><div class="moviebox">'+movies+'</div></details>':'-')+'</td>'
-        +'</tr>';
-    }).join('');
-    return '<div class="card" style="margin:10px 0"><div class="row"><b>'+esc(g.recommended_name)+'</b><span class="muted">'+g.actors.length+' 个条目 · 共 '+g.total_movies+' 部</span></div>'
-      +'<table><tr><th>保留</th><th>名称</th><th>影片数</th><th>头像</th><th>影片清单</th></tr>'+rows+'</table>'
-      +'<div class="row" style="margin-top:8px"><button class="danger" onclick="resolveGroup('+gi+')">确认合并</button>'
-      +'<button class="sec" onclick="ignoreGroup('+gi+')">不是同一人，跳过</button></div></div>';
-  }).join('');
-}
-async function resolveGroup(gi){
-  const g=dupGroups[gi]; const sel=document.querySelector('input[name="g'+gi+'"]:checked');
-  if(!sel) return toast('请选择保留的演员');
-  if(!confirm('合并「'+g.recommended_name+'」？将把其他条目的影片关联转到保留条目，并写入回滚日志。')) return;
-  const src=g.actors.map(a=>a.id).filter(id=>id!==sel.value);
-  try{
-    const r=await api('/manage/api/duplicates/resolve',{method:'POST',body:JSON.stringify({target_id:sel.value,source_ids:src})});
-    const bad=(r.unverified||[]).length;
-    toast('影片 '+r.movies+' 部，转移 '+r.transferred+'，失败 '+r.failed+(bad?'，未生效 '+bad:''));
-    detectDup();
-  }catch(e){ toast('失败：'+e.message); }
-}
-async function ignoreGroup(gi){
-  const g=dupGroups[gi];
-  if(!confirm('把「'+g.recommended_name+'」加入忽略名单？')) return;
-  try{ await api('/manage/api/duplicates/ignore',{method:'POST',body:JSON.stringify({group:g.mapping_id||g.recommended_name})}); detectDup(); }
-  catch(e){ toast('失败：'+e.message); }
-}
-async function resolveAll(){
-  if(!confirm('合并全部检测到的重复演员（保留影片最多的条目）？')) return;
-  try{ const r=await api('/manage/api/duplicates/resolve-all',{method:'POST'});
-    toast('合并 '+r.groups+' 组 / '+r.movies+' 部'); detectDup(); }
-  catch(e){ toast('失败：'+e.message); }
-}
-async function rollbackMerge(){
-  if(!confirm('按回滚日志恢复上一次合并？')) return;
-  try{ const r=await api('/manage/api/duplicates/rollback',{method:'POST'}); toast('已恢复 '+r.restored+' 部影片'); }
-  catch(e){ toast('失败：'+e.message); }
-}
 
-let missing=[];
-async function scanAvatars(){
-  $('avaMsg').textContent='扫描中…';
-  try{ const r=await api('/manage/api/avatars/missing'); missing=r.missing||[];
-    $('avaMsg').textContent=r.scanned+' 位演员，'+missing.length+' 位缺头像';
-    $('avaResult').innerHTML = missing.length? '<details><summary>查看缺头像名单</summary><div class="moviebox">'+missing.map(p=>esc(p.name)).join('<br>')+'</div></details>':'';
-  }catch(e){ $('avaMsg').textContent='失败：'+e.message; }
-}
-async function completeAvatars(){
-  $('avaMsg').textContent='提交中…';
-  try{ await api('/manage/api/avatars/complete',{method:'POST',body:JSON.stringify({persons:missing})}); pollAvatars(); }
-  catch(e){ $('avaMsg').textContent='失败：'+e.message; }
-}
-function pollAvatars(){
-  const t=setInterval(async function(){
-    try{
-      const p=await api('/manage/api/avatars/progress');
-      const pct = p.total? Math.round(((p.done||0)/p.total)*100):0;
-      $('avaBar').style.width=pct+'%';
-      $('avaProgress').textContent = p.running? ('进行中 '+(p.done||0)+'/'+(p.total||0)) : '空闲';
-      if(!p.running){
-        clearInterval(t);
-        const r=p.result||{};
-        $('avaMsg').textContent='完成：头像 '+(r.updated||0)+'，资料 '+(r.profiles||0)+'，跳过(男优) '+(r.skipped||0)+'，失败 '+(r.failed||0);
-        const fails=(r.fails||[]).slice(0,10);
-        $('avaResult').innerHTML = fails.length? '<details><summary>失败明细（前 10）</summary><div class="moviebox">'+fails.map(esc).join('<br>')+'</div></details>':'';
-      }
-    }catch(e){ clearInterval(t); }
-  },1500);
-}
+
+
+
+
+
+
+
+
+
+
+
 async function retitleSelected(){
   const ids=[].slice.call(document.querySelectorAll('.auditPick:checked')).map(c=>c.value);
   if(!ids.length) return toast('先选择要修正标题的条目');
@@ -593,18 +459,7 @@ async function retitleSelected(){
     if(r.details&&r.details.length) console.log(r.details);
   }catch(e){ toast('失败：'+e.message); }
 }
-async function renameActors(){
-  if(!confirm('按映射表把日文演员名改成中文（每批 200，可重复执行）？')) return;
-  let total=0, ok=0;
-  try{
-    for(let i=0;i<10;i++){
-      const r=await api('/manage/api/fix',{method:'POST',body:JSON.stringify({action:'rename_actors',limit:200})});
-      total+=r.total; ok+=r.ok;
-      if(!r.total) break;
-    }
-    toast('改名完成：处理 '+total+'，成功 '+ok);
-  }catch(e){ toast('失败：'+e.message); }
-}
+
 
 let settings=null;
 async function startRefresh(){

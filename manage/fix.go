@@ -16,8 +16,8 @@ type FixRequest struct {
 	// ReplaceAll lets provider output overwrite existing values (needed to
 	// clear a summary or replace a stale Japanese title).
 	ReplaceAll bool `json:"replace_all"`
-	// Action: "refresh" (re-scrape given items) or "rename_actors"
-	// (canonicalize actor names through the mapping table).
+	// Action: "refresh" (re-scrape given items) or "retitle"
+	// (rewrite the title from the backend).
 	Action string   `json:"action"`
 	IDs    []string `json:"ids"`
 	// Limit caps how many items this call touches (default 50, max 200).
@@ -33,12 +33,7 @@ type FixResult struct {
 	Details []string `json:"details,omitempty"`
 }
 
-const (
-	maxFixBatch    = 200
-	embyWriteDelay = 60 * time.Millisecond
-)
-
-// Fix runs a batch repair. Every action is idempotent and safe to re-run.
+// Fix runs a batch repair.
 func Fix(req FixRequest) (*FixResult, error) {
 	c := getConfig()
 	if c == nil {
@@ -49,22 +44,16 @@ func Fix(req FixRequest) (*FixResult, error) {
 		return nil, err
 	}
 	limit := req.Limit
-	if limit <= 0 {
+	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
-	if limit > maxFixBatch {
-		limit = maxFixBatch
-	}
-
 	switch strings.ToLower(strings.TrimSpace(req.Action)) {
 	case "refresh":
 		return fixRefresh(client, req.IDs, limit, req.ReplaceAll)
 	case "retitle":
 		return fixRetitle(client, req.IDs, limit)
-	case "rename_actors":
-		return fixRenameActors(client, req.IDs, limit)
 	default:
-		return nil, fmt.Errorf("未知操作 %q（可用：refresh、rename_actors）", req.Action)
+		return nil, fmt.Errorf("未知操作 %q（可用：refresh、retitle）", req.Action)
 	}
 }
 
@@ -92,88 +81,8 @@ func fixRefresh(client *EmbyClient, ids []string, limit int, replaceAll bool) (*
 	return res, nil
 }
 
-// fixRenameActors renames Emby persons to their canonical Chinese name using
-// the mapping table. This needs no Emby plugin and fixes the actor list in
-// place, which is what users actually look at.
-func fixRenameActors(client *EmbyClient, ids []string, limit int) (*FixResult, error) {
-	am := ActorMapping()
-	if am == nil {
-		return nil, fmt.Errorf("演员映射表未加载，请先同步映射表")
-	}
-
-	persons, err := client.FetchPersons(getConfig().EmbyLibraryIDs)
-	if err != nil {
-		return nil, fmt.Errorf("拉取 Emby 演员失败: %w", err)
-	}
-	if len(ids) > 0 {
-		want := make(map[string]struct{}, len(ids))
-		for _, id := range ids {
-			want[id] = struct{}{}
-		}
-		filtered := persons[:0]
-		for _, p := range persons {
-			if _, ok := want[p.ID]; ok {
-				filtered = append(filtered, p)
-			}
-		}
-		persons = filtered
-	}
-
-	tmdb := newTMDBClient(getConfig())
-	acted := map[string]bool{}
-	male := map[string]bool{}
-	res := &FixResult{Action: "rename_actors"}
-	for _, p := range persons {
-		if res.Total >= limit {
-			break
-		}
-		if !kanaRe.MatchString(p.Name) {
-			continue // already Chinese (or Latin); nothing to do
-		}
-		entry, ok := am.Lookup(p.Name)
-		if !ok || entry.Name == "" || entry.Name == p.Name {
-			continue // not in the mapping table: leave for human review
-		}
-		// Only actresses are renamed: skip directors/crew and male performers.
-		if _, seen := acted[p.ID]; !seen {
-			acted[p.ID] = client.PersonActed(p.ID)
-		}
-		if !acted[p.ID] {
-			continue
-		}
-		if tmdb != nil {
-			if _, seen := male[p.ID]; !seen {
-				male[p.ID] = false
-				if person, terr := lookupTMDBPerson(tmdb, am, p.Name); terr == nil && person != nil && person.Gender == GenderMale {
-					male[p.ID] = true
-				}
-			}
-			if male[p.ID] {
-				continue
-			}
-		}
-		if kanaRe.MatchString(entry.Name) {
-			// The table's canonical name is itself Japanese (bad/ambiguous
-			// source data). Renaming would not improve anything, so skip and
-			// leave the person for manual review.
-			continue
-		}
-		res.Total++
-		if err := client.RenameItem(p.ID, entry.Name); err != nil {
-			res.Failed++
-			res.Details = append(res.Details, fmt.Sprintf("%s (%s): %v", p.Name, p.ID, err))
-			continue
-		}
-		res.OK++
-		time.Sleep(embyWriteDelay)
-	}
-	log.Printf("[manage] fix rename_actors: %d/%d ok, %d untouched", res.OK, res.Total, len(persons))
-	return res, nil
-}
-
 // fixRetitle rewrites the title from the backend whenever Emby refused to take
-// it during a refresh. A manually edited name (for example a "（夸克）" prefix)
-// is kept as a prefix, everything after it is replaced with the Chinese title.
+// it during a refresh. A manually edited prefix (for example "（夸克）") is kept.
 func fixRetitle(client *EmbyClient, ids []string, limit int) (*FixResult, error) {
 	if len(ids) == 0 {
 		return nil, fmt.Errorf("retitle 需要 ids")
@@ -239,7 +148,7 @@ func retitleOne(client *EmbyClient, id string) (string, error) {
 }
 
 // splitTitle separates a manual prefix / code from the descriptive title:
-// "（夸克）REAL-885 日本語..." -> ("（夸克）REAL-885", "日本語...").
+// "REAL-885 （夸克）日本語..." -> ("REAL-885", "（夸克）").
 func splitTitle(name string) (code, marker string) {
 	s := strings.TrimSpace(name)
 	// A manual marker such as "（夸克）" may sit before or after the code; keep
@@ -256,6 +165,7 @@ func splitTitle(name string) (code, marker string) {
 	}
 	return s, marker
 }
+
 // backendURL is the address of this server, used when a repair needs to read
 // freshly scraped metadata (the console runs inside the same process).
 var backendURL = "http://127.0.0.1:8080"
