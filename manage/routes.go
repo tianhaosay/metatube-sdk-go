@@ -171,8 +171,16 @@ func getStatus(c *gin.Context) {
 		jsonOK(c, status)
 		return
 	}
-	emby := map[string]any{"connected": true, "url": c2.EmbyURL}
-	status["emby"] = emby
+	// Lightweight connectivity probe (does not pull a full person list).
+	var probe struct {
+		TotalRecordCount int `json:"TotalRecordCount"`
+	}
+	if err := client.do(http.MethodGet, "/Items", nil, nil, &probe); err != nil {
+		status["emby"] = map[string]any{"connected": false, "error": err.Error()}
+		jsonOK(c, status)
+		return
+	}
+	status["emby"] = map[string]any{"connected": true, "url": c2.EmbyURL}
 	jsonOK(c, status)
 }
 

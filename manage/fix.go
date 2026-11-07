@@ -166,6 +166,9 @@ func splitTitle(name string) (code, marker string) {
 	return s, marker
 }
 
+// embyWriteDelay spaces out consecutive writes to Emby.
+const embyWriteDelay = 200 * time.Millisecond
+
 // backendURL is the address of this server, used when a repair needs to read
 // freshly scraped metadata (the console runs inside the same process).
 var backendURL = "http://127.0.0.1:8080"
