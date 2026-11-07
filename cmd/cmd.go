@@ -23,7 +23,6 @@ import (
 	"github.com/metatube-community/metatube-sdk-go/provider"
 	"github.com/metatube-community/metatube-sdk-go/route"
 	"github.com/metatube-community/metatube-sdk-go/route/auth"
-	"github.com/metatube-community/metatube-sdk-go/translate"
 )
 
 var Config = &struct {
