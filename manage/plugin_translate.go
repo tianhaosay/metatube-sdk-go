@@ -236,6 +236,8 @@ func applyPluginTranslation() {
 	pluginTransMu.Unlock()
 	if t == nil {
 		log.Printf("[manage] genre translation: no usable engine, dictionary-only")
+	} else if engine == "googlefree" {
+		log.Printf("[manage] genre translation: engine=googlefree (title/summary translated by the Emby plugin)")
 	} else {
 		log.Printf("[manage] genre translation: engine=%s primary, googlefree fallback (title/summary translated by the Emby plugin)", engine)
 	}

@@ -1,0 +1,89 @@
+# metatube-plus 部署模板
+#
+# 复制为 docker-compose.yml 后按需修改：
+#   cp docker-compose.fork.yml docker-compose.yml
+#   docker compose up -d
+#
+# 需要你填的只有三项（见下方 TODO）：
+#   MT_MANAGE_EMBY_URL / MT_MANAGE_EMBY_API_KEY / MT_MANAGE_EMBY_LIBRARIES
+
+services:
+  metatube:
+    # fork 版：翻译在 Emby 插件页配置；后端负责映射、体检、批量刷新
+    image: metatube-plus:latest
+    container_name: metatube
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    environment:
+      - NO_PROXY=localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+      - TZ=Asia/Shanghai
+
+      # ---- 映射表（对所有刮削源生效）----
+      - MT_MAPPING_ACTOR_FILE=/data/mapping/mapping_actor.xml
+      - MT_MAPPING_INFO_FILE=/data/mapping/mapping_info.xml
+      - MT_GENRE_DICT=/data/mapping/genre_dict.json
+      - MT_MAPPING_ONLINE=true
+      - MT_MAPPING_SYNC_INTERVAL=24h
+
+      # ---- 翻译语言（引擎/密钥在 Emby 插件页设）----
+      # 后端只做流派词典归并；标题/简介由插件翻译。
+      - MT_TRANSLATE_LANG=zh-CN
+
+      # ---- 演员兜底：控制台/插件开关默认开；关闭时不问 JavDB ----
+      - MT_ACTOR_FALLBACK=JavDB
+
+      # ---- 控制台 ----
+      - MT_MANAGE=true
+      # TODO: 改成你的 Emby 地址
+      - MT_MANAGE_EMBY_URL=http://192.168.1.100:8098
+      # TODO: 填 Emby API Key（Emby → 设置 → 高级 → API 密钥）
+      - MT_MANAGE_EMBY_API_KEY=
+      # TODO: 填要管理的媒体库 ID，多个用逗号分隔（留空=不限定）
+      - MT_MANAGE_EMBY_LIBRARIES=
+
+      # ---- 不鉴权：插件 Token 留空即可直接用（仅限内网）----
+      - MT_TOKEN=
+
+      # ---- Emby 插件配置目录：后端读取翻译设置/开关做联动 ----
+      - MT_EMBY_PLUGIN_DIR=/emby-plugins
+
+      # ---- 数据源优先级：只保留 FANZA / JavBus / FC2 ----
+      - MT_MOVIE_PROVIDER_10MUSUME__PRIORITY=0
+      - MT_MOVIE_PROVIDER_1PONDO__PRIORITY=0
+      - MT_MOVIE_PROVIDER_AVE__PRIORITY=0
+      - MT_MOVIE_PROVIDER_C0930__PRIORITY=0
+      - MT_MOVIE_PROVIDER_CARIBBEANCOM__PRIORITY=0
+      - MT_MOVIE_PROVIDER_CARIBBEANCOMPR__PRIORITY=0
+      - MT_MOVIE_PROVIDER_DAHLIA__PRIORITY=0
+      - MT_MOVIE_PROVIDER_DUGA__PRIORITY=0
+      - MT_MOVIE_PROVIDER_FALENO__PRIORITY=0
+      - MT_MOVIE_PROVIDER_FC2PPVDB__PRIORITY=0
+      - MT_MOVIE_PROVIDER_GCOLLE__PRIORITY=0
+      - MT_MOVIE_PROVIDER_GETCHU__PRIORITY=0
+      - MT_MOVIE_PROVIDER_H0930__PRIORITY=0
+      - MT_MOVIE_PROVIDER_H4610__PRIORITY=0
+      - MT_MOVIE_PROVIDER_HEYZO__PRIORITY=0
+      - MT_MOVIE_PROVIDER_HEYDOUGA__PRIORITY=0
+      - MT_MOVIE_PROVIDER_JAVFREE__PRIORITY=0
+      - MT_MOVIE_PROVIDER_KIN8__PRIORITY=0
+      - MT_MOVIE_PROVIDER_MGS__PRIORITY=0
+      - MT_MOVIE_PROVIDER_MURAMURA__PRIORITY=0
+      - MT_MOVIE_PROVIDER_MYWIFE__PRIORITY=0
+      - MT_MOVIE_PROVIDER_PACOPACOMAMA__PRIORITY=0
+      - MT_MOVIE_PROVIDER_PCOLLE__PRIORITY=0
+      - MT_MOVIE_PROVIDER_SOD__PRIORITY=0
+      - MT_MOVIE_PROVIDER_TOKYO_HOT__PRIORITY=0
+    volumes:
+      - ./data:/data
+      # 映射表目录必须可写：词典、刷新进度都写在这里
+      - ./mapping:/data/mapping
+      # 只读挂载 Emby 插件配置（翻译设置与开关从这里读取）
+      - /path/to/emby/config/plugins/configurations:/emby-plugins:ro
+    command: -dsn /data/metatube.db -port 8080 -db-auto-migrate
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
