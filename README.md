@@ -1,8 +1,8 @@
 # metatube-plus
 
-在 [metatube-community/metatube-sdk-go](https://github.com/metatube-community/metatube-sdk-go) 基础上增强的元数据中文化后端，自带运维控制台；与 Emby 的 MetaTube 插件配套使用，面向「Emby + NAS + 国内网络」的单人/小规模部署。
+在 [metatube-community/metatube-sdk-go](https://github.com/metatube-community/metatube-sdk-go) 基础上增强的元数据中文化后端，自带运维控制台；与 Emby 的 MetaTube 插件配套使用，适合个人/家庭的 Emby 媒体库（部署在 NAS、小主机或 Docker 里都可以）。
 
-> A fork of `metatube-sdk-go` that adds metadata Sinicization (Chinese actor and genre normalization), an operator console, JavDB actor fallback and batch library repair, built for Emby on a NAS.
+> A fork of `metatube-sdk-go` that adds metadata Sinicization (Chinese actor and genre normalization), an operator console, JavDB actor fallback and batch library repair, for personal Emby libraries.
 
 [![Go Linter](https://img.shields.io/github/actions/workflow/status/tianhaosay/metatube-sdk-go/linter.yml?branch=main&style=flat-square&logo=githubactions&label=golangci-lint)](https://github.com/tianhaosay/metatube-sdk-go/actions/workflows/linter.yml)
 [![Test](https://img.shields.io/github/actions/workflow/status/tianhaosay/metatube-sdk-go/test.yml?branch=main&style=flat-square&logo=github-actions&label=test)](https://github.com/tianhaosay/metatube-sdk-go/actions/workflows/test.yml)
@@ -53,28 +53,33 @@
 ## 部署
 
 镜像 `metatube-plus:latest`，模板 [`deploy/docker-compose.fork.yml`](deploy/docker-compose.fork.yml)。
+模板里的地址、密钥、库 ID 都是占位值，按自己的环境替换：
 
 ```bash
 cp deploy/docker-compose.fork.yml docker-compose.yml
-# 修改三个 TODO：Emby 地址、API Key、媒体库 ID
+# 改三处：Emby 地址、Emby API Key、媒体库 ID（可留空表示全部库）
 docker compose up -d
 ```
 
-必需的环境变量：
+**最小配置**分两部分，只跑刮削时其实不需要控制台：
 
 ```yaml
+# 1) 映射表与词典（中文化管线；三者的目录必须可写）
 MT_MAPPING_ACTOR_FILE=/data/mapping/mapping_actor.xml
 MT_MAPPING_INFO_FILE=/data/mapping/mapping_info.xml
 MT_GENRE_DICT=/data/mapping/genre_dict.json
+
+# 2) 控制台（不装控制台可以不配这一段）
 MT_MANAGE=true
-MT_MANAGE_EMBY_URL=http://<emby>:8098
-MT_MANAGE_EMBY_API_KEY=<emby api key>
-MT_MANAGE_EMBY_LIBRARIES=<library id>
+MT_MANAGE_EMBY_URL=http://<emby-host>:8096   # Emby 默认端口 8096，改过端口按实际填
+MT_MANAGE_EMBY_API_KEY=<emby api key>        # Emby → 设置 → 高级 → API 密钥
+MT_MANAGE_EMBY_LIBRARIES=<library id>        # 逗号分隔；留空表示不限定媒体库
 ```
 
+- 端口的默认值：后端 `8080`，Emby `8096`。本项目没有规定 Emby 端口，模板里写的是默认值。
 - `MT_TOKEN` 留空表示不鉴权，插件 Token 也留空即可（仅限内网）。
 - 映射表目录**必须可写**：流派词典、刷新进度、负缓存都写在这里。
-- `MT_EMBY_PLUGIN_DIR` 指向 Emby 插件配置目录（只读挂载），后端据此读取翻译设置与运行开关。
+- `MT_EMBY_PLUGIN_DIR` 指向 Emby 插件配置目录（只读挂载），后端据此读取翻译设置与运行开关；不挂载则只是读不到插件设置，映射仍工作。
 - `MT_DISABLE_SUMMARY`、`MT_ACTOR_FALLBACK`、`MT_MAPPING_SYNC_INTERVAL` 等是启动默认值，运行期以插件设置页为准。
 
 健康检查：
@@ -126,7 +131,7 @@ healthcheck:
 1. `Server` 指向 `http://<host>:8080`。
 2. `Token` 留空（后端未启用鉴权时）。
 3. `TranslationMode` 必须非 `Disabled`：标题与简介由插件翻译。
-4. 数据源过滤器保持 `fanza,javbus,fc2` 即可，与映射/翻译无关。
+4. 数据源过滤器按需要填写，常用组合是 `fanza,javbus,fc2`，与映射/翻译无关。
 
 ## 数据源
 

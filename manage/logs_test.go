@@ -67,7 +67,7 @@ func TestParseLogLine_GinRequestIsAPI(t *testing.T) {
 }
 
 func TestParseLogLine_PlainLineKeepsText(t *testing.T) {
-	entry := parseLogLine("[manage] initialized: emby=http://emby:8098")
+	entry := parseLogLine("[manage] initialized: emby=http://emby:8096")
 	if entry.Source != "manage" {
 		t.Fatalf("source = %q, want manage", entry.Source)
 	}

@@ -34,8 +34,8 @@ services:
 
       # 运维控制台
       - MT_MANAGE=true
-      # TODO: Emby 地址
-      - MT_MANAGE_EMBY_URL=http://localhost:8098
+      # TODO: Emby 地址（默认端口 8096；改过端口按实际填）
+      - MT_MANAGE_EMBY_URL=http://localhost:8096
       # TODO: Emby API Key（Emby → 设置 → 高级 → API 密钥）
       - MT_MANAGE_EMBY_API_KEY=
       # TODO: 媒体库 ID，多个用逗号分隔；留空表示不限定
@@ -47,7 +47,8 @@ services:
       # Emby 插件配置目录（只读挂载），后端据此读取翻译设置与运行开关
       - MT_EMBY_PLUGIN_DIR=/emby-plugins
 
-      # 数据源优先级：只保留 FANZA / JavBus / FC2
+      # 数据源白名单（可选）：下面把大部分源优先级设为 0，只留 FANZA / JavBus / FC2。
+      # 想启用全部数据源，删掉这一段即可。
       - MT_MOVIE_PROVIDER_10MUSUME__PRIORITY=0
       - MT_MOVIE_PROVIDER_1PONDO__PRIORITY=0
       - MT_MOVIE_PROVIDER_AVE__PRIORITY=0
