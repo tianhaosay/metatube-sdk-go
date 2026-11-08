@@ -101,9 +101,8 @@ func (fz *FANZA) SetRequestTimeout(timeout time.Duration) {
 }
 
 // SetProxy sets the proxy for both the scraper and the internal video API
-// (graphql) HTTP client. The video API client does not share the scraper's
-// fetcher, so without this override the graphql requests bypass the proxy
-// and DMM returns null content for non-Japanese IPs.
+// (graphql) client. The API client does not share the scraper's fetcher, so it
+// needs its own proxy; otherwise DMM returns null content outside Japan.
 func (fz *FANZA) SetProxy(proxyURL string) error {
 	u, err := url.Parse(proxyURL)
 	if err != nil {
@@ -113,8 +112,8 @@ func (fz *FANZA) SetProxy(proxyURL string) error {
 	return fz.Scraper.SetProxy(proxyURL)
 }
 
-// SetConfig implements provider.ConfigSetter. Currently supports the
-// `rate_limit` key (cooldown between consecutive DMM requests).
+// SetConfig implements provider.ConfigSetter; it supports the rate_limit key
+// (cooldown between consecutive DMM requests).
 func (fz *FANZA) SetConfig(config provider.Config) error {
 	if config.Has("rate_limit") {
 		if v, err := config.GetDuration("rate_limit"); err == nil {
@@ -146,12 +145,11 @@ func (fz *FANZA) getHomepagesByID(id string) []string {
 
 var numberPrefixRe = regexp.MustCompile(`(?i)^([a-z]+)-?(\d+)$`)
 
-// toFanzaID converts a movie number (e.g. "FLAV-302") into the DMM content
-// id format (e.g. "flav00302": lowercase letters + zero-padded 5-digit
-// number). Numbers that already look like a DMM id are returned as-is.
-// Note: many studios use prefixed cids (START-015 -> 1start00015,
-// T-38027 -> 55t38027, some -> h_086xxxxx); those are handled by the
-// search fallback in GetMovieInfoByID instead.
+// toFanzaID converts a movie number (e.g. "FLAV-302") into the DMM content id
+// format (e.g. "flav00302": lowercase letters plus a zero-padded 5-digit
+// number); ids already in DMM form are returned as-is. Some studios use
+// prefixed cids (START-015 -> 1start00015, T-38027 -> 55t38027); those are
+// resolved by the search fallback in GetMovieInfoByID.
 func toFanzaID(number string) string {
 	number = strings.TrimSpace(number)
 	if m := numberPrefixRe.FindStringSubmatch(number); m != nil {
@@ -164,28 +162,28 @@ func toFanzaID(number string) string {
 	return strings.ToLower(number)
 }
 
-// normNumber normalizes a number/cid for exact comparison: uppercase, strip
-// everything except letters and digits (prefixes and hyphens removed).
+// normNumberRe matches everything normNumber strips from a number or cid.
 var normNumberRe = regexp.MustCompile(`[^A-Z0-9]`)
 
+// normNumber normalizes a number or cid for exact comparison: uppercase and
+// keep only letters and digits.
 func normNumber(s string) string {
 	return normNumberRe.ReplaceAllString(strings.ToUpper(s), "")
 }
 
 func (fz *FANZA) GetMovieInfoByID(id string) (info *model.MovieInfo, err error) {
 	original := id
-	// Accept plain movie numbers (e.g. "FLAV-302") in addition to real DMM
-	// content ids: convert to the DMM id format before building URLs.
+	// Accept plain movie numbers (e.g. "FLAV-302") as well as real DMM content
+	// ids: convert to the DMM id format before building URLs.
 	id = toFanzaID(id)
 	for _, homepage := range fz.getHomepagesByID(id) {
 		if info, err = fz.GetMovieInfoByURL(homepage); errors.Is(err, ErrRegionNotAvailable) || err == nil && info.IsValid() {
 			return
 		}
 	}
-	// Fallback: the number may map to a DMM cid with a studio-specific
-	// prefix (T-38027 -> 55t38027, START-015 -> 1start00015, ...). Search
-	// by the original number and pick the exact-number match — this is the
-	// same resolution path the plugin uses (search first, then fetch).
+	// Fallback: the number may map to a cid with a studio-specific prefix
+	// (T-38027 -> 55t38027, START-015 -> 1start00015). Search the original
+	// number and keep the exact match.
 	if results, serr := fz.SearchMovie(original); serr == nil {
 		want := normNumber(original)
 		for _, r := range results {
@@ -975,7 +973,8 @@ func (fz *FANZA) updateWithAWSImgSrc(info *model.MovieInfo) {
 	c.Wait()
 }
 
-// getImageSizeByURL retrieves the image size from the Content-Length header of a given URL.
+// getImageSizeByURL retrieves the image size from the Content-Length header of
+// the given URL.
 func (fz *FANZA) getImageSizeByURL(imgURL string) (size int) {
 	c := fz.ClonedCollector()
 	c.OnResponseHeaders(func(r *colly.Response) {

@@ -1,12 +1,10 @@
-// Package throttle is the single cooldown registry used by every provider.
+// Package throttle is the shared cooldown registry used by every provider.
 //
-// Providers call Wait(name) before an outbound request; the manage console
-// adjusts the interval at runtime. Interval 0 (the default) means no
-// throttling at all, so a provider only pays for what it asks for.
-//
-// Unlike the previous per-provider implementations, an entry sleeps while
-// holding only its own lock: a slow javdb request never blocks fanza, and a
-// settings update (Set) never waits behind a sleeping request.
+// Providers call Wait(name) before an outbound request, and the operator console
+// adjusts intervals at runtime; an interval of 0 (the default) disables
+// throttling. Each entry sleeps holding only its own lock, so a slow request for
+// one provider never blocks another, and Set never waits behind a sleeping
+// request.
 package throttle
 
 import (

@@ -6,7 +6,8 @@ import (
 	"strings"
 )
 
-// restoreTags are trailing segments added by AI mosaic-restoration tools.
+// restoreTags lists suffixes appended by AI mosaic-restoration tools; they are
+// not part of the number.
 const restoreTags = `ltx|basicvsr(?:\+\+)?`
 
 func Trim(s string) string {
@@ -29,8 +30,7 @@ func Trim(s string) string {
 		ReplaceAllString(s, "${pattern}") // trim makers
 	s = regexp.MustCompile(`^(?i)\s*(FC2[-_]?PPV)[-_]`).
 		ReplaceAllString(s, "FC2-") // normalize fc2 prefixes
-	// AI mosaic-restoration tools append their model name to the file name
-	// (ABP-030-LTX.mp4); those tags are not part of the number.
+	// Strip AI restoration tags such as -LTX / -BASICVSR; not part of the number.
 	for re := regexp.MustCompile(`(?i)([-_](c|uc|ch|cd\d{1,2}|` + restoreTags + `)|hhb\d*|ch|A|B|C|D)\s*$`); re.MatchString(s); {
 		s = re.ReplaceAllString(s, "") // repeatedly trim suffixes
 	}

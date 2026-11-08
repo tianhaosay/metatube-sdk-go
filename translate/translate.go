@@ -32,7 +32,7 @@ type factory struct {
 	new  func() Translator
 }
 
-// Translators is the list of registered translators.
+// translatorsMu guards the registry held in atomicTranslators.
 var (
 	translatorsMu     sync.Mutex
 	atomicTranslators atomic.Value
@@ -44,7 +44,7 @@ type translator[T any] interface {
 	Translator
 }
 
-// Register registers a translator to package.
+// Register adds a translator implementation to the package registry.
 func Register[T any, P translator[T]](translator P) {
 	translatorsMu.Lock()
 	translators, _ := atomicTranslators.Load().([]factory)
@@ -82,11 +82,8 @@ func Exists(name string) bool {
 	return match(name).new != nil
 }
 
-// Build creates a Translator by engine name with the given params.
-//
-// Param keys are matched case-insensitively (ignoring '-' and '_') against the
-// engine's JSON-tagged fields, so environment-variable-friendly keys like
-// "DEEPL_API_KEY" map onto the "deepl-api-key" field.
+// Build creates a Translator for the named engine with the given params. Keys
+// are matched against the engine's JSON tags via normalizeParamKey.
 func Build(name string, params map[string]string) Translator {
 	if !Exists(name) {
 		return ErrTranslator
@@ -116,8 +113,8 @@ func Build(name string, params map[string]string) Translator {
 	})
 }
 
-// normalizeParamKey lower-cases a key and drops '-' and '_' so that
-// "deepl-api-key", "DEEPL_API_KEY" and "DeeplApiKey" all compare equal.
+// normalizeParamKey lowercases a key and drops '-' and '_', so "DEEPL_API_KEY"
+// matches "deepl-api-key".
 func normalizeParamKey(s string) string {
 	s = strings.ToLower(s)
 	s = strings.ReplaceAll(s, "-", "")

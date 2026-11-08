@@ -2,23 +2,21 @@ package manage
 
 import (
 	"fmt"
-	"github.com/metatube-community/metatube-sdk-go/common/progress"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/metatube-community/metatube-sdk-go/common/progress"
 )
 
-// RefreshJob triggers Emby metadata refreshes in the background with progress
-// tracking and batching. It exists because Emby's own "refresh library" gives
-// no progress at all, and because a 3600-item refresh needs to be batched and
-// resumable.
+// RefreshJob runs batched Emby metadata refreshes in the background and tracks
+// their progress.
 type RefreshJob struct {
 	mu          sync.Mutex
 	running     bool
 	stopFlag    bool
 	total       int
 	done        int
-	sent        int
 	ok          int
 	failed      int
 	current     string
@@ -35,7 +33,7 @@ var refreshJob = &RefreshJob{}
 
 // RefreshOptions controls one batch run.
 type RefreshOptions struct {
-	// Scope: "all" (every movie in the library) or "problems" (only items the
+	// Scope is "all" (every movie in the library) or "problems" (only items the
 	// audit flagged).
 	Scope string `json:"scope"`
 	// Limit caps how many items this run touches (0 = no cap).
@@ -45,12 +43,12 @@ type RefreshOptions struct {
 	// BatchSize / BatchPauseSec insert a longer pause every N items.
 	BatchSize     int `json:"batch_size"`
 	BatchPauseSec int `json:"batch_pause_sec"`
-	// Mode: "" / "refresh" re-scrapes, "wipe" clears metadata but keeps images.
+	// Mode is "" or "refresh" to re-scrape, "wipe" to clear metadata but keep
+	// images.
 	Mode string `json:"mode"`
-	// ReplaceAll lets provider output overwrite existing metadata (needed to
-	// refresh a stale Japanese title or clear a summary).
+	// ReplaceAll lets provider output overwrite existing metadata.
 	ReplaceAll bool `json:"replace_all"`
-	// PathPrefix limits the run to one folder subtree (e.g. .../JAV/JAV2).
+	// PathPrefix limits the run to one folder subtree.
 	PathPrefix string `json:"path_prefix"`
 }
 
@@ -95,9 +93,9 @@ func StartRefresh(opts RefreshOptions) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Skip items this scope already refreshed in an earlier run, so a batch job
-	// can be stopped and resumed (or run day by day) without redoing work.
-	key := opts.Mode + "|" + opts.Scope + "|" + opts.PathPrefix
+	// Skip items this scope already refreshed in an earlier run, so a stopped
+	// batch job can be resumed.
+	key := progressKey(opts.Mode, opts.Scope, opts.PathPrefix)
 	prog := loadRefreshProgress()
 	alreadyDone := 0
 	if prog.Key == key && len(prog.Done) > 0 {
@@ -119,13 +117,15 @@ func StartRefresh(opts RefreshOptions) (map[string]any, error) {
 		ids = ids[:opts.Limit]
 	}
 	if len(ids) == 0 {
-		return map[string]any{"started": false, "total": 0, "skipped": alreadyDone,
-			"message": "该范围已全部刷新完成（如需重刷请点「重置进度」）"}, nil
+		return map[string]any{
+			"started": false, "total": 0, "skipped": alreadyDone,
+			"message": "该范围已全部刷新完成（如需重刷请点「重置进度」）",
+		}, nil
 	}
 
 	refreshJob.mu.Lock()
-	// Reset fields individually: replacing the whole struct would copy the
-	// mutex that is currently held.
+	// Reset fields individually; replacing the whole struct would copy the held
+	// mutex.
 	refreshJob.running = true
 	refreshJob.stopFlag = false
 	refreshJob.total = len(ids)
@@ -184,11 +184,10 @@ func RefreshStatus() map[string]any {
 		"mode":     refreshJob.mode,
 		"scope":    refreshJob.scope,
 		"path":     refreshJob.pathPrefix,
-		"summary":  summaryLocked(),
+		"summary":  refreshJob.summaryLine(),
 		"running":  refreshJob.running,
 		"total":    refreshJob.total,
 		"done":     refreshJob.done,
-		"sent":     refreshJob.sent,
 		"ok":       refreshJob.ok,
 		"failed":   refreshJob.failed,
 		"percent":  percent,
@@ -268,8 +267,8 @@ func runRefresh(client *EmbyClient, ids []string, opts RefreshOptions, key strin
 		return
 	}
 
-	// Emby only queues its refresh, so keep the job alive until this
-	// service has actually answered for every queued item.
+	// Emby only queues its refresh, so keep the job alive until this service has
+	// answered for every queued item.
 	deadline := time.Now().Add(3 * time.Hour)
 	lastAnswered := 0
 	lastChange := time.Now()
@@ -331,44 +330,18 @@ func collectRefreshIDs(client *EmbyClient, c *Config, opts RefreshOptions) ([]st
 	return ids, nil
 }
 
-// summaryLocked renders the running job as one line. Caller holds the lock.
-func summaryLocked() string {
-	kind := "刷新"
-	if refreshJob.mode == "wipe" {
-		kind = "清空元数据"
-	}
-	scope := refreshJob.scope
-	if scope == "" || scope == "all" {
-		scope = "整个媒体库"
-	} else if scope == "problems" {
-		scope = "只刷有问题的"
-	}
-	where := refreshJob.pathPrefix
-	if where == "" {
-		where = "全部范围"
-	} else {
-		scope = "所选文件夹"
-	}
-	elapsed := ""
-	if !refreshJob.startedAt.IsZero() {
-		elapsed = " · 已运行 " + time.Since(refreshJob.startedAt).Round(time.Second).String()
-	}
-	return fmt.Sprintf("%s · %s · %s · 派发 %d/%d%s", kind, scope, where, refreshJob.done, refreshJob.total, elapsed)
-}
-
-// describe renders the running job as one human line, so the console can say
-// what is actually running instead of just "busy".
-func (j *RefreshJob) describe() string {
-	j.mu.Lock()
-	defer j.mu.Unlock()
+// summaryLine renders the running job as one line. The caller holds the job
+// lock.
+func (j *RefreshJob) summaryLine() string {
 	kind := "刷新"
 	if j.mode == "wipe" {
 		kind = "清空元数据"
 	}
 	scope := j.scope
-	if scope == "" || scope == "all" {
+	switch scope {
+	case "", "all":
 		scope = "整个媒体库"
-	} else if scope == "problems" {
+	case "problems":
 		scope = "只刷有问题的"
 	}
 	where := j.pathPrefix
@@ -382,4 +355,11 @@ func (j *RefreshJob) describe() string {
 		elapsed = " · 已运行 " + time.Since(j.startedAt).Round(time.Second).String()
 	}
 	return fmt.Sprintf("%s · %s · %s · 派发 %d/%d%s", kind, scope, where, j.done, j.total, elapsed)
+}
+
+// describe renders the running job as one line for error messages.
+func (j *RefreshJob) describe() string {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	return j.summaryLine()
 }

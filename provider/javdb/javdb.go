@@ -32,9 +32,8 @@ var (
 
 const (
 	Name = "JavDB"
-	// Priority 0 disables JavDB by default. It is Cloudflare-throttled (10s
-	// between requests) and was dropped as a primary source; enable it only
-	// as a long-tail fallback with MT_PROVIDER_JAVDB__PRIORITY=900.
+	// Priority 0 disables JavDB by default; Cloudflare throttles this domain.
+	// Enable it as a long-tail fallback with MT_PROVIDER_JAVDB__PRIORITY=900.
 	Priority = 0
 	// defaultCool is the empirically safe interval for the javdb domain.
 	defaultCool = 10 * time.Second
@@ -85,9 +84,8 @@ func (db *JavDB) ParseMovieIDFromURL(rawURL string) (string, error) {
 	return path.Base(homepage.Path), nil
 }
 
-// GetMovieInfoByID gets movie info by JavDB video ID (the URL slug, e.g.
-// "RkdrWK"), or directly by movie number (e.g. "FLAV-359" or "FLAV359").
-// Numbers are resolved through site search.
+// GetMovieInfoByID returns movie info by JavDB URL slug (e.g. "RkdrWK") or by
+// movie number (e.g. "FLAV-359"); numbers are resolved through site search.
 func (db *JavDB) GetMovieInfoByID(id string) (info *model.MovieInfo, err error) {
 	id = db.NormalizeMovieID(id)
 	if numberPattern.MatchString(strings.ReplaceAll(id, " ", "")) {
@@ -125,8 +123,7 @@ func (db *JavDB) GetMovieInfoByURL(rawURL string) (info *model.MovieInfo, err er
 
 	c := db.ClonedCollector()
 
-	// Title: <h2 class="title is-4"><strong>NUMBER</strong>
-	//        <strong class="current-title">TITLE</strong></h2>
+	// Title: <h2 class="title is-4"><strong class="current-title">TITLE</strong></h2>
 	c.OnXML(`//div[contains(@class,"video-detail")]//h2[contains(@class,"title")]`, func(e *colly.XMLElement) {
 		if n := strings.TrimSpace(e.ChildText(`.//strong[1]`)); n != "" {
 			info.Number = n
@@ -143,7 +140,7 @@ func (db *JavDB) GetMovieInfoByURL(rawURL string) (info *model.MovieInfo, err er
 	})
 
 	// Panel fields: <div class="panel-block"><strong>LABEL:</strong>
-	//               <span class="value">...</span></div>
+	// <span class="value">...</span></div>
 	c.OnXML(`//nav[contains(@class,"movie-panel-info")]//div[contains(@class,"panel-block")]`, func(e *colly.XMLElement) {
 		label := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(e.ChildText(`.//strong[1]`)), ":"))
 		value := strings.TrimSpace(e.ChildText(`.//span[contains(@class,"value")]`))
@@ -173,23 +170,21 @@ func (db *JavDB) GetMovieInfoByURL(rawURL string) (info *model.MovieInfo, err er
 		}
 	})
 
-	// Genres: <a href="/tags?...">TAG</a> inside the 類別 panel block.
+	// Genres: <a href="/tags?...">TAG</a> links inside the genre panel block.
 	c.OnXML(`//nav[contains(@class,"movie-panel-info")]//span[contains(@class,"value")]/a[starts-with(@href,"/tags")]`, func(e *colly.XMLElement) {
 		if t := strings.TrimSpace(e.Text); t != "" {
 			info.Genres = append(info.Genres, t)
 		}
 	})
 
-	// Actors: <a class="actor-female" href="/actors/xx">NAME</a>
-	//         <a class="actor-male" href="/actors/xx">NAME</a>
+	// Actors: <a class="actor-female|actor-male" href="/actors/xx">NAME</a>
 	c.OnXML(`//nav[contains(@class,"movie-panel-info")]//span[contains(@class,"value")]/a[contains(@class,"actor-")]`, func(e *colly.XMLElement) {
 		if t := strings.TrimSpace(e.Text); t != "" {
 			info.Actors = append(info.Actors, t)
 		}
 	})
 
-	// Preview images: <div class="tile-images preview-images">
-	//                 <a class="tile-item" href="FULL-SIZE">
+	// Preview images: <a class="tile-item" href="FULL-SIZE"> in .preview-images
 	c.OnXML(`//div[contains(@class,"preview-images")]//a[contains(@class,"tile-item")]`, func(e *colly.XMLElement) {
 		if u := e.Attr("href"); u != "" {
 			info.PreviewImages = append(info.PreviewImages, e.Request.AbsoluteURL(u))
@@ -209,8 +204,8 @@ func (db *JavDB) GetMovieInfoByURL(rawURL string) (info *model.MovieInfo, err er
 
 func (db *JavDB) NormalizeMovieKeyword(keyword string) string {
 	if number.IsSpecial(keyword) {
-		// JavDB has special contents (heyzo, fc2, ...) but its search is
-		// keyword-based; keep as-is and let search decide.
+		// JavDB search is keyword-based, so special numbers (heyzo, fc2, ...)
+		// are kept as-is and left to the search.
 		return keyword
 	}
 	// JavDB searches accept both dashed and undashed numbers.

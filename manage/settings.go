@@ -6,11 +6,10 @@ import (
 	"time"
 )
 
-// Settings are the runtime toggles shown (read-only) in the console.
+// Settings are the runtime toggles shown read-only in the console.
 //
-// The single source of truth is the native MetaTube plugin settings page
-// (MetaTube.json); see plugin_translate.go. The console does NOT write these
-// anymore — editing happens in Emby → Plugins → MetaTube.
+// Their single source of truth is the native MetaTube plugin settings page
+// (MetaTube.json, see plugin_translate.go). The console never writes them.
 type Settings struct {
 	FanzaRateLimit string `json:"fanza_rate_limit"`
 	JavdbRateLimit string `json:"javdb_rate_limit"`
@@ -36,15 +35,15 @@ func parseDurationOr(s string) (time.Duration, bool) {
 }
 
 // GetSettings returns the plugin-mirrored settings for the console's read-only
-// view. Startup defaults (fallback on) apply until the first plugin sync.
+// view. Startup defaults (actor fallback on) apply until the first plugin sync.
 func GetSettings() Settings {
 	settingsMu.Lock()
 	defer settingsMu.Unlock()
 	return settings
 }
 
-// initSettings seeds the mirror with safe defaults. The real values arrive
-// from MetaTube.json via StartPluginSettingsWatch → applyPluginSettings.
+// initSettings seeds the mirror with safe defaults. Real values arrive from
+// MetaTube.json via StartPluginSettingsWatch and applyPluginSettings.
 func initSettings() {
 	settingsMu.Lock()
 	settings = Settings{ActorFallback: true}

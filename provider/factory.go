@@ -12,9 +12,9 @@ type (
 )
 
 var (
-	// Factory RW Mutex
+	// factoryMu guards the factory maps below.
 	factoryMu sync.RWMutex
-	// Actor/Movie Factories
+
 	movieFactories = make(map[string]MovieFactory)
 	actorFactories = make(map[string]ActorFactory)
 )
@@ -61,8 +61,7 @@ func RangeActorFactory(f func(string, ActorFactory) bool) {
 	factoryMu.RUnlock()
 }
 
-// GetMovieProviderByName returns a new MovieProvider instance by
-// (case-insensitive) registered name.
+// GetMovieProviderByName returns a new MovieProvider by case-insensitive name.
 func GetMovieProviderByName(name string) (MovieProvider, error) {
 	factoryMu.RLock()
 	defer factoryMu.RUnlock()
@@ -74,8 +73,7 @@ func GetMovieProviderByName(name string) (MovieProvider, error) {
 	return nil, ErrProviderNotFound
 }
 
-// GetActorProviderByName returns a new ActorProvider instance by
-// (case-insensitive) registered name.
+// GetActorProviderByName returns a new ActorProvider by case-insensitive name.
 func GetActorProviderByName(name string) (ActorProvider, error) {
 	factoryMu.RLock()
 	defer factoryMu.RUnlock()

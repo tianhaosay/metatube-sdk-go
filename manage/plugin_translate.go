@@ -15,19 +15,19 @@ import (
 	"github.com/metatube-community/metatube-sdk-go/translate"
 )
 
-// The translation engine and its credentials are configured once, in the
-// native MetaTube plugin settings page (Emby → Plugins → MetaTube). The
-// backend reads that same MetaTube.json through the read-only mount and
-// builds its translator from it. The plugin's own TranslationMode stays
-// Disabled so a piece of text is never translated twice.
+// The translation engine and its credentials are configured once, in the native
+// MetaTube plugin settings page. The backend reads the same MetaTube.json
+// through a read-only mount and builds its translator from it.
 //
-// This is the "one place to configure" linkage: change the engine/key in the
-// plugin page and the backend picks it up without a restart.
+// Titles and summaries are translated by the Emby plugin, whose TranslationMode
+// must therefore not be Disabled. The backend translator only normalizes genres,
+// so no text is translated twice.
+//
+// Changing the engine or key in the plugin page is picked up without a restart.
 
-// pluginSettingsConfig is the complete subset of MetaTube.json that the
-// backend mirrors: connection info, translation engine/credentials and the
-// four runtime toggles. All of them are configured in the native plugin
-// settings page, which makes that page the single source of truth.
+// pluginSettingsConfig is the complete subset of MetaTube.json that the backend
+// mirrors: connection info, translation engine and credentials, and the four
+// runtime toggles. The plugin settings page is their single source of truth.
 type pluginSettingsConfig struct {
 	// Connection.
 	Server string `json:"Server"`
@@ -46,18 +46,14 @@ type pluginSettingsConfig struct {
 	OpenAiApiUrl      string `json:"OpenAiApiUrl"`
 	OpenAiModel       string `json:"OpenAiModel"`
 
-	// Runtime toggles (rendered as checkboxes / inputs in the plugin page).
+	// Runtime toggles, shown as checkboxes / inputs in the plugin page.
 	DisableSummary      bool   `json:"DisableSummary"`
 	EnableActorFallback bool   `json:"EnableActorFallback"`
 	FanzaRateLimit      string `json:"FanzaRateLimit"`
 	JavdbRateLimit      string `json:"JavdbRateLimit"`
 }
 
-// pluginTranslationConfig is the alias used by the translation-only helpers
-// below; it is the same struct so there is exactly one JSON shape.
-type pluginTranslationConfig = pluginSettingsConfig
-
-// GetPluginTranslationInfo exposes the read-only translation linkage view: the
+// GetPluginTranslationInfo exposes the read-only translation linkage view; the
 // engine and credentials come from the native plugin settings page.
 func GetPluginTranslationInfo() map[string]any {
 	return pluginTranslationInfo()
@@ -108,7 +104,7 @@ func pluginEngineName(e string) string {
 
 // pluginEngineParams maps the plugin's credential fields onto the backend
 // engine's json-tagged params.
-func pluginEngineParams(engine string, pc pluginTranslationConfig) map[string]string {
+func pluginEngineParams(engine string, pc pluginSettingsConfig) map[string]string {
 	p := map[string]string{}
 	put := func(k, v string) {
 		if strings.TrimSpace(v) != "" {
@@ -159,28 +155,20 @@ func pluginTranslationInfo() map[string]any {
 		keySet = true
 	}
 	return map[string]any{
-		"found":              true,
-		"engine":             pc.TranslationEngine,
-		"backend_engine":     engine,
-		"mode":               mode,
-		"key_present":        keySet,
-		"enabled":            engine != "" && keySet,
-		"backend_translates": true,
-		"plugin_mode_advice": "Disabled",
+		"found":          true,
+		"engine":         pc.TranslationEngine,
+		"backend_engine": engine,
+		"mode":           mode,
+		"key_present":    keySet,
+		"enabled":        engine != "" && keySet,
 	}
 }
 
-// genreTranslator builds a translator used ONLY for Japanese genre/tag
-// normalization, backed by the persistent genre dictionary.
-//
-// Title and summary translation is deliberately not done by the backend: the
-// Emby plugin owns that (upstream metatube only exposes /v1/translate). This
-// keeps a single translator for free text and guarantees a title is translated
-// exactly once.
-//
-// The primary engine is the one configured in the plugin page; the free Google
-// engine is the fallback when the primary fails, times out or returns empty.
-func genreTranslator(pc pluginTranslationConfig) translate.Translator {
+// genreTranslator builds the translator used only for Japanese genre and tag
+// normalization; titles and summaries are translated by the Emby plugin. The
+// configured engine is primary, with free Google as fallback on failure, timeout
+// or an empty result.
+func genreTranslator(pc pluginSettingsConfig) translate.Translator {
 	engine := pluginEngineName(pc.TranslationEngine)
 	if engine == "" || !translate.Exists(engine) {
 		return nil
@@ -194,12 +182,13 @@ func genreTranslator(pc pluginTranslationConfig) translate.Translator {
 }
 
 var (
-	pluginTransMu     sync.Mutex
-	pluginTransSig    string
-	pluginTransEngine string
+	pluginTransMu sync.Mutex
+	// pluginTransSig is the config signature the current translator was built
+	// from; it skips rebuilds when nothing changed.
+	pluginTransSig string
 )
 
-func pluginTranslationSignature(pc pluginTranslationConfig) string {
+func pluginTranslationSignature(pc pluginSettingsConfig) string {
 	return strings.Join([]string{
 		pc.TranslationMode, pc.TranslationEngine,
 		pc.BaiduAppId, pc.BaiduAppKey, pc.GoogleApiKey, pc.GoogleApiUrl,
@@ -208,7 +197,7 @@ func pluginTranslationSignature(pc pluginTranslationConfig) string {
 }
 
 // applyPluginTranslation rebuilds the genre translator from the plugin config.
-// Safe to call repeatedly (startup + hot reload).
+// Safe to call repeatedly (startup and hot reload).
 func applyPluginTranslation() {
 	app := getPipeline()
 	if app == nil {
@@ -229,10 +218,7 @@ func applyPluginTranslation() {
 
 	t := genreTranslator(pc)
 	engine := pluginEngineName(pc.TranslationEngine)
-	app.SetTranslator(t)
-	pluginTransMu.Lock()
-	pluginTransEngine = engine
-	pluginTransMu.Unlock()
+	app.SetTranslator(t, engine)
 	if t == nil {
 		log.Printf("[manage] genre translation: no usable engine, dictionary-only")
 	} else if engine == "googlefree" {
@@ -243,8 +229,7 @@ func applyPluginTranslation() {
 }
 
 // applyPluginSettings applies the plugin-mirrored runtime toggles to the live
-// pipeline/providers. The native plugin settings page is the single source of
-// truth for all of them.
+// pipeline and providers. The plugin settings page is the only source for them.
 func applyPluginSettings() {
 	app := getPipeline()
 	if app == nil {
@@ -272,8 +257,8 @@ func applyPluginSettings() {
 	settingsMu.Unlock()
 }
 
-// StartPluginSettingsWatch applies all plugin-driven settings once immediately
-// and then keeps hot-reloading them. Called from cmd.Router.
+// StartPluginSettingsWatch applies all plugin-driven settings once, then polls
+// MetaTube.json every 15s for changes. Called from cmd.Router.
 func StartPluginSettingsWatch() {
 	applyPluginTranslation()
 	applyPluginSettings()

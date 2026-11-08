@@ -1,20 +1,9 @@
-# MetaTube 插件默认配置模板
-#
-# 用法：把本文件复制到 Emby 的插件配置目录并重命名为 MetaTube.json：
-#   /config/plugins/configurations/MetaTube.json
-# 或者在 Emby → 插件 → MetaTube 设置页里手动填写同样的值。
-#
-# 所有密钥/凭据一律留空，由使用者自行填写。
-# 默认引擎用 Google (Free)：无需任何密钥即可翻译。
-
 {
     "EditorTitle": "MetaTube",
 
-    # ---- 后端连接 ----
     "Server": "http://localhost:8080",
     "Token": "",
 
-    # ---- 自动更新与元数据开关 ----
     "EnableAutoUpdate": true,
     "EnableCollections": true,
     "EnableDirectors": true,
@@ -22,26 +11,19 @@
     "EnableTrailers": false,
     "EnableRealActorNames": false,
 
-    # ---- 中文徽章（默认关闭）----
     "EnableBadges": false,
     "BadgeUrl": "zimu.png",
 
-    # ---- 图片 ----
     "PrimaryImageRatio": -1,
     "DefaultImageQuality": 90,
 
-    # ---- 数据源过滤 ----
     "EnableMovieProviderFilter": true,
     "RawMovieProviderFilter": "fanza,javbus,fc2",
 
-    # ---- 命名 ----
     "EnableTemplate": true,
     "NameTemplate": "{number} {title}",
     "TaglineTemplate": "配信開始日 {date}",
 
-    # ---- 翻译 ----
-    # 引擎用 Google 免费版（GoogleFree），无需密钥。
-    # 模式 Title and Summary：标题与简介都翻，因为后端不再翻译这两项。
     "TranslationMode": "Both",
     "TranslationEngine": "GoogleFree",
     "BaiduAppId": "",
@@ -54,7 +36,6 @@
     "OpenAiApiUrl": "",
     "OpenAiModel": "",
 
-    # ---- 替换表（默认关闭）----
     "EnableTitleSubstitution": false,
     "TitleRawSubstitutionTable": "",
     "EnableActorSubstitution": false,
@@ -62,14 +43,8 @@
     "EnableGenreSubstitution": false,
     "GenreRawSubstitutionTable": "",
 
-    # ---- metatube-plus 联动开关（后端读取本文件）----
-    # 隐藏作品简介：建议配合 Translation mode = Title 使用
     "DisableSummary": false,
-
-    # 演员兜底：主源没有演员时问一次 JavDB
     "EnableActorFallback": true,
-
-    # 数据源冷却（"0" = 不限制）
     "FanzaRateLimit": "0",
     "JavdbRateLimit": "5s",
 

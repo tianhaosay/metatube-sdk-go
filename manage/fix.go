@@ -16,8 +16,8 @@ type FixRequest struct {
 	// ReplaceAll lets provider output overwrite existing values (needed to
 	// clear a summary or replace a stale Japanese title).
 	ReplaceAll bool `json:"replace_all"`
-	// Action: "refresh" (re-scrape given items) or "retitle"
-	// (rewrite the title from the backend).
+	// Action is "refresh" (re-scrape the given items) or "retitle" (rewrite the
+	// title from the backend).
 	Action string   `json:"action"`
 	IDs    []string `json:"ids"`
 	// Limit caps how many items this call touches (default 50, max 200).
@@ -57,9 +57,8 @@ func Fix(req FixRequest) (*FixResult, error) {
 	}
 }
 
-// fixRefresh asks Emby to re-scrape the given items. replaceAll decides whether
-// the provider output overwrites existing values; without it Emby keeps every
-// field that is already set, so stale Japanese titles stay put.
+// fixRefresh asks Emby to re-scrape the given items; replaceAll decides whether
+// provider output overwrites the fields Emby already has.
 func fixRefresh(client *EmbyClient, ids []string, limit int, replaceAll bool) (*FixResult, error) {
 	if len(ids) == 0 {
 		return nil, fmt.Errorf("refresh 需要 ids")
@@ -81,8 +80,8 @@ func fixRefresh(client *EmbyClient, ids []string, limit int, replaceAll bool) (*
 	return res, nil
 }
 
-// fixRetitle rewrites the title from the backend whenever Emby refused to take
-// it during a refresh. A manually edited prefix (for example "（夸克）") is kept.
+// fixRetitle rewrites the title of the given items from the backend; a manually
+// edited marker prefix is kept.
 func fixRetitle(client *EmbyClient, ids []string, limit int) (*FixResult, error) {
 	if len(ids) == 0 {
 		return nil, fmt.Errorf("retitle 需要 ids")
@@ -151,8 +150,8 @@ func retitleOne(client *EmbyClient, id string) (string, error) {
 // "REAL-885 （夸克）日本語..." -> ("REAL-885", "（夸克）").
 func splitTitle(name string) (code, marker string) {
 	s := strings.TrimSpace(name)
-	// A manual marker such as "（夸克）" may sit before or after the code; keep
-	// it visible so duplicate copies stay distinguishable.
+	// Keep a manual marker such as "（夸克）" visible so copies stay
+	// distinguishable, whether it sits before or after the code.
 	if idx := strings.IndexAny(s, "（("); idx >= 0 {
 		rest := s[idx:]
 		if end := strings.IndexAny(rest, "）)"); end > 0 && end <= 8 {
@@ -169,8 +168,8 @@ func splitTitle(name string) (code, marker string) {
 // embyWriteDelay spaces out consecutive writes to Emby.
 const embyWriteDelay = 200 * time.Millisecond
 
-// backendURL is the address of this server, used when a repair needs to read
-// freshly scraped metadata (the console runs inside the same process).
+// backendURL is the address of this server, used to read freshly scraped
+// metadata from inside the same process.
 var backendURL = "http://127.0.0.1:8080"
 
 // SetBackendURL lets the command package publish the real listen address.

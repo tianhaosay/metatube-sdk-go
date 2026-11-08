@@ -16,12 +16,11 @@ import (
 	"time"
 )
 
-// Online actor-mapping source used by avdb (li-peifeng/AVdb-Only):
-// the GitHub repository li-peifeng/Jav-Actors-Mapping, file actor-mapping.xml
-// on the main branch. Sync pins the download to the latest commit and
-// verifies the content against the Git blob SHA1 before replacing the local
-// file. A version sidecar file (<path>.version) stores the synced commit so
-// repeated syncs are cheap no-ops.
+// Online actor-mapping source: actor-mapping.xml on the main branch of the
+// GitHub repository li-peifeng/Jav-Actors-Mapping. Sync pins the download to the
+// latest commit and verifies the content against the Git blob SHA1 before
+// replacing the local file; the commit is recorded in a <path>.version sidecar
+// so repeated syncs are cheap no-ops.
 
 const (
 	onlineRepoOwner = "li-peifeng"
@@ -34,7 +33,10 @@ const (
 
 var (
 	onlineCommitSHARe = regexp.MustCompile(`^[0-9a-f]{40}$`)
-	ErrSyncUnchanged  = errors.New("mapping: online source unchanged")
+
+	// ErrSyncUnchanged reports that the remote commit already matches the
+	// synced one, so nothing was downloaded.
+	ErrSyncUnchanged = errors.New("mapping: online source unchanged")
 )
 
 // SyncResult describes the outcome of one online sync attempt.
@@ -42,7 +44,7 @@ type SyncResult struct {
 	Updated bool   // whether the local file was replaced.
 	Version string // synced commit SHA ("" when nothing done).
 	Records int    // entry count of the (new) table.
-	Message string // human-readable outcome.
+	Message string // human-readable outcome shown in the console (Chinese).
 }
 
 func onlineCommitsAPIURL() string {
@@ -89,8 +91,8 @@ func onlineHTTPGet(url string, timeout time.Duration) ([]byte, error) {
 	return io.ReadAll(io.LimitReader(resp.Body, 64<<20)) // 64MiB cap.
 }
 
-// gitBlobSHA1 computes the Git blob object SHA1 of the given content, the
-// same integrity check avdb applies to downloaded mapping tables.
+// gitBlobSHA1 computes the Git blob object SHA1 of content, the integrity check
+// applied to downloaded mapping tables.
 func gitBlobSHA1(content []byte) string {
 	h := sha1.New()
 	fmt.Fprintf(h, "blob %d\x00", len(content))
@@ -112,14 +114,14 @@ func readStoredVersion(localPath string) string {
 	return v
 }
 
-// SyncOnlineActorMapping downloads the latest actor-mapping.xml from the
-// online source and atomically replaces localPath when the remote commit
-// differs from the synced one. The mapping loader hot-reloads on mtime
-// change, so consumers pick up the new table automatically.
+// SyncOnlineActorMapping downloads the latest actor-mapping.xml from the online
+// source and atomically replaces localPath when the remote commit differs from
+// the synced one. The loader hot-reloads on mtime change, so consumers pick up
+// the new table without a restart.
 func SyncOnlineActorMapping(localPath string) (*SyncResult, error) {
 	stored := readStoredVersion(localPath)
 
-	// 1. Latest commit touching the mapping file.
+	// Latest commit touching the mapping file.
 	commitBody, err := onlineHTTPGet(onlineCommitsAPIURL(), 20*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("query latest commit: %w", err)
@@ -136,7 +138,7 @@ func SyncOnlineActorMapping(localPath string) (*SyncResult, error) {
 		}, nil
 	}
 
-	// 2. Blob SHA of the file at that commit (integrity reference).
+	// Blob SHA of the file at that commit, used as the integrity reference.
 	var blobSHA string
 	if body, err := onlineHTTPGet(onlineContentsAPIURL(version), 20*time.Second); err == nil {
 		blobSHA = parseContentsBlobSHA(body)
@@ -144,7 +146,7 @@ func SyncOnlineActorMapping(localPath string) (*SyncResult, error) {
 		log.Printf("[mapping-sync] contents API failed (continuing without blob check): %v", err)
 	}
 
-	// 3. Download from CDN candidates pinned to the commit.
+	// Download from CDN candidates pinned to the commit.
 	var (
 		content []byte
 		lastErr error
@@ -166,14 +168,14 @@ func SyncOnlineActorMapping(localPath string) (*SyncResult, error) {
 		return nil, fmt.Errorf("download mapping: %w", lastErr)
 	}
 
-	// 4. Sanity checks.
+	// Sanity checks before anything replaces the local file.
 	records := strings.Count(string(content), "<a ")
 	if records < onlineMinRecords {
 		return nil, fmt.Errorf("mapping: downloaded table too small (%d records)", records)
 	}
 	sum := sha256.Sum256(content)
 
-	// 5. Atomic replace + version sidecar.
+	// Atomic replace, then record the synced commit in the version sidecar.
 	if err := os.MkdirAll(filepath.Dir(localPath), 0o755); err != nil {
 		return nil, err
 	}
@@ -197,10 +199,11 @@ func SyncOnlineActorMapping(localPath string) (*SyncResult, error) {
 	}, nil
 }
 
-// parseFirstCommitSHA extracts the first 40-hex commit SHA from a GitHub
-// commits API response (a JSON array; only its first element is relevant).
+// commitSHARe extracts the first "sha" field from a GitHub API JSON response.
 var commitSHARe = regexp.MustCompile(`"sha"\s*:\s*"([0-9a-f]{40})"`)
 
+// parseFirstCommitSHA returns the first 40-hex commit SHA in a commits API
+// response (a JSON array; only its first element is relevant).
 func parseFirstCommitSHA(body []byte) string {
 	m := commitSHARe.FindSubmatch(body)
 	if m == nil {
@@ -209,8 +212,9 @@ func parseFirstCommitSHA(body []byte) string {
 	return strings.ToLower(string(m[1]))
 }
 
+// parseContentsBlobSHA returns the blob SHA reported by the contents API (its
+// first "sha" field).
 func parseContentsBlobSHA(body []byte) string {
-	// The contents response's first "sha" field is the file's blob SHA.
 	m := commitSHARe.FindSubmatch(body)
 	if m == nil {
 		return ""

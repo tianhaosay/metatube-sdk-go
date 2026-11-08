@@ -61,7 +61,6 @@ func QueryLogs(number, level, source string, limit int) []LogEntry {
 		n = ring.next
 	}
 	for i := 0; i < n && len(out) < limit; i++ {
-		// newest first: walk the ring backwards.
 		idx := (ring.next - 1 - i + logRingCap) % logRingCap
 		e := ring.buf[idx]
 		if number != "" && !strings.Contains(strings.ToUpper(e.Number), number) {
@@ -79,15 +78,22 @@ func QueryLogs(number, level, source string, limit int) []LogEntry {
 }
 
 var (
+	// Hyphenated movie numbers, e.g. START-015.
 	numberRe = regexp.MustCompile(`\b([A-Z]{2,7}-\d{2,6})\b`)
 	ginLine  = regexp.MustCompile(`\[GIN\].*\|\s*(\d{3})\s*\|`)
 	srcRe    = regexp.MustCompile(`^\[(ENGINE|JavDB|manage|mapping|GIN)\]`)
 	stdDate  = regexp.MustCompile(`^\d{4}/\d{2}/\d{2}[ T]`)
 	goFileRe = regexp.MustCompile(`^[\w/\\.\-]+\.go:\d+:\s*`)
+
+	// Structured log lines: leading [SCRAPE]/[FALLBACK]/[TRANSLATE] bracket,
+	// optional timestamp, then key=value fields.
+	srcBracketRe     = regexp.MustCompile(`^\[([A-Za-z]+)\]\s+`)
+	kvRe             = regexp.MustCompile(`(\w+)=("([^"]*)"|\S+)`)
+	structuredDateRe = regexp.MustCompile(`^\d{4}/\d{2}/\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?\s+`)
 )
 
 // parseLogLine derives level/source/number from a raw log line. Parsing is
-// heuristic on purpose: unmatched fields default gracefully.
+// heuristic: unmatched fields default gracefully.
 func parseLogLine(line string) LogEntry {
 	// Machine-readable scrape/fallback lines get a readable rewrite first.
 	if e, ok := parseStructured(line); ok {
@@ -112,7 +118,7 @@ func parseLogLine(line string) LogEntry {
 		}
 	}
 
-	// [ENGINE] 2026/10/31 ... — swap prefix/date order.
+	// [ENGINE] 2026/10/31 ... : prefix comes before the date.
 	if m := srcRe.FindStringSubmatch(rest); m != nil {
 		e.Source = m[1]
 		rest = strings.TrimSpace(strings.TrimPrefix(rest, m[0]))
@@ -139,7 +145,7 @@ func parseLogLine(line string) LogEntry {
 		}
 	}
 
-	// Noise filter: GORM per-query SQL lines are skipped entirely.
+	// GORM per-query SQL lines are tagged DB/DEBUG, not dropped.
 	if strings.Contains(rest, "[rows:") && strings.Contains(rest, "ms]") {
 		e.Level = "DEBUG"
 		e.Source = "DB"
@@ -180,8 +186,8 @@ func (c *logCapture) Write(p []byte) (int, error) {
 var logCaptureOnce sync.Once
 
 // InstallLogCapture mirrors the standard logger, the engine logger and gin's
-// request logger into the in-memory ring. Must be called before the engine
-// and router are created. Returns the logger the engine should use.
+// request logger into the in-memory ring. Must be called before the engine and
+// router are created. Returns the logger the engine should use.
 func InstallLogCapture() *log.Logger {
 	logCaptureOnce.Do(func() {
 		capture := &logCapture{}
@@ -192,25 +198,20 @@ func InstallLogCapture() *log.Logger {
 		log.SetOutput(io.MultiWriter(base, capture))
 		gin.DefaultWriter = io.MultiWriter(gin.DefaultWriter, capture)
 	})
-	return log.New(io.MultiWriter(log.Default().Writer(), &logCapture{}), "[ENGINE]\u00a0", log.LstdFlags|log.Llongfile)
+	// log.Default().Writer() already tees into the ring, so the engine logger
+	// only adds its prefix and file flags; adding a second capture writer here
+	// would record every engine line twice.
+	return log.New(log.Default().Writer(), "[ENGINE] ", log.LstdFlags|log.Llongfile)
 }
 
-// structuredRe matches the machine-readable scrape/fallback lines emitted by
-// the engine, e.g.
-//
-//	[SCRAPE] number=START-015 provider=FANZA result=ok ms=812 actors=4 genres=8
-var srcBracketRe = regexp.MustCompile(`^\[([A-Za-z]+)\]\s+`)
-var kvRe = regexp.MustCompile(`(\w+)=("([^"]*)"|\S+)`)
-var structuredDateRe = regexp.MustCompile(`^\d{4}/\d{2}/\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?\s+`)
-
 // parseStructured turns a key=value log line into a readable Chinese message.
-// The raw line may arrive as "[ENGINE] 2026/11/01 13:44:16 [FALLBACK] number=…",
+// The raw line may arrive as "[ENGINE] 2026/11/01 13:44:16 [FALLBACK] number=...",
 // so bracket prefixes and the date are stripped first.
 func parseStructured(line string) (LogEntry, bool) {
 	s := strings.TrimSpace(line)
 	kind := ""
-	// The date may come first ("2026/11/01 13:46:09 [SCRAPE] …") or after a
-	// source bracket ("[ENGINE] 2026/11/01 …"), so strip both repeatedly.
+	// The date may precede or follow the source bracket, so strip both
+	// repeatedly.
 	for i := 0; i < 4; i++ {
 		if m := srcBracketRe.FindStringSubmatch(s); m != nil {
 			if m[1] == "SCRAPE" || m[1] == "FALLBACK" || m[1] == "TRANSLATE" {

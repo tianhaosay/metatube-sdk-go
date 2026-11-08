@@ -5,7 +5,8 @@
 //
 //	<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 //	<actor>
-//	  <a zh_cn="AIKA" zh_tw="AIKA" jp="AIKA" keyword=",AIKA,優木あいか,..." href="https://javdb.com/actors/z0GW"/>
+//	  <a zh_cn="AIKA" zh_tw="AIKA" jp="AIKA"
+//	     keyword=",AIKA,優木あいか,..." href="https://javdb.com/actors/z0GW"/>
 //	  ...
 //	</actor>
 //	<info>
@@ -14,16 +15,16 @@
 //	  ...
 //	</info>
 //
-// For actor tables: keyword holds the alias list (each name enclosed by
-// commas); zh_cn/zh_tw/jp hold the canonical output name per language; href
-// holds an optional actor homepage (usually the JavDB actor page).
+// For actor tables, keyword holds the alias list (each name enclosed by commas),
+// zh_cn/zh_tw/jp hold the canonical output name per language, and href holds an
+// optional actor homepage (usually the JavDB actor page).
 //
-// For info (tag) tables: keyword holds the alias list; zh_cn holds the
+// For info (tag) tables, keyword holds the alias list and zh_cn holds the
 // canonical output word. The reserved value "删除" (DeleteMark) means the
 // matched word should be removed from the output.
 //
-// Files are re-loaded automatically when their mtime changes, so users can
-// edit the mapping files in place without restarting the server.
+// Files reload automatically when their mtime changes, so they can be edited in
+// place without restarting the server.
 package mapping
 
 import (
@@ -80,11 +81,13 @@ type InfoEntry struct {
 	Aliases []string // raw keyword list.
 }
 
+// IsDelete reports whether the entry is marked DeleteMark, i.e. the matched
+// word must be removed from the output.
 func (e *InfoEntry) IsDelete() bool { return e.Name == DeleteMark }
 
-// baseMap holds the common parsing / auto-reload machinery. It is safe for
-// concurrent use. Type-specific conversion is injected via the build and
-// keys function fields.
+// baseMap holds the shared parsing and auto-reload machinery for one table
+// type; type-specific conversion is injected through the build and keys fields.
+// It is safe for concurrent use.
 type baseMap[T any] struct {
 	mu       sync.RWMutex
 	path     string
@@ -98,10 +101,11 @@ type baseMap[T any] struct {
 	nAlias   int
 }
 
+// ErrTooFewEntries reports a table that failed a sanity check and was rejected.
 var ErrTooFewEntries = errors.New("mapping: too few entries, file rejected")
 
-// load parses the file and swaps the internal map on success. On parse
-// errors or sanity-check failures the old map is kept intact.
+// load parses the file and swaps the internal map on success. Parse errors and
+// sanity-check failures keep the current map intact.
 func (m *baseMap[T]) load() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -175,7 +179,7 @@ func (m *baseMap[T]) load() (err error) {
 func (m *baseMap[T]) reloadIfChanged() {
 	st, err := os.Stat(m.path)
 	if err != nil {
-		return // keep current map.
+		return // keep the current map.
 	}
 	m.mu.RLock()
 	same := st.ModTime().Equal(m.mtime)
@@ -246,13 +250,13 @@ func LoadActorFile(path string) (*ActorMap, error) {
 	return m, nil
 }
 
-// Lookup returns the canonical actor entry for any of its aliases.
+// Lookup returns the canonical actor entry for any of its aliases. If the name
+// is not found, a trailing parenthesized alias group is stripped and retried
+// (providers often append one).
 func (m *ActorMap) Lookup(name string) (*ActorEntry, bool) {
 	if e, ok := m.base.lookup(name); ok {
 		return e, true
 	}
-	// Providers often append aliases in parentheses
-	// ("みひな （あずみひな、永井みひな）", "真野祈（真北祈）"); retry without them.
 	if trimmed := stripTrailingAliases(name); trimmed != name {
 		if e, ok := m.base.lookup(trimmed); ok {
 			return e, true
@@ -292,8 +296,8 @@ type InfoMap struct {
 }
 
 func (m *InfoMap) build(e *xmlEntry) (*InfoEntry, bool) {
-	// Delete entries carry no zh_cn output other than DeleteMark, which is
-	// fine. Require at least one alias to be useful.
+	// A delete entry only needs DeleteMark, but every entry needs at least one
+	// alias to be usable.
 	name := strings.TrimSpace(e.ZhCn)
 	if name == "" || (len(e.aliases()) == 0) {
 		return nil, false
@@ -327,8 +331,9 @@ func LoadInfoFile(path string) (*InfoMap, error) {
 	return m, nil
 }
 
-// Lookup returns the canonical info entry for any of its aliases. Callers
-// should check IsDelete() on the result.
+// Lookup returns the canonical info entry for any of its aliases. Callers must
+// check IsDelete() on the result, since a delete entry carries DeleteMark as its
+// name rather than a usable tag.
 func (m *InfoMap) Lookup(word string) (*InfoEntry, bool) {
 	return m.base.lookup(word)
 }

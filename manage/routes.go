@@ -1,7 +1,6 @@
 package manage
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -11,19 +10,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// uiBasePath is where the console is mounted. It is a variable (not a constant)
-// so a future release can change the mount point in one place.
+// uiBasePath is the base path the console is mounted at.
 const uiBasePath = "/ui"
 
 // RegisterRoutes mounts the console UI and its JSON API on the given router.
+// The UI is served at /ui and /ui/, the JSON API at /ui/api/*.
 //
-// The UI lives at /ui (and /ui/), the JSON API at /ui/api/*. The previous
-// /manage paths are gone on purpose: one canonical URL keeps bookmarks and
-// documentation from drifting.
-//
-// apiMiddleware is applied to the JSON API only (the HTML shell stays public
-// so the UI can prompt for a token); pass route.RequireToken(token) to make
-// the console respect the server token.
+// apiMiddleware applies to the JSON API only; the HTML shell stays public so the
+// UI can prompt for a token. Pass route.RequireToken(token) to make the console
+// respect the server token.
 func RegisterRoutes(r gin.IRouter, apiMiddleware ...gin.HandlerFunc) {
 	r.GET(uiBasePath, uiHandler)
 	r.GET(uiBasePath+"/", uiHandler)
@@ -45,7 +40,6 @@ func RegisterRoutes(r gin.IRouter, apiMiddleware ...gin.HandlerFunc) {
 		api.POST("/mapping/sync", postSyncMapping)
 		api.GET("/logs", getLogs)
 		api.GET("/settings", getSettings)
-		api.POST("/settings", postSettings)
 		api.GET("/consistency", getConsistency)
 		api.GET("/plugin-translation", getPluginTranslation)
 		api.POST("/translate-test", postTranslateTest)
@@ -53,9 +47,9 @@ func RegisterRoutes(r gin.IRouter, apiMiddleware ...gin.HandlerFunc) {
 	}
 }
 
-// corsMiddleware allows cross-origin GETs so that the Emby/Jellyfin plugin
-// configuration page (served from the media server origin) can query the
-// backend's consistency status. Preflight requests are answered directly.
+// corsMiddleware allows cross-origin requests so the plugin configuration page
+// (served from the media server origin) can query the backend. Preflight
+// requests are answered directly.
 func corsMiddleware(c *gin.Context) {
 	c.Header("Access-Control-Allow-Origin", "*")
 	if c.Request.Method == http.MethodOptions {
@@ -67,8 +61,8 @@ func corsMiddleware(c *gin.Context) {
 	c.Next()
 }
 
-// getConsistency reports backend state that overlaps plugin-side settings,
-// used by the plugin config page to warn about conflicts.
+// getConsistency reports backend state that overlaps plugin-side settings, so
+// the plugin config page can warn about conflicts.
 func getConsistency(c *gin.Context) {
 	s := GetSettings()
 	ti := GetPluginTranslationInfo()
@@ -84,7 +78,7 @@ func getConsistency(c *gin.Context) {
 }
 
 // getAudit scans the library and reports which movies are incomplete.
-// Query: library_id (optional), offset, limit (issues window).
+// Query: library_id (optional), offset, limit (issues window), problem.
 func getAudit(c *gin.Context) {
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "200"))
@@ -112,7 +106,7 @@ func getAudit(c *gin.Context) {
 	jsonOK(c, res)
 }
 
-// postFix runs a batch repair (refresh | rename_actors).
+// postFix runs a batch repair: action "refresh" or "retitle".
 func postFix(c *gin.Context) {
 	var req FixRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -132,25 +126,24 @@ func getLogs(c *gin.Context) {
 	level := c.Query("level")
 	source := c.Query("source")
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "300"))
+	if limit <= 0 {
+		limit = 300
+	}
+	// One pass over the ring; total counts every matching entry, logs only the
+	// requested window.
+	all := QueryLogs(number, level, source, logRingCap)
+	entries := all
+	if len(entries) > limit {
+		entries = entries[:limit]
+	}
 	jsonOK(c, gin.H{
-		"logs":  QueryLogs(number, level, source, limit),
-		"total": len(QueryLogs(number, level, source, 5000)),
+		"logs":  entries,
+		"total": len(all),
 	})
 }
 
 func getSettings(c *gin.Context) {
 	jsonOK(c, GetSettings())
-}
-
-// postSettings is a read-only guard: the runtime toggles live in the native
-// MetaTube plugin settings page, so the console cannot change them. It replies
-// with the current (plugin-mirrored) values and explains where to edit.
-func postSettings(c *gin.Context) {
-	jsonOK(c, gin.H{
-		"read_only": true,
-		"message":   "这些设置只能在 Emby → 插件 → MetaTube 里修改，后端会自动跟随",
-		"settings":  GetSettings(),
-	})
 }
 
 func uiHandler(c *gin.Context) {
@@ -168,16 +161,16 @@ func jsonErr(c *gin.Context, err error) {
 
 // getStatus returns everything the UI needs for its header cards.
 func getStatus(c *gin.Context) {
-	c2 := getConfig()
+	cfg := getConfig()
 	status := map[string]any{
-		"enabled": c2 != nil,
+		"enabled": cfg != nil,
 		"mapping": MappingStatus(),
 	}
-	if c2 == nil {
+	if cfg == nil {
 		jsonOK(c, status)
 		return
 	}
-	client, err := newEmbyClient(c2)
+	client, err := newEmbyClient(cfg)
 	if err != nil {
 		status["emby"] = map[string]any{"connected": false, "error": err.Error()}
 		jsonOK(c, status)
@@ -192,23 +185,21 @@ func getStatus(c *gin.Context) {
 		jsonOK(c, status)
 		return
 	}
-	status["emby"] = map[string]any{"connected": true, "url": c2.EmbyURL}
+	status["emby"] = map[string]any{"connected": true, "url": cfg.EmbyURL}
 	jsonOK(c, status)
 }
 
 func postSyncMapping(c *gin.Context) {
 	res, err := SyncMappingNow()
 	if err != nil {
-		if errors.Is(err, ErrNotConfigured) {
-			jsonErr(c, err)
-			return
-		}
 		jsonErr(c, err)
 		return
 	}
 	jsonOK(c, res)
 }
 
+// HealthHandler reports a minimal liveness payload, including the number of
+// loaded mapping entries.
 func HealthHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "ok",
@@ -216,14 +207,14 @@ func HealthHandler(c *gin.Context) {
 	})
 }
 
-// getPluginTranslation exposes the read-only translation linkage view: the
-// engine/key come from the native plugin settings page.
+// getPluginTranslation exposes the read-only translation linkage view; the
+// engine and credentials come from the native plugin settings page.
 func getPluginTranslation(c *gin.Context) {
 	jsonOK(c, GetPluginTranslationInfo())
 }
 
-// postTranslateTest runs the current translator on a sample text so the
-// operator can verify credentials without waiting for a real scrape.
+// postTranslateTest runs the current translator on a sample text so credentials
+// can be verified without a real scrape.
 func postTranslateTest(c *gin.Context) {
 	var req struct {
 		Text string `json:"text"`
@@ -274,8 +265,8 @@ func getRefreshStatus(c *gin.Context) {
 	jsonOK(c, RefreshStatus())
 }
 
-// getPaths lists the first-level folders of the configured library so the UI
-// can offer "refresh only this folder" without asking for an item id.
+// getPaths lists the top-level folders of each configured library so the UI can
+// scope a refresh to one folder instead of an item id.
 func getPaths(c *gin.Context) {
 	cfg := getConfig()
 	if cfg == nil {
@@ -312,8 +303,7 @@ func getPaths(c *gin.Context) {
 				}
 			}
 			// Categories only make sense when most movies sit one level deeper
-			// (root/category/actor/file). A flat layout (root/actor/file) offers
-			// the root itself, and a huge child list means we guessed wrong.
+			// (root/category/actor/file); a flat layout offers the root itself.
 			if sampled > 0 && deepCount*2 > sampled && len(children) > 0 && len(children) <= 20 {
 				for ch := range children {
 					items = append(items, FolderRef{Name: ch, Path: root + "/" + ch})
@@ -338,8 +328,8 @@ func postRefreshReset(c *gin.Context) {
 	jsonOK(c, ResetRefreshProgress(body.Scope, body.PathPrefix))
 }
 
-// postUncensoredBadge adds the 无码破解 genre to movies whose file name carries
-// an uncensored/restoration suffix (-LTX / -U / -UC).
+// postUncensoredBadge adds the 无码破解 genre to movies whose file name carries an
+// uncensored or restoration suffix (-LTX / -U / -UC).
 func postUncensoredBadge(c *gin.Context) {
 	var body struct {
 		Exclude []string `json:"exclude"`

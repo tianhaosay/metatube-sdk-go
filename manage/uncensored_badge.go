@@ -9,19 +9,17 @@ import (
 	"strings"
 )
 
-// UncensoredBadgeGenre is the Emby "genre" (类型) added to movies that are a
-// mosaic-restored / uncensored release.
+// UncensoredBadgeGenre is the Emby genre added to movies that are a
+// mosaic-restored or uncensored release.
 const UncensoredBadgeGenre = "无码破解"
 
 // uncensoredTagRe matches the release-suffix markers that indicate an
-// uncensored/restored cut. Go's RE2 engine has no lookahead, so the trailing
-// boundary is captured instead: group 1 is the tag, group 2 the separator that
-// must be end-of-name or one of "-_." .
+// uncensored / restored cut. Go's RE2 engine has no lookahead, so the trailing
+// boundary is captured instead: group 1 is the tag and group 2 the separator
+// that must end the name or be one of "-_.".
 //
 //	XXX-LTX.mp4      AI mosaic restoration (Jasna/LTX)
 //	XXX-U.mp4        uncensored
-//	XXX-UC.mp4       uncensored
-//	XXX-U-4K.mp4     uncensored, high-res copy
 //	XXX_UC.mkv       underscore separator
 var uncensoredTagRe = regexp.MustCompile(`(?i)-(ltx|uc|u)([-_.]|$)`)
 
@@ -54,10 +52,10 @@ type UncensoredItem struct {
 	Added  bool   `json:"added"`
 }
 
-// ApplyUncensoredBadges scans the configured libraries, finds movies whose file
-// name carries an uncensored/restoration suffix and adds UncensoredBadgeGenre
-// to their Emby genres. Items already carrying the genre are reported but not
-// rewritten. Numbers listed in exclude are skipped entirely.
+// ApplyUncensoredBadges scans the configured libraries, adds UncensoredBadgeGenre
+// to movies whose file name carries an uncensored / restoration suffix, and
+// reports what changed. Items that already carry the genre are reported but not
+// rewritten, and numbers in exclude are skipped.
 func ApplyUncensoredBadges(exclude []string, dryRun bool) (*UncensoredBadgeResult, error) {
 	c := getConfig()
 	if c == nil {

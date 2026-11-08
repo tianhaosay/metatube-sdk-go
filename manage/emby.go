@@ -35,9 +35,9 @@ func newEmbyClient(c *Config) (*EmbyClient, error) {
 	}, nil
 }
 
-// resolveUserID returns the configured user id, or discovers an administrator
-// id on first use. The user-scoped item endpoint is the only one that returns
-// a DTO Emby accepts back on POST /Items/{id}.
+// resolveUserID returns the configured user id, or discovers an administrator id
+// on first use. Only the user-scoped item endpoint returns a DTO that Emby
+// accepts back on POST /Items/{id}.
 func (c *EmbyClient) resolveUserID() string {
 	if c.userID != "" {
 		return c.userID
@@ -99,15 +99,6 @@ func (c *EmbyClient) do(method, path string, query url.Values, body any, out any
 	return nil
 }
 
-// Person is an Emby person entry used by the manage module.
-type Person struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	HasPrimary  bool              `json:"has_primary"`
-	HasOverview bool              `json:"has_overview"`
-	ProviderIDs map[string]string `json:"provider_ids,omitempty"`
-}
-
 type embyItem struct {
 	Id          string            `json:"Id"`
 	Name        string            `json:"Name"`
@@ -126,9 +117,9 @@ type embyItem struct {
 	} `json:"People"`
 }
 
-// GenresForAudit returns the "type" genres only. Studio / series / actor names
-// that the provider packed into the genre list are removed, and Emby's separate
-// Tags and Studios collections are never consulted: only 类型 is audited.
+// GenresForAudit returns the genre values only. Studio, series and actor names
+// that the provider packed into the genre list are removed, and Tags/Studios are
+// never consulted.
 func (i embyItem) GenresForAudit() []string {
 	skip := map[string]struct{}{}
 	for _, s := range i.Studios {

@@ -1,0 +1,9 @@
+# Normalize text files to LF so gofmt and the CI linter agree on every platform.
+* text=auto eol=lf
+
+# Binary assets.
+*.png binary
+*.jpg binary
+*.ico binary
+*.zip binary
+*.db binary

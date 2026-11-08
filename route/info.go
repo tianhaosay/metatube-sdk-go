@@ -1,11 +1,11 @@
 package route
 
 import (
-	"github.com/metatube-community/metatube-sdk-go/common/progress"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/metatube-community/metatube-sdk-go/common/progress"
 	"github.com/metatube-community/metatube-sdk-go/engine"
 	"github.com/metatube-community/metatube-sdk-go/engine/providerid"
 )
@@ -55,10 +55,8 @@ func getInfo(app *engine.Engine, typ infoType) gin.HandlerFunc {
 		case movieInfoType:
 			info, err = app.GetMovieInfoByProviderID(uri.AsProviderID(), query.Lazy)
 			if err == nil {
-				// Report real progress: Emby only queues its refresh, so the
-				// console counts finished answers instead of sent requests.
-				pid := uri.AsProviderID()
-				progress.Mark(progress.Key(pid.Provider, pid.ID))
+				// Emby only queues its refresh, so count finished answers.
+				progress.Mark()
 			}
 		default:
 			panic("invalid info/metadata type")

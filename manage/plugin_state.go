@@ -5,14 +5,12 @@ import (
 	"os"
 )
 
-// The Emby MetaTube plugin exposes no readable configuration API on 4.10, so
-// the backend reads the plugin's own JSON file through a read-only mount.
-//
-// Everything the backend mirrors lives in pluginSettingsConfig (see
-// plugin_translate.go); this file holds the plugin-specific helpers that are
-// not about translation or runtime toggles.
+// The Emby MetaTube plugin exposes no readable configuration API on 4.10, so the
+// backend reads the plugin's own JSON file through a read-only mount.
 
-// pluginMeta is the minimal subset needed for non-translation decisions.
+// pluginMeta is the small subset of MetaTube.json used for non-translation
+// decisions; the full mirrored shape is pluginSettingsConfig in
+// plugin_translate.go.
 type pluginMeta struct {
 	Server           string `json:"Server"`
 	Token            string `json:"Token"`
@@ -36,8 +34,8 @@ func readPluginMeta() (pluginMeta, bool) {
 	return m, true
 }
 
-// PluginAutoUpdate reports whether the Emby plugin refreshes metadata on its
-// own when an item changes. Wiping is useless while it is on.
+// PluginAutoUpdate reports whether the Emby plugin refreshes metadata on its own
+// when an item changes; wiping does not stick while it is on.
 func PluginAutoUpdate() bool {
 	m, ok := readPluginMeta()
 	if !ok {

@@ -7,35 +7,36 @@ import (
 	"time"
 )
 
-// kanaRe matches real hiragana/katakana letters. It deliberately leaves out
-// Japanese punctuation and marks that also show up in Chinese titles:
-// ・(U+30FB), ー(U+30FC), ヽヾ(U+30FD-30FE), ゛゜(U+309B-309C) and the
-// 、。「」 block — otherwise a title like "续・出道" would be called Japanese.
-var kanaRe = regexp.MustCompile(`[\x{3041}-\x{3096}\x{30A1}-\x{30FA}]`)
-var hanRe = regexp.MustCompile(`[\x{4e00}-\x{9fff}]`)
+// kanaRe matches real hiragana/katakana letters. Japanese punctuation that also
+// appears in Chinese titles (・ ー ヽヾ ゛゜ 、。「」) is excluded, so a title
+// like "续・出道" is not counted as Japanese.
+var (
+	kanaRe = regexp.MustCompile(`[\x{3041}-\x{3096}\x{30A1}-\x{30FA}]`)
+	hanRe  = regexp.MustCompile(`[\x{4e00}-\x{9fff}]`)
+)
 
-// Issue types reported by the audit. Keep them stable: the UI groups by them.
+// Issue types reported by the audit. The values are part of the JSON API, so
+// they must stay stable.
 const (
-	IssueTitleMissing  = "title_missing"  // no real title, just the number
+	IssueTitleMissing  = "title_missing"  // no real title, only the code
 	IssueTitleJapanese = "title_japanese" // title left in Japanese
-	IssueActorJapanese = "actor_japanese" // at least one actor name in Japanese
+	IssueActorJapanese = "actor_japanese" // an actor name is in Japanese
 	IssueNoActors      = "no_actors"      // the provider returned no actors
-	IssueGenreJapanese = "genre_japanese" // at least one genre left in Japanese
+	IssueGenreJapanese = "genre_japanese" // a genre is still in Japanese
 	IssueNoImage       = "no_image"       // no primary image
-	// IssueActorUnmapped is informational: the performer name is Japanese and
-	// the mapping table has no Chinese for it, so nothing can fix it
-	// automatically. It is reported separately and never counts as a problem.
+	// IssueActorUnmapped is a note, not a problem: the mapping table cannot
+	// translate this performer, so nothing can fix it automatically.
 	IssueActorUnmapped = "actor_unmapped"
 )
 
 // AuditRequest scopes one completeness scan.
 type AuditRequest struct {
 	LibraryID string `json:"library_id"`
-	// PathPrefix limits the scan to items whose file path starts with it
-	// (e.g. /media/litepan-strm/JAV/JAV2), so one folder can be audited alone.
+	// PathPrefix limits the scan to items whose file path starts with it, so
+	// one folder can be audited alone.
 	PathPrefix string `json:"path_prefix"`
-	// Problem limits the returned issue window to one issue type; the
-	// counters stay global so the summary pills keep telling the truth.
+	// Problem limits the returned issue window to one issue type. The counters
+	// always cover the whole scan.
 	Problem string `json:"problem"`
 	Offset  int    `json:"offset"`
 	Limit   int    `json:"limit"`
@@ -58,8 +59,8 @@ type AuditResult struct {
 	OK           int            `json:"ok"`
 	ProblemCount int            `json:"problem_count"`
 	Groups       map[string]int `json:"groups"`
-	// NoteGroups / NoteCount hold informational findings (cannot be fixed by a
-	// refresh) and are kept out of ProblemCount.
+	// NoteGroups and NoteCount hold findings a refresh cannot fix; they are kept
+	// out of ProblemCount.
 	NoteGroups map[string]int `json:"note_groups"`
 	NoteCount  int            `json:"note_count"`
 	IssueCount int            `json:"issue_count"`
@@ -76,12 +77,10 @@ const auditPageSize = 500
 // maxAuditIssues caps the in-memory issue list of one scan.
 const maxAuditIssues = 20000
 
-// Audit scans a library and reports which movies are not "good enough" to
-// browse: missing/Japanese title, missing/Japanese actors, Japanese genres,
-// missing cover.
-//
-// The whole library is scanned so the counters are truthful; only the
-// requested window of items is returned (the UI pages through it).
+// Audit scans a library and reports movies that are not "good enough" to browse:
+// missing or Japanese title, missing or Japanese actors, Japanese genres, no
+// cover. The whole library is scanned; only the requested window of issues is
+// returned.
 func Audit(req AuditRequest) (*AuditResult, error) {
 	c := getConfig()
 	if c == nil {
@@ -132,9 +131,8 @@ func Audit(req AuditRequest) (*AuditResult, error) {
 					continue
 				}
 				res.Checked++
-				// The same movie often exists twice (JAV library + quark
-				// library). Count those copies so the summary can explain why
-				// one entry looks Japanese while the other looks translated.
+				// The same movie can exist in two libraries; each copy is counted
+				// and audited separately.
 				if num := it.Number(); num != "" {
 					numberCount[num]++
 				}
@@ -168,15 +166,14 @@ func Audit(req AuditRequest) (*AuditResult, error) {
 	if req.PathPrefix != "" {
 		res.Total = res.Checked
 	}
-	// Numbers that appear more than once are the same film stored twice (one
-	// copy per library); each copy is audited on its own.
+	// Numbers seen more than once are the same film stored in several copies.
 	for _, n := range numberCount {
 		if n > 1 {
 			res.DuplicateCount++
 		}
 	}
-	// Paginate the issue list itself: the UI asks for "issues 50..100", not
-	// "items 50..100". Slicing here keeps offsets stable across requests.
+	// Slice the issue list itself, not the scanned items, so offsets stay
+	// stable across requests.
 	res.IssueCount = len(res.Issues)
 	if req.Offset >= len(res.Issues) {
 		res.Issues = []AuditIssue{}
@@ -190,10 +187,10 @@ func Audit(req AuditRequest) (*AuditResult, error) {
 	return res, nil
 }
 
-// looksJapanese reports whether the text is really Japanese rather than a
-// translated title with a few leftover kana (typically an actress name).
-// A title counts as Japanese when there is no Han at all, or when kana make up
-// a meaningful share of the characters.
+// looksJapanese reports whether the text is Japanese rather than a translated
+// title with a few leftover kana (typically an actress name). A title counts as
+// Japanese when there is no Han at all, or when kana are at least 20% of the
+// characters.
 func looksJapanese(s string) bool {
 	if !kanaRe.MatchString(s) {
 		return false
@@ -258,7 +255,7 @@ func titleMissing(name, number string) bool {
 	if strings.TrimSpace(name) == "" {
 		return true
 	}
-	// Any Han means a title exists ("中文标题"), so it cannot be missing.
+	// Any Han means a real title exists, so it cannot be reported as missing.
 	if hanRe.MatchString(name) {
 		return false
 	}
@@ -286,9 +283,8 @@ func auditItem(it embyItem) (problems, notes []string) {
 	number := it.Number()
 
 	actors := it.Actors()
-	// Judge the title after dropping known actor names: many translated titles
-	// keep the original performer name at the end ("… 佐藤ののか"), which is
-	// useful context but not a sign of an untranslated title.
+	// Test the title after removing known actor names: a translated title may
+	// keep the performer name at the end, which does not make it Japanese.
 	titleForTest := name
 	for _, a := range actors {
 		if a != "" && len(a) > 1 {
@@ -303,9 +299,8 @@ func auditItem(it embyItem) (problems, notes []string) {
 	if len(actors) == 0 {
 		problems = append(problems, IssueNoActors)
 	} else {
-		// Only flag names the mapping table can turn into a real Chinese name.
-		// When the table has no Chinese for a performer, no refresh can fix it,
-		// so it becomes an informational note instead of a problem.
+		// Flag only names the mapping table can translate; a name with no entry
+		// cannot be fixed by a refresh, so it becomes a note instead.
 		am := ActorMapping()
 		flagged, unmapped := false, false
 		for _, a := range actors {
@@ -334,8 +329,8 @@ func auditItem(it embyItem) (problems, notes []string) {
 		if !kanaRe.MatchString(g) {
 			continue
 		}
-		// Providers sometimes pack performer names into the genre list. Those
-		// belong to the actor rule (already reported there), not to 类型.
+		// Providers may put performer names in the genre list; those belong to
+		// the actor rule, not to the genre rule.
 		if am := ActorMapping(); am != nil {
 			if _, isPerson := am.Lookup(g); isPerson {
 				continue
@@ -376,8 +371,8 @@ func pathInScope(path, prefix string) bool {
 }
 
 // CollectProblemIDs returns every item id in scope that fails the audit rules.
-// Audit() itself caps the returned issue window, so a full run cannot rely on
-// it; this walks the library directly.
+// Audit() caps its issue window, so callers that need all ids must walk the
+// library directly.
 func CollectProblemIDs(client *EmbyClient, libraryID, pathPrefix string) ([]string, int, error) {
 	ids := make([]string, 0, 256)
 	scanned := 0

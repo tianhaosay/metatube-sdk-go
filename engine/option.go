@@ -34,7 +34,7 @@ func WithMovieProviderConfig(name string, config mt.Config) Option {
 	}
 }
 
-// WithEnrich installs the metadata post-processing pipeline. Without it the
+// WithEnrich installs the metadata post-processing pipeline; without it the
 // engine serves provider output untouched.
 func WithEnrich(p *enrich.Pipeline) Option {
 	return func(e *Engine) {
@@ -42,17 +42,10 @@ func WithEnrich(p *enrich.Pipeline) Option {
 	}
 }
 
-// WithLogger overrides the engine logger (used by the manage console to
-// mirror engine logs into the in-memory log ring).
+// WithLogger overrides the engine logger, e.g. to mirror engine logs into the
+// console's in-memory ring buffer.
 func WithLogger(logger *log.Logger) Option {
 	return func(e *Engine) {
 		e.logger = logger
 	}
-}
-
-// SetEnrich swaps the pipeline at runtime (GUI settings). The pipeline object
-// itself is shared with the manage module, so callers normally mutate its
-// configuration instead of replacing it.
-func (e *Engine) SetEnrich(p *enrich.Pipeline) {
-	e.enrich = p
 }

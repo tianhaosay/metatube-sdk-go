@@ -30,8 +30,7 @@ func (db *JavDB) ParseActorIDFromURL(rawURL string) (string, error) {
 	return path.Base(homepage.Path), nil
 }
 
-// GetActorInfoByID gets actor info by JavDB actor ID (the URL slug, e.g.
-// "kp5J").
+// GetActorInfoByID returns actor info by JavDB actor slug (e.g. "kp5J").
 func (db *JavDB) GetActorInfoByID(id string) (info *model.ActorInfo, err error) {
 	return db.GetActorInfoByURL(fmt.Sprintf(actorURL, db.NormalizeActorID(id)))
 }

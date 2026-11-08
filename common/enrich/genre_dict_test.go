@@ -12,7 +12,7 @@ func TestGenreDict_TranslateThenReuse(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "genre_dict.json")
 
-	// First pass: unknown kana tag -> translator -> dictionary.
+	// First pass: an unknown kana tag is translated and stored in the dictionary.
 	p := New(Config{
 		Genres:     LoadGenreDict(path),
 		Translator: &fakeTranslator{out: "剧情"},
@@ -32,7 +32,7 @@ func TestGenreDict_TranslateThenReuse(t *testing.T) {
 		t.Fatal("dictionary file empty")
 	}
 
-	// Second pass: no translator, cold start from disk -> dictionary hit.
+	// Second pass: cold start from disk, so the dictionary must answer.
 	tr := &fakeTranslator{out: "WRONG"}
 	p2 := New(Config{Genres: LoadGenreDict(path), Translator: tr})
 	info2 := &model.MovieInfo{Number: "ABC-002", Genres: []string{"ドラマ"}}

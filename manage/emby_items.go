@@ -33,9 +33,8 @@ func (c *EmbyClient) FetchMovies(libraryID string, start, limit int) ([]embyItem
 // RefreshMetadata asks Emby to re-scrape one item.
 //
 // replaceAll=false only fills gaps: Emby keeps every value that already exists,
-// so a title/overview/person left in Japanese (or a summary that should now be
-// hidden) stays as it is. replaceAll=true lets the provider output win, which
-// is safe here because the backend already translates before answering.
+// so a stale Japanese title or summary stays. replaceAll=true lets provider
+// output win, which is what a full repair needs.
 func (c *EmbyClient) RefreshMetadata(itemID string, replaceAll bool) error {
 	q := url.Values{}
 	q.Set("MetadataRefreshMode", "FullRefresh")
@@ -76,8 +75,7 @@ func (c *EmbyClient) itemDTO(itemID string) (map[string]any, error) {
 	return page.Items[0], nil
 }
 
-// RenameItem changes an item's display name (used to canonicalize actor
-// names without any Emby plugin). Emby applies the change live.
+// RenameItem changes an item's display name; Emby applies the change live.
 func (c *EmbyClient) RenameItem(itemID, name string) error {
 	dto, err := c.itemDTO(itemID)
 	if err != nil {
@@ -88,48 +86,11 @@ func (c *EmbyClient) RenameItem(itemID, name string) error {
 	return c.do(http.MethodPost, "/Items/"+url.PathEscape(itemID), nil, dto, nil)
 }
 
-// UpdatePersonFields patches an item (usually a Person) with the given fields
-// and writes it back. Used for biography / TMDB id completion.
-func (c *EmbyClient) UpdatePersonFields(itemID string, patch map[string]any) error {
-	dto, err := c.itemDTO(itemID)
-	if err != nil {
-		return err
-	}
-	for k, v := range patch {
-		dto[k] = v
-	}
-	return c.do(http.MethodPost, "/Items/"+url.PathEscape(itemID), nil, dto, nil)
-}
-
 // FolderRef is one folder entry shown in the console's folder picker.
 type FolderRef struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 	Path string `json:"path"`
-}
-
-// ListFolders returns the direct child folders of a library (or folder).
-func (c *EmbyClient) ListFolders(parentID string) []FolderRef {
-	q := url.Values{}
-	q.Set("ParentId", parentID)
-	q.Set("IncludeItemTypes", "Folder")
-	q.Set("Fields", "Path")
-	q.Set("Limit", "200")
-	var page struct {
-		Items []struct {
-			Id   string `json:"Id"`
-			Name string `json:"Name"`
-			Path string `json:"Path"`
-		} `json:"Items"`
-	}
-	out := make([]FolderRef, 0, 8)
-	if err := c.do(http.MethodGet, "/Items", q, nil, &page); err != nil {
-		return out
-	}
-	for _, it := range page.Items {
-		out = append(out, FolderRef{ID: it.Id, Name: it.Name, Path: it.Path})
-	}
-	return out
 }
 
 // LibraryLocations maps library ids to their configured root paths.
@@ -149,8 +110,7 @@ func (c *EmbyClient) LibraryLocations() map[string][]string {
 }
 
 // WipeMetadata clears every metadata field of one item except its images, so a
-// following refresh rebuilds the entry from scratch. The file path and image
-// tags stay untouched.
+// following refresh rebuilds the entry. The file path and image tags stay.
 func (c *EmbyClient) WipeMetadata(itemID string) error {
 	dto, err := c.itemDTO(itemID)
 	if err != nil {
@@ -195,17 +155,15 @@ func (c *EmbyClient) WipeMetadata(itemID string) error {
 	return c.do(http.MethodPost, "/Items/"+url.PathEscape(itemID), nil, dto, nil)
 }
 
-// AddGenre adds one genre (类型) to an item, keeping the existing ones.
+// AddGenre adds one genre to an item, keeping the existing ones.
 //
-// Emby stores genres twice: the "Genres" string list and the "GenreItems"
-// object list. Both must be updated or the item's genre filter does not see the
-// new value.
+// Emby stores genres twice: the "Genres" string list and the "GenreItems" object
+// list. Both must be updated or the item's genre filter does not see the value.
 func (c *EmbyClient) AddGenre(itemID, genre string) error {
 	dto, err := c.itemDTO(itemID)
 	if err != nil {
 		return err
 	}
-	// Existing genre names.
 	names := make([]string, 0, 8)
 	seen := map[string]struct{}{}
 	if raw, ok := dto["Genres"].([]any); ok {

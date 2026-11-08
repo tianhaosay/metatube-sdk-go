@@ -1,13 +1,13 @@
-// Package manage is the operator console for metatube-plus:
+// Package manage is the operator console for metatube-plus. It covers:
 //
-//   - library health audit (missing / Japanese titles, actors, genres, covers)
-//   - batch repair (re-scrape, canonical actor rename) with rollback log
-//   - duplicate actor detection and NATIVE merge (no Emby plugin required)
-//   - actor profile completion (biography, TMDB id, avatar) with male filter
+//   - library audit (missing or Japanese titles, actors, genres, covers)
+//   - batch metadata refresh and wipe
 //   - online actor-mapping table sync (li-peifeng/Jav-Actors-Mapping)
+//   - in-memory log capture and query
+//   - a read-only mirror of the native MetaTube plugin settings
 //
-// Configuration comes from environment variables (see cmd), and a simple
-// embedded web UI is served at /manage/.
+// Configuration comes from environment variables (see cmd). The embedded web UI
+// at /ui has three pages: library audit, sources/mapping sync, and logs.
 package manage
 
 import (
@@ -32,10 +32,10 @@ type Config struct {
 	// Local actor mapping table path (shared with the JavDB provider).
 	ActorMappingPath string
 
-	// MappingOnline enables the online source sync (default true when a
-	// mapping path is configured).
+	// MappingOnline enables the online source sync (default on when a mapping
+	// path is configured).
 	MappingOnline bool
-	// MappingSyncInterval is the periodic sync interval (default 24h; <=0
+	// MappingSyncInterval is the periodic sync interval (24h default; <=0
 	// disables the background ticker).
 	MappingSyncInterval time.Duration
 
@@ -50,9 +50,9 @@ var (
 	syncState = jobStatus{}
 )
 
-// SetPipeline attaches the shared enrich pipeline. Settings (including the
-// actor-fallback default) are applied later by Setup → initSettings, which
-// runs after the config (mapping path, plugin dir) is available.
+// SetPipeline attaches the shared enrich pipeline. Its settings are applied
+// later by Setup via initSettings, once the config (mapping path, plugin dir)
+// is available.
 func SetPipeline(p *enrich.Pipeline) {
 	mu.Lock()
 	pipeline = p
@@ -74,7 +74,7 @@ func Setup(c *Config) {
 	initSettings()
 	if c.MappingOnline {
 		go func() {
-			// Initial sync shortly after startup.
+			// First sync shortly after startup.
 			time.Sleep(10 * time.Second)
 			if res, err := SyncMappingNow(); err != nil {
 				log.Printf("[manage] initial mapping sync failed: %v", err)
@@ -111,8 +111,8 @@ func getActorMap() *mapping.ActorMap {
 	return nil
 }
 
-// isJavdbMappingActive reports whether the shared avdb actor mapping table
-// is loaded, i.e. the backend will canonicalize actor names on JavDB data.
+// isJavdbMappingActive reports whether the shared JavDB actor mapping table is
+// loaded, i.e. whether actor names get canonicalized on JavDB data.
 func isJavdbMappingActive() bool {
 	m := getActorMap()
 	return m != nil && m.Len() > 0
@@ -135,9 +135,8 @@ func SyncMappingNow() (*mapping.SyncResult, error) {
 		"records": res.Records,
 		"message": res.Message,
 	})
-	// The mapping table reloads itself on mtime change (see
-	// mapping.baseMap.reloadIfChanged), so the shared pipeline picks up the
-	// freshly synced file on its next lookup — no swap needed here.
+	// The table reloads itself on mtime change (see mapping.baseMap.reloadIfChanged),
+	// so the shared pipeline picks up the synced file and no swap is needed here.
 	if res.Updated {
 		log.Printf("[manage] mapping table replaced: %s (%d records)", res.Version, res.Records)
 	}
@@ -182,27 +181,6 @@ type jobStatus struct {
 	message  string
 	result   map[string]any
 	error    string
-}
-
-func (s *jobStatus) start() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.running {
-		return false
-	}
-	s.running = true
-	s.progress = 0
-	s.message = "准备中"
-	s.result = nil
-	s.error = ""
-	return true
-}
-
-func (s *jobStatus) update(progress float64, message string) {
-	s.mu.Lock()
-	s.progress = progress
-	s.message = message
-	s.mu.Unlock()
 }
 
 func (s *jobStatus) finish(result map[string]any) {

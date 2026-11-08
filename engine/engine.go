@@ -43,9 +43,9 @@ type Engine struct {
 	// E.g., github.com -> [Gfriends, ...]
 	actorHostProviders *maps.CaseInsensitiveMap[[]mt.ActorProvider]
 	movieHostProviders *maps.CaseInsensitiveMap[[]mt.MovieProvider]
-	// enrich is the metadata post-processing pipeline applied to every movie
-	// info before caching (actor/genre mapping, summary cleanup, translation).
-	// Swappable at runtime from the manage console.
+	// enrich is the metadata post-processing pipeline applied to movie info
+	// before caching: actor/genre mapping, summary cleanup and translation.
+	// It is shared with the operator console and mutated at runtime.
 	enrich *enrich.Pipeline
 }
 

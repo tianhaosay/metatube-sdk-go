@@ -4,17 +4,24 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
-// refreshProgress remembers which items a scope already refreshed, so a batch
-// run can be paused and resumed (or repeated next day) without redoing work.
+// refreshProgress records which item ids one scope already refreshed, so a
+// batch run can resume without redoing work.
 type refreshProgress struct {
 	Key  string   `json:"key"`
 	Done []string `json:"done"`
 }
 
 var progressMu sync.Mutex
+
+// progressKey identifies one resume scope. The mode is part of the key because
+// a wipe run and a refresh run must not share their done list.
+func progressKey(mode, scope, pathPrefix string) string {
+	return mode + "|" + scope + "|" + pathPrefix
+}
 
 func progressFilePath() string {
 	cfg := getConfig()
@@ -54,23 +61,18 @@ func saveRefreshProgress(prog refreshProgress) {
 	}
 }
 
-// ResetRefreshProgress clears the saved progress of one scope.
+// ResetRefreshProgress clears the saved progress of one scope, regardless of
+// whether it belongs to a refresh or a wipe run.
 func ResetRefreshProgress(scope, pathPrefix string) map[string]any {
-	key := scope + "|" + pathPrefix
+	suffix := "|" + scope + "|" + pathPrefix
 	prog := loadRefreshProgress()
-	if prog.Key == key {
-		saveRefreshProgress(refreshProgress{Key: key})
+	reset := false
+	if prog.Key == "refresh"+suffix || prog.Key == "wipe"+suffix {
+		saveRefreshProgress(refreshProgress{})
+		reset = true
+	} else if strings.HasSuffix(prog.Key, suffix) {
+		saveRefreshProgress(refreshProgress{})
+		reset = true
 	}
-	return map[string]any{"reset": true, "key": key}
-}
-
-// ProgressSummary reports how many items of a scope are already done.
-func ProgressSummary(scope, pathPrefix string) map[string]any {
-	key := scope + "|" + pathPrefix
-	prog := loadRefreshProgress()
-	done := 0
-	if prog.Key == key {
-		done = len(prog.Done)
-	}
-	return map[string]any{"key": key, "done": done}
+	return map[string]any{"reset": reset, "scope": strings.TrimPrefix(suffix, "|")}
 }

@@ -1,15 +1,15 @@
 # metatube-plus 部署模板
 #
-# 复制为 docker-compose.yml 后按需修改：
+# 用法：
 #   cp docker-compose.fork.yml docker-compose.yml
+#   # 按需修改下面三个 TODO 与挂载路径
 #   docker compose up -d
 #
-# 需要你填的只有三项（见下方 TODO）：
-#   MT_MANAGE_EMBY_URL / MT_MANAGE_EMBY_API_KEY / MT_MANAGE_EMBY_LIBRARIES
+# 翻译引擎、密钥、翻译模式、隐藏简介、演员兜底、数据源冷却都在 Emby 插件设置页配置；
+# 本文件只提供后端运行所需的映射表、控制台和 Emby 连接信息。
 
 services:
   metatube:
-    # fork 版：翻译在 Emby 插件页配置；后端负责映射、体检、批量刷新
     image: metatube-plus:latest
     container_name: metatube
     ports:
@@ -19,36 +19,35 @@ services:
       - NO_PROXY=localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
       - TZ=Asia/Shanghai
 
-      # ---- 映射表（对所有刮削源生效）----
+      # 映射表：对所有刮削源生效
       - MT_MAPPING_ACTOR_FILE=/data/mapping/mapping_actor.xml
       - MT_MAPPING_INFO_FILE=/data/mapping/mapping_info.xml
       - MT_GENRE_DICT=/data/mapping/genre_dict.json
       - MT_MAPPING_ONLINE=true
       - MT_MAPPING_SYNC_INTERVAL=24h
 
-      # ---- 翻译语言（引擎/密钥在 Emby 插件页设）----
-      # 后端只做流派词典归并；标题/简介由插件翻译。
+      # 后端只做流派归一；标题/简介由插件翻译
       - MT_TRANSLATE_LANG=zh-CN
 
-      # ---- 演员兜底：控制台/插件开关默认开；关闭时不问 JavDB ----
+      # 演员兜底：主源没有演员时向 JavDB 查询一次
       - MT_ACTOR_FALLBACK=JavDB
 
-      # ---- 控制台 ----
+      # 运维控制台
       - MT_MANAGE=true
-      # TODO: 改成你的 Emby 地址
+      # TODO: Emby 地址
       - MT_MANAGE_EMBY_URL=http://localhost:8098
-      # TODO: 填 Emby API Key（Emby → 设置 → 高级 → API 密钥）
+      # TODO: Emby API Key（Emby → 设置 → 高级 → API 密钥）
       - MT_MANAGE_EMBY_API_KEY=
-      # TODO: 填要管理的媒体库 ID，多个用逗号分隔（留空=不限定）
+      # TODO: 媒体库 ID，多个用逗号分隔；留空表示不限定
       - MT_MANAGE_EMBY_LIBRARIES=
 
-      # ---- 不鉴权：插件 Token 留空即可直接用（仅限内网）----
+      # 留空表示不鉴权，插件 Token 也留空即可（仅限内网）
       - MT_TOKEN=
 
-      # ---- Emby 插件配置目录：后端读取翻译设置/开关做联动 ----
+      # Emby 插件配置目录（只读挂载），后端据此读取翻译设置与运行开关
       - MT_EMBY_PLUGIN_DIR=/emby-plugins
 
-      # ---- 数据源优先级：只保留 FANZA / JavBus / FC2 ----
+      # 数据源优先级：只保留 FANZA / JavBus / FC2
       - MT_MOVIE_PROVIDER_10MUSUME__PRIORITY=0
       - MT_MOVIE_PROVIDER_1PONDO__PRIORITY=0
       - MT_MOVIE_PROVIDER_AVE__PRIORITY=0
@@ -76,9 +75,9 @@ services:
       - MT_MOVIE_PROVIDER_TOKYO_HOT__PRIORITY=0
     volumes:
       - ./data:/data
-      # 映射表目录必须可写：词典、刷新进度都写在这里
+      # 映射表目录必须可写：流派词典、刷新进度、负缓存都写在这里
       - ./mapping:/data/mapping
-      # 只读挂载 Emby 插件配置（翻译设置与开关从这里读取）
+      # Emby 插件配置目录，只读
       - /path/to/emby/config/plugins/configurations:/emby-plugins:ro
     command: -dsn /data/metatube.db -port 8080 -db-auto-migrate
     healthcheck:

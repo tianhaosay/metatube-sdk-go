@@ -10,10 +10,9 @@ import (
 	"github.com/metatube-community/metatube-sdk-go/route/auth"
 )
 
-// RequireToken exposes the same bearer-token check used by the private /v1
-// routes so that other mounted groups (e.g. the manage console) can require
-// it too. A nil validator means authentication is disabled and the
-// middleware becomes a no-op.
+// RequireToken returns the bearer-token middleware used by the private routes,
+// exported for other mounted groups such as the operator console. A nil
+// validator disables authentication.
 func RequireToken(v auth.Validator) gin.HandlerFunc {
 	return authentication(v)
 }

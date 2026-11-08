@@ -64,9 +64,8 @@ func TestApply_MapsActorsAndGenres(t *testing.T) {
 }
 
 func TestApply_KeepsTitleAndSummaryUntranslated(t *testing.T) {
-	// A1: the backend no longer translates title/summary. The Emby plugin owns
-	// that, calling /v1/translate itself. Here we assert the backend leaves the
-	// text alone even when a translator is configured (it only serves genres).
+	// The backend leaves title/summary untouched even when a translator is
+	// configured; only genres are translated.
 	tr := &fakeTranslator{out: "中文"}
 	p := New(Config{Translator: tr, CleanSummary: true})
 	info := &model.MovieInfo{
@@ -110,14 +109,14 @@ func TestApply_ActorFallback(t *testing.T) {
 		},
 	})
 
-	// No actors -> fallback fills them, then mapping canonicalizes.
+	// No actors: the fallback fills them, then mapping canonicalizes.
 	info := &model.MovieInfo{Number: "ABC-001"}
 	p.Apply(info)
 	if len(info.Actors) != 1 || info.Actors[0] != "中文名" {
 		t.Fatalf("fallback actors = %v", info.Actors)
 	}
 
-	// Actors present -> fallback must not be called.
+	// Actors present: the fallback must not run.
 	info2 := &model.MovieInfo{Number: "ABC-002", Actors: []string{"有演员"}}
 	p.Apply(info2)
 	if calls != 1 {
@@ -135,12 +134,6 @@ func TestCollapseNewlines(t *testing.T) {
 	}
 }
 
-var errTest = &testError{}
-
-type testError struct{}
-
-func (*testError) Error() string { return "boom" }
-
 func TestActorFallbackDisabled(t *testing.T) {
 	calls := 0
 	p := New(Config{
@@ -155,7 +148,7 @@ func TestActorFallbackDisabled(t *testing.T) {
 		t.Fatalf("zero value should leave fallback enabled")
 	}
 
-	// Turn it off at runtime: no lookup may happen any more.
+	// Disabled at runtime: no lookup may run.
 	p.SetActorFallbackEnabled(false)
 	info := &model.MovieInfo{Number: "ABC-003"}
 	p.Apply(info)

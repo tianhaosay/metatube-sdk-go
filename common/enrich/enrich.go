@@ -1,16 +1,13 @@
-// Package enrich is the single metadata post-processing pipeline.
+// Package enrich post-processes movie metadata. Every MovieInfo returned by a
+// provider passes through Pipeline.Apply before it is cached or served:
 //
-// Every MovieInfo returned by any provider goes through Pipeline.Apply before
-// it is cached or served:
+//	actor names -> canonical Chinese names (mapping table)
+//	genres/tags -> translated Chinese tags, or dropped when marked delete
+//	summary     -> optional newline cleanup, optional removal
 //
-//	actor names  -> canonical Chinese names (mapping table)
-//	genres/tags  -> translated Chinese tags, or dropped when marked delete
-//	summary      -> optional newline cleanup, optional removal
-//	title/summary-> translated (failover-capable), original text on failure
-//
-// The previous design split this across two places: actor/genre mapping lived
-// inside the JavDB provider (so it silently did nothing whenever JavDB was
-// disabled) while translation lived in the engine. One pipeline, one place.
+// Title and summary translation is not performed here: the Emby plugin calls
+// /v1/translate with its own engine and settings. Genre translation is tag
+// normalization backed by the persistent dictionary, not free-text translation.
 package enrich
 
 import (
@@ -39,6 +36,7 @@ type Config struct {
 	Actors         ActorLookup
 	Info           InfoLookup
 	Translator     translate.Translator
+	TranslatorName string
 	TranslateLang  string
 	DisableSummary bool
 	CleanSummary   bool
@@ -50,14 +48,10 @@ type Config struct {
 	// ActorFallback is consulted only when a provider returned no actors at
 	// all (common for compilations/amateur titles on DMM). It receives the
 	// movie number and returns actor names from another source, or nil.
-	//
-	// This replaces the old "merge arbitrary fields across providers" design:
-	// one narrow rule, one place, no per-field matrix.
 	ActorFallback func(number string) []string
 
-	// ActorFallbackDisabled turns the fallback off. It is phrased negatively
-	// so the zero value means "enabled", matching the console/plugin default
-	// and keeping a zero-value Config working as before.
+	// ActorFallbackDisabled turns the fallback off. It is phrased negatively so
+	// the zero value means "enabled", matching the console/plugin default.
 	ActorFallbackDisabled bool
 }
 
@@ -68,6 +62,7 @@ type Pipeline struct {
 	cfg Config
 }
 
+// New returns a pipeline using cfg as its initial configuration.
 func New(cfg Config) *Pipeline { return &Pipeline{cfg: cfg} }
 
 // Snapshot returns the current configuration.
@@ -97,52 +92,44 @@ func (p *Pipeline) Configure(fn func(*Config)) {
 	p.mu.Unlock()
 }
 
-func (p *Pipeline) SetTranslator(t translate.Translator) {
-	p.Configure(func(c *Config) { c.Translator = t })
-}
-
-func (p *Pipeline) SetTranslateLang(lang string) {
+// SetTranslator replaces the translator used for genre tags. name labels the
+// engine in log lines.
+func (p *Pipeline) SetTranslator(t translate.Translator, name string) {
 	p.Configure(func(c *Config) {
-		if lang != "" {
-			c.TranslateLang = lang
-		}
+		c.Translator = t
+		c.TranslatorName = name
 	})
 }
 
+// SetDisableSummary toggles clearing the summary.
 func (p *Pipeline) SetDisableSummary(v bool) {
 	p.Configure(func(c *Config) { c.DisableSummary = v })
 }
 
-// SetActorFallbackEnabled toggles the JavDB actor fallback without rebuilding
-// the pipeline (so the console switch takes effect immediately).
+// SetActorFallbackEnabled toggles the actor fallback without rebuilding the
+// pipeline, so a settings change takes effect immediately.
 func (p *Pipeline) SetActorFallbackEnabled(v bool) {
 	p.Configure(func(c *Config) { c.ActorFallbackDisabled = !v })
 }
 
-func (p *Pipeline) SetMaps(actors ActorLookup, info InfoLookup) {
-	p.Configure(func(c *Config) {
-		c.Actors = actors
-		c.Info = info
-	})
-}
-
 // Apply rewrites the metadata in place. It never returns an error: a failing
 // translator or a missing mapping table leaves the original text untouched.
+// Title and summary are left as-is and are translated by the Emby plugin.
 func (p *Pipeline) Apply(info *model.MovieInfo) {
 	if info == nil {
 		return
 	}
 	cfg := p.Snapshot()
 
-	// 0. Actor fallback: only when the provider gave us nothing, so the
-	// common path never pays for an extra request. Gated by a console switch.
+	// Actor fallback first: only runs when the provider returned no actors, so
+	// the common path pays nothing. Gated by the console switch.
 	if !cfg.ActorFallbackDisabled && len(info.Actors) == 0 && info.Number != "" && cfg.ActorFallback != nil {
 		if extra := cfg.ActorFallback(info.Number); len(extra) > 0 {
 			info.Actors = extra
 		}
 	}
 
-	// 1. Actor names -> canonical Chinese name.
+	// Map actor names to their canonical Chinese names.
 	if cfg.Actors != nil && len(info.Actors) > 0 {
 		actors := make([]string, 0, len(info.Actors))
 		for _, name := range info.Actors {
@@ -158,7 +145,7 @@ func (p *Pipeline) Apply(info *model.MovieInfo) {
 		info.Actors = dedupe(actors)
 	}
 
-	// 2. Genres -> translated tags (or dropped).
+	// Map genres to canonical tags; delete-marked entries are dropped.
 	if cfg.Info != nil && len(info.Genres) > 0 {
 		genres := make([]string, 0, len(info.Genres))
 		for _, tag := range info.Genres {
@@ -179,8 +166,8 @@ func (p *Pipeline) Apply(info *model.MovieInfo) {
 		info.Genres = dedupe(genres)
 	}
 
-	// 2b. Tags still in Japanese: dictionary first (free), translation last
-	// (once per tag, then cached in the dictionary forever).
+	// Tags still in Japanese: dictionary first, translation once per tag with
+	// the result cached in the dictionary.
 	if (cfg.Genres != nil || cfg.Translator != nil) && len(info.Genres) > 0 {
 		target := cfg.TranslateLang
 		if target == "" {
@@ -200,8 +187,12 @@ func (p *Pipeline) Apply(info *model.MovieInfo) {
 					}
 				}
 				if translated == "" && cfg.Translator != nil {
-					if t := translateField(cfg.Translator, g, target, info.Number); t != "" && !kanaRe.MatchString(t) {
-						log.Printf("[TRANSLATE] number=%s field=genre engine=%s result=ok from=%q to=%q", info.Number, engineName(cfg.Translator), g, t)
+					if t := translateField(cfg.Translator, g, target); t != "" && !kanaRe.MatchString(t) {
+						engine := cfg.TranslatorName
+						if engine == "" {
+							engine = "unknown"
+						}
+						log.Printf("[TRANSLATE] number=%s field=genre engine=%s result=ok from=%q to=%q", info.Number, engine, g, t)
 						translated = t
 						if cfg.Genres != nil {
 							cfg.Genres.Set(g, t)
@@ -217,53 +208,23 @@ func (p *Pipeline) Apply(info *model.MovieInfo) {
 		info.Genres = dedupe(genres)
 	}
 
-	// 3. Summary housekeeping. This is a plain field operation, independent of
-	// any translator: when DisableSummary is on the summary is dropped here and
-	// the plugin receives an empty value, so nothing downstream can re-add it.
+	// Summary housekeeping, independent of any translator: a disabled summary is
+	// cleared here so nothing downstream can re-add it.
 	switch {
 	case cfg.DisableSummary:
 		info.Summary = ""
 	case cfg.CleanSummary:
 		info.Summary = collapseNewlines(info.Summary)
 	}
-
-	// Title and summary translation are intentionally NOT done here.
-	//
-	// Upstream metatube never translates metadata: it only exposes
-	// /v1/translate, and the Emby plugin calls it with its own engine and
-	// settings. Keeping that split means one translator, one place to configure
-	// (the plugin page) and no chance of a title being translated twice.
-	// Genre translation above is different: it is tag normalization backed by
-	// the persistent dictionary, not free-text translation.
 }
 
-// hanRe matches Chinese characters. A zh-CN translation that contains none is
-// treated as a failed translation (free engines occasionally return a bare
-// romanization or an empty-ish fragment instead of Chinese).
+// hanRe matches Chinese characters. A zh-CN translation containing none is
+// treated as failed (free engines occasionally return a romanization).
 var hanRe = regexp.MustCompile(`[\x{4e00}-\x{9fff}]`)
-
-// engineName reports a short label for logging. The concrete engine name is
-// not exposed by the Translator interface, so the caller logs the configured
-// primary separately; this keeps the log line readable without reflection.
-func engineName(t translate.Translator) string {
-	if t == nil {
-		return "none"
-	}
-	return "engine"
-}
-
-// preview shortens a translated string for the console log.
-func preview(s string) string {
-	r := []rune(s)
-	if len(r) <= 26 {
-		return s
-	}
-	return string(r[:26]) + "…"
-}
 
 // translateField translates one genre/tag and validates the result is usable
 // Chinese. An empty return means "keep the original".
-func translateField(t translate.Translator, text, target, ref string) string {
+func translateField(t translate.Translator, text, target string) string {
 	if t == nil {
 		return ""
 	}
@@ -318,9 +279,9 @@ func dedupe(in []string) []string {
 	return out
 }
 
-// NeedsWork reports whether the metadata still contains Japanese text that the
-// pipeline could improve. Cached rows are enriched through this check so a
-// library refresh can fix old entries without re-scraping them.
+// NeedsWork reports whether info still contains Japanese text the pipeline can
+// improve. Cached rows pass through this check so a library refresh can fix old
+// entries without re-scraping them.
 func NeedsWork(info *model.MovieInfo) bool {
 	if info == nil {
 		return false

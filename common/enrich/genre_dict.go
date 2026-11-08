@@ -10,10 +10,9 @@ import (
 
 // GenreDict is a persistent Japanese -> Chinese tag dictionary.
 //
-// DMM's tag vocabulary is a few hundred words; the shipped mapping_info.xml
-// only covers part of it. Rather than waiting for an upstream table update,
-// the pipeline translates an unknown tag once, remembers it here, and reuses
-// it forever. The file stays hand-editable, so a bad translation can be fixed
+// The shipped mapping_info.xml covers only part of DMM's tag vocabulary, so the
+// pipeline translates an unknown tag once, remembers it here, and reuses the
+// result. The file stays hand-editable, so a bad translation can be fixed
 // without touching the service.
 type GenreDict struct {
 	path string
@@ -24,8 +23,8 @@ type GenreDict struct {
 	lastSave time.Time
 }
 
-// LoadGenreDict reads the dictionary file; a missing or malformed file
-// yields an empty dictionary (never an error — the pipeline must keep working).
+// LoadGenreDict reads the dictionary file; a missing or malformed file yields
+// an empty dictionary rather than an error, so the pipeline keeps working.
 func LoadGenreDict(path string) *GenreDict {
 	d := &GenreDict{path: path, entries: map[string]string{}}
 	if path == "" {
@@ -52,8 +51,8 @@ func (d *GenreDict) Lookup(tag string) (string, bool) {
 	return v, ok
 }
 
-// Set stores a translation and persists the dictionary (throttled to once
-// every two seconds so a bulk scrape does not rewrite the file per tag).
+// Set stores a translation and saves the dictionary to disk, throttled to one
+// write every two seconds so a bulk scrape does not rewrite the file per tag.
 func (d *GenreDict) Set(tag, translated string) {
 	if d.path == "" || tag == "" || translated == "" || tag == translated {
 		return

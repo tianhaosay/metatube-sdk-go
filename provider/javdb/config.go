@@ -7,16 +7,14 @@ import (
 
 // SetConfig implements provider.ConfigSetter.
 //
-// JavDB's only remaining knob is its request cooldown. Actor/genre mapping and
-// translation used to live here; they are now engine-level post-processing
-// (see common/enrich) so that they apply to every provider, not just this one.
+// The only knob is the request cooldown, applied through common/throttle.
 //
 // Keys (env: MT_PROVIDER_JAVDB__<KEY>):
 //
 //	rate_limit - minimum interval between two javdb requests (default 10s;
 //	             <=0 disables). Cloudflare throttles this domain hard.
 //
-// JavDB ships disabled (Priority 0). To try it as a long-tail fallback:
+// JavDB ships disabled (Priority 0); enable it as a long-tail fallback with:
 //
 //	MT_PROVIDER_JAVDB__PRIORITY=900
 func (db *JavDB) SetConfig(config provider.Config) error {

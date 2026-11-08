@@ -8,15 +8,17 @@ import (
 	"github.com/metatube-community/metatube-sdk-go/provider/internal/testkit"
 )
 
+// TestJavDB_GetMovieInfoByID checks lookup by URL slug and by movie number.
 func TestJavDB_GetMovieInfoByID(t *testing.T) {
 	testkit.Test(t, New, []string{
-		// Slug IDs.
+		// URL slug.
 		"RkdrWK",
-		// Numbers.
+		// Movie number.
 		"FLAV-359",
 	})
 }
 
+// TestJavDB_SearchMovie checks movie search by number.
 func TestJavDB_SearchMovie(t *testing.T) {
 	testkit.Test(t, New, []string{
 		"SSIS-033",
@@ -24,6 +26,7 @@ func TestJavDB_SearchMovie(t *testing.T) {
 	})
 }
 
+// TestJavDB_NormalizeMovieKeyword checks keyword normalization.
 func TestJavDB_NormalizeMovieKeyword(t *testing.T) {
 	db := New()
 	for keyword, want := range map[string]string{
@@ -35,8 +38,9 @@ func TestJavDB_NormalizeMovieKeyword(t *testing.T) {
 	}
 }
 
+// TestJavDB_GetActorInfoByID checks actor lookup by slug.
 func TestJavDB_GetActorInfoByID(t *testing.T) {
 	testkit.Test(t, New, []string{
-		"kp5J", // 美丘里美 / 美丘さとみ
+		"kp5J",
 	})
 }
