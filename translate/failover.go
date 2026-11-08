@@ -58,7 +58,7 @@ func translateWithTimeout(t Translator, text, from, to string, timeout time.Dura
 type Failover struct {
 	// lastEngine records which engine answered the latest call (log only).
 	lastEngine string
-	mu sync.Mutex
+	mu         sync.Mutex
 
 	primaryName   string
 	secondaryName string
