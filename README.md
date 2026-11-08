@@ -17,11 +17,13 @@
 
 ## 三个部件，别搞混
 
-| 部件 | 在哪 | 谁维护 | 负责什么 |
+| 部件 | 在哪 | 来源 | 负责什么 |
 |---|---|---|---|
-| MetaTube 插件 | Emby 内（`MetaTube.dll`） | 上游原版 | 取数通道、标题/简介翻译、插件设置页 |
+| MetaTube 插件 | Emby 内（`MetaTube.dll`） | 上游原版 + 本 fork 的少量定制 | 取数通道、标题/简介翻译、插件设置页；定制只多 4 个与后端联动的开关 |
 | 后端（本仓库） | 容器 `metatube`，默认 `:8080` | 本 fork | 演员/流派中文化、简介处理、体检、批量修复、日志 |
 | 控制台（本仓库） | `http://<host>:8080/ui` | 本 fork | 库体检、数据源与映射同步、日志 |
+
+插件定制在 [`tianhaosay/metatube-plus`](https://github.com/tianhaosay/metatube-plus/tree/feature/adv-button) 的 `feature/adv-button` 分支：设置页多出「隐藏作品简介 / 演员兜底 / FANZA 冷却 / JavDB 冷却」四项，写进同一份 `MetaTube.json` 后由后端读取执行。不装定制版插件也能用，只是这四项要手工写进配置文件。
 
 ## 功能
 
@@ -132,6 +134,7 @@ healthcheck:
 2. `Token` 留空（后端未启用鉴权时）。
 3. `TranslationMode` 必须非 `Disabled`：标题与简介由插件翻译。
 4. 数据源过滤器按需要填写，常用组合是 `fanza,javbus,fc2`，与映射/翻译无关。
+5. 用定制版插件时，设置页另有「隐藏作品简介 / 演员兜底 / FANZA 冷却 / JavDB 冷却」四项；用原版插件则把同名键直接写进 `MetaTube.json`。
 
 ## 数据源
 
