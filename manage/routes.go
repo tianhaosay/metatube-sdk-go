@@ -49,6 +49,7 @@ func RegisterRoutes(r gin.IRouter, apiMiddleware ...gin.HandlerFunc) {
 		api.GET("/consistency", getConsistency)
 		api.GET("/plugin-translation", getPluginTranslation)
 		api.POST("/translate-test", postTranslateTest)
+		api.POST("/uncensored-badge", postUncensoredBadge)
 	}
 }
 
@@ -335,4 +336,20 @@ func postRefreshReset(c *gin.Context) {
 	}
 	_ = c.ShouldBindJSON(&body)
 	jsonOK(c, ResetRefreshProgress(body.Scope, body.PathPrefix))
+}
+
+// postUncensoredBadge adds the 无码破解 genre to movies whose file name carries
+// an uncensored/restoration suffix (-LTX / -U / -UC).
+func postUncensoredBadge(c *gin.Context) {
+	var body struct {
+		Exclude []string `json:"exclude"`
+		DryRun  bool     `json:"dry_run"`
+	}
+	_ = c.ShouldBindJSON(&body)
+	res, err := ApplyUncensoredBadges(body.Exclude, body.DryRun)
+	if err != nil {
+		jsonErr(c, err)
+		return
+	}
+	jsonOK(c, res)
 }

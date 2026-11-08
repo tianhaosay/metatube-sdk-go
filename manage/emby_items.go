@@ -194,3 +194,46 @@ func (c *EmbyClient) WipeMetadata(itemID string) error {
 	dto["PremiereDate"] = nil
 	return c.do(http.MethodPost, "/Items/"+url.PathEscape(itemID), nil, dto, nil)
 }
+
+// AddGenre adds one genre (类型) to an item, keeping the existing ones.
+//
+// Emby stores genres twice: the "Genres" string list and the "GenreItems"
+// object list. Both must be updated or the item's genre filter does not see the
+// new value.
+func (c *EmbyClient) AddGenre(itemID, genre string) error {
+	dto, err := c.itemDTO(itemID)
+	if err != nil {
+		return err
+	}
+	// Existing genre names.
+	names := make([]string, 0, 8)
+	seen := map[string]struct{}{}
+	if raw, ok := dto["Genres"].([]any); ok {
+		for _, v := range raw {
+			if s, _ := v.(string); strings.TrimSpace(s) != "" {
+				key := strings.ToLower(strings.TrimSpace(s))
+				if _, dup := seen[key]; dup {
+					continue
+				}
+				seen[key] = struct{}{}
+				names = append(names, strings.TrimSpace(s))
+			}
+		}
+	}
+	if strings.TrimSpace(genre) != "" {
+		key := strings.ToLower(strings.TrimSpace(genre))
+		if _, dup := seen[key]; !dup {
+			names = append(names, strings.TrimSpace(genre))
+		}
+	}
+
+	genres := make([]any, 0, len(names))
+	items := make([]any, 0, len(names))
+	for _, n := range names {
+		genres = append(genres, n)
+		items = append(items, map[string]any{"Name": n})
+	}
+	dto["Genres"] = genres
+	dto["GenreItems"] = items
+	return c.do(http.MethodPost, "/Items/"+url.PathEscape(itemID), nil, dto, nil)
+}
