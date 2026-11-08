@@ -14,14 +14,16 @@ import (
 const UncensoredBadgeGenre = "无码破解"
 
 // uncensoredTagRe matches the release-suffix markers that indicate an
-// uncensored/restored cut. The tag must be a trailing dash-separated segment
-// so a title that merely contains these letters is not touched.
+// uncensored/restored cut. Go's RE2 engine has no lookahead, so the trailing
+// boundary is captured instead: group 1 is the tag, group 2 the separator that
+// must be end-of-name or one of "-_." .
 //
 //	XXX-LTX.mp4      AI mosaic restoration (Jasna/LTX)
 //	XXX-U.mp4        uncensored
 //	XXX-UC.mp4       uncensored
 //	XXX-U-4K.mp4     uncensored, high-res copy
-var uncensoredTagRe = regexp.MustCompile(`(?i)-(ltx|uc|u)(?=$|[-_.])`)
+//	XXX_UC.mkv       underscore separator
+var uncensoredTagRe = regexp.MustCompile(`(?i)-(ltx|uc|u)([-_.]|$)`)
 
 // isUncensoredRelease reports whether the file name marks an uncensored cut.
 func isUncensoredRelease(filePath string) bool {
