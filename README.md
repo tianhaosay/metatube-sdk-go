@@ -6,6 +6,7 @@
 
 [![Go Linter](https://img.shields.io/github/actions/workflow/status/tianhaosay/metatube-sdk-go/linter.yml?branch=main&style=flat-square&logo=githubactions&label=golangci-lint)](https://github.com/tianhaosay/metatube-sdk-go/actions/workflows/linter.yml)
 [![Test](https://img.shields.io/github/actions/workflow/status/tianhaosay/metatube-sdk-go/test.yml?branch=main&style=flat-square&logo=github-actions&label=test)](https://github.com/tianhaosay/metatube-sdk-go/actions/workflows/test.yml)
+[![Release](https://img.shields.io/github/v/release/tianhaosay/metatube-sdk-go?style=flat-square&label=release)](https://github.com/tianhaosay/metatube-sdk-go/releases)
 [![Go Version](https://img.shields.io/badge/go-1.26-30dff3?style=flat-square&logo=go)](go.mod)
 [![License](https://img.shields.io/badge/license-Apache--2.0-e4682a?style=flat-square)](LICENSE)
 
@@ -19,11 +20,19 @@
 
 | 部件 | 在哪 | 来源 | 负责什么 |
 |---|---|---|---|
-| MetaTube 插件 | Emby 内（`MetaTube.dll`） | 上游原版 + 本 fork 的少量定制 | 取数通道、标题/简介翻译、插件设置页；定制只多 4 个与后端联动的开关 |
+| MetaTube 插件 | Emby 内（`MetaTube.dll`） | 上游原版 + 本套定制（见下） | 取数通道、标题/简介翻译、插件设置页；定制只多 4 个与后端联动的开关 |
 | 后端（本仓库） | 容器 `metatube`，默认 `:8080` | 本 fork | 演员/流派中文化、简介处理、体检、批量修复、日志 |
 | 控制台（本仓库） | `http://<host>:8080/ui` | 本 fork | 库体检、数据源与映射同步、日志 |
 
-插件定制在 [`tianhaosay/metatube-plus`](https://github.com/tianhaosay/metatube-plus/tree/feature/adv-button) 的 `feature/adv-button` 分支：设置页多出「隐藏作品简介 / 演员兜底 / FANZA 冷却 / JavDB 冷却」四项，写进同一份 `MetaTube.json` 后由后端读取执行。不装定制版插件也能用，只是这四项要手工写进配置文件。
+## 配套插件（推荐组合）
+
+后端搭配定制插件 [`tianhaosay/metatube-plus`](https://github.com/tianhaosay/metatube-plus) 才能完整发挥：
+
+- 插件设置页直接出现后端要读的 4 个开关（隐藏作品简介 / 演员兜底 / FANZA 冷却 / JavDB 冷却），改完约 15 秒生效，不用碰配置文件；
+- 默认 `TranslationMode=Both`、`TranslationEngine=GoogleFree`，装上就能翻标题与简介，不需要先填密钥；
+- 下载：[插件 Releases](https://github.com/tianhaosay/metatube-plus/releases)（`MetaTube.zip` / `MetaTube.dll`）。
+
+只装上游原版插件也能跑，但那 4 个开关要手工写进 `MetaTube.json`，并且没有控制台、库体检和批量修复。
 
 ## 功能
 
@@ -51,6 +60,12 @@
 | 简介隐藏 | 后端 | 单纯清空字段，与翻译无关 |
 
 引擎、密钥、翻译模式、隐藏简介、演员兜底、数据源冷却都在插件页；控制台「数据源与映射同步」只做只读展示。
+
+## 下载
+
+- 版本与变更记录：[Releases](https://github.com/tianhaosay/metatube-sdk-go/releases)
+- 源码：`git clone` 或下载 Release 的源码包
+- 镜像：克隆后 `make image`（需要 Docker），或按下面的 compose 模板自行构建
 
 ## 部署
 
