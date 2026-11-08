@@ -197,7 +197,8 @@ func InstallLogCapture() *log.Logger {
 
 // structuredRe matches the machine-readable scrape/fallback lines emitted by
 // the engine, e.g.
-//   [SCRAPE] number=START-015 provider=FANZA result=ok ms=812 actors=4 genres=8
+//
+//	[SCRAPE] number=START-015 provider=FANZA result=ok ms=812 actors=4 genres=8
 var srcBracketRe = regexp.MustCompile(`^\[([A-Za-z]+)\]\s+`)
 var kvRe = regexp.MustCompile(`(\w+)=("([^"]*)"|\S+)`)
 var structuredDateRe = regexp.MustCompile(`^\d{4}/\d{2}/\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?\s+`)
@@ -259,10 +260,10 @@ func parseStructured(line string) (LogEntry, bool) {
 		}
 	case "TRANSLATE":
 		field := fields["field"]
-			engine := fields["engine"]
-			if engine == "" {
-				engine = "unknown"
-			}
+		engine := fields["engine"]
+		if engine == "" {
+			engine = "unknown"
+		}
 		switch field {
 		case "title":
 			field = "标题"

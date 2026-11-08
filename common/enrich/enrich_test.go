@@ -140,3 +140,37 @@ var errTest = &testError{}
 type testError struct{}
 
 func (*testError) Error() string { return "boom" }
+
+func TestActorFallbackDisabled(t *testing.T) {
+	calls := 0
+	p := New(Config{
+		Actors: fakeActors{"JavDB Actress": "中文名"},
+		ActorFallback: func(string) []string {
+			calls++
+			return []string{"JavDB Actress"}
+		},
+	})
+	// Default (zero value) keeps the fallback enabled.
+	if got := p.Snapshot().ActorFallbackDisabled; got {
+		t.Fatalf("zero value should leave fallback enabled")
+	}
+
+	// Turn it off at runtime: no lookup may happen any more.
+	p.SetActorFallbackEnabled(false)
+	info := &model.MovieInfo{Number: "ABC-003"}
+	p.Apply(info)
+	if calls != 0 {
+		t.Fatalf("fallback must not run when disabled, ran %d times", calls)
+	}
+	if len(info.Actors) != 0 {
+		t.Fatalf("actors should stay empty, got %v", info.Actors)
+	}
+
+	// Re-enable: it runs again.
+	p.SetActorFallbackEnabled(true)
+	info2 := &model.MovieInfo{Number: "ABC-004"}
+	p.Apply(info2)
+	if calls != 1 || len(info2.Actors) != 1 || info2.Actors[0] != "中文名" {
+		t.Fatalf("fallback should run after re-enable, calls=%d actors=%v", calls, info2.Actors)
+	}
+}

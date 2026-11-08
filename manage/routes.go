@@ -64,13 +64,13 @@ func getConsistency(c *gin.Context) {
 	s := GetSettings()
 	ti := GetPluginTranslationInfo()
 	jsonOK(c, gin.H{
-		"translation":           ti,
-		"disable_summary":       s.DisableSummary,
-		"actor_fallback":        s.ActorFallback,
-		"fanza_rate_limit":      s.FanzaRateLimit,
-		"javdb_rate_limit":      s.JavdbRateLimit,
-		"javdb_mapping_active":  isJavdbMappingActive(),
-		"mapping_entries":       MappingStatus()["entries"],
+		"translation":          ti,
+		"disable_summary":      s.DisableSummary,
+		"actor_fallback":       s.ActorFallback,
+		"fanza_rate_limit":     s.FanzaRateLimit,
+		"javdb_rate_limit":     s.JavdbRateLimit,
+		"javdb_mapping_active": isJavdbMappingActive(),
+		"mapping_entries":      MappingStatus()["entries"],
 	})
 }
 
@@ -207,8 +207,6 @@ func HealthHandler(c *gin.Context) {
 	})
 }
 
-
-
 // getPluginTranslation exposes the read-only translation linkage view: the
 // engine/key come from the native plugin settings page.
 func getPluginTranslation(c *gin.Context) {
@@ -266,6 +264,7 @@ func postRefreshStop(c *gin.Context) {
 func getRefreshStatus(c *gin.Context) {
 	jsonOK(c, RefreshStatus())
 }
+
 // getPaths lists the first-level folders of the configured library so the UI
 // can offer "refresh only this folder" without asking for an item id.
 func getPaths(c *gin.Context) {

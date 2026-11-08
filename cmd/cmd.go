@@ -72,7 +72,6 @@ var Config = &struct {
 	// TMDB (optional) - used by the actor completion job for avatars/gender.
 	EmbyPluginDir string
 
-
 	// ActorFallback is a CSV of provider names consulted when a scrape
 	// returned no actors (e.g. "JavBus"). Empty disables the fallback.
 	ActorFallback string
@@ -480,4 +479,3 @@ func buildActorFallback() func(number string) []string {
 		return nil
 	}
 }
-

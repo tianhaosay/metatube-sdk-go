@@ -1,8 +1,8 @@
 package manage
 
 import (
-	"github.com/metatube-community/metatube-sdk-go/common/progress"
 	"fmt"
+	"github.com/metatube-community/metatube-sdk-go/common/progress"
 	"log"
 	"sync"
 	"time"
@@ -13,22 +13,22 @@ import (
 // no progress at all, and because a 3600-item refresh needs to be batched and
 // resumable.
 type RefreshJob struct {
-	mu        sync.Mutex
-	running   bool
-	stopFlag  bool
-	total     int
-	done      int
-	sent      int
-	ok        int
-	failed    int
-	current   string
+	mu          sync.Mutex
+	running     bool
+	stopFlag    bool
+	total       int
+	done        int
+	sent        int
+	ok          int
+	failed      int
+	current     string
 	startedAt   time.Time
 	baseAnswers int64
 	mode        string
 	scope       string
 	pathPrefix  string
-	finished  bool
-	err       string
+	finished    bool
+	err         string
 }
 
 var refreshJob = &RefreshJob{}

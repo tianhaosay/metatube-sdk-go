@@ -63,7 +63,6 @@ func GetPluginTranslationInfo() map[string]any {
 	return pluginTranslationInfo()
 }
 
-
 func pluginConfigPath() string {
 	c := getConfig()
 	if c == nil || c.EmbyPluginDir == "" {
@@ -160,14 +159,14 @@ func pluginTranslationInfo() map[string]any {
 		keySet = true
 	}
 	return map[string]any{
-		"found":               true,
-		"engine":              pc.TranslationEngine,
-		"backend_engine":      engine,
-		"mode":                mode,
-		"key_present":         keySet,
-		"enabled":             engine != "" && keySet,
-		"backend_translates":  true,
-		"plugin_mode_advice":  "Disabled",
+		"found":              true,
+		"engine":             pc.TranslationEngine,
+		"backend_engine":     engine,
+		"mode":               mode,
+		"key_present":        keySet,
+		"enabled":            engine != "" && keySet,
+		"backend_translates": true,
+		"plugin_mode_advice": "Disabled",
 	}
 }
 

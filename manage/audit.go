@@ -62,13 +62,13 @@ type AuditResult struct {
 	// refresh) and are kept out of ProblemCount.
 	NoteGroups map[string]int `json:"note_groups"`
 	NoteCount  int            `json:"note_count"`
-	IssueCount   int            `json:"issue_count"`
+	IssueCount int            `json:"issue_count"`
 	// DuplicateCount counts numbers that exist in more than one library copy.
 	DuplicateCount int          `json:"duplicate_count"`
 	Issues         []AuditIssue `json:"issues"`
-	Offset       int            `json:"offset"`
-	Limit        int            `json:"limit"`
-	ScannedAt    string         `json:"scanned_at"`
+	Offset         int          `json:"offset"`
+	Limit          int          `json:"limit"`
+	ScannedAt      string       `json:"scanned_at"`
 }
 
 const auditPageSize = 500
@@ -105,10 +105,10 @@ func Audit(req AuditRequest) (*AuditResult, error) {
 	res := &AuditResult{
 		Groups:     map[string]int{},
 		NoteGroups: map[string]int{},
-		Issues:    []AuditIssue{},
-		Offset:    req.Offset,
-		Limit:     req.Limit,
-		ScannedAt: time.Now().Format(time.RFC3339),
+		Issues:     []AuditIssue{},
+		Offset:     req.Offset,
+		Limit:      req.Limit,
+		ScannedAt:  time.Now().Format(time.RFC3339),
 	}
 
 	libraries := []string{libraryID}
@@ -374,6 +374,7 @@ func pathInScope(path, prefix string) bool {
 	}
 	return strings.HasPrefix(path, prefix+"/")
 }
+
 // CollectProblemIDs returns every item id in scope that fails the audit rules.
 // Audit() itself caps the returned issue window, so a full run cannot rely on
 // it; this walks the library directly.
@@ -402,6 +403,7 @@ func CollectProblemIDs(client *EmbyClient, libraryID, pathPrefix string) ([]stri
 	}
 	return ids, scanned, nil
 }
+
 // ResolveLibraryForPath picks the library whose root contains the given path
 // prefix, so a folder scope works without the caller naming its library.
 func ResolveLibraryForPath(client *EmbyClient, cfg *Config, prefix string) string {

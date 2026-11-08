@@ -120,7 +120,7 @@ type embyItem struct {
 	Studios     []struct {
 		Name string `json:"Name"`
 	} `json:"Studios"`
-	People      []struct {
+	People []struct {
 		Name string `json:"Name"`
 		Type string `json:"Type"`
 	} `json:"People"`
@@ -194,4 +194,3 @@ func (i embyItem) Number() string {
 	}
 	return ""
 }
-

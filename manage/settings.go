@@ -50,5 +50,3 @@ func initSettings() {
 	settings = Settings{ActorFallback: true}
 	settingsMu.Unlock()
 }
-
-

@@ -1,10 +1,10 @@
 package manage
 
 import (
-	"strings"
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // FetchMovies returns a page of movies from a library (or from every library
@@ -131,6 +131,7 @@ func (c *EmbyClient) ListFolders(parentID string) []FolderRef {
 	}
 	return out
 }
+
 // LibraryLocations maps library ids to their configured root paths.
 func (c *EmbyClient) LibraryLocations() map[string][]string {
 	out := map[string][]string{}
@@ -146,6 +147,7 @@ func (c *EmbyClient) LibraryLocations() map[string][]string {
 	}
 	return out
 }
+
 // WipeMetadata clears every metadata field of one item except its images, so a
 // following refresh rebuilds the entry from scratch. The file path and image
 // tags stay untouched.
@@ -192,4 +194,3 @@ func (c *EmbyClient) WipeMetadata(itemID string) error {
 	dto["PremiereDate"] = nil
 	return c.do(http.MethodPost, "/Items/"+url.PathEscape(itemID), nil, dto, nil)
 }
-
