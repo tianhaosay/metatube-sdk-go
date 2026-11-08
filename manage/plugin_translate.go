@@ -57,6 +57,13 @@ type pluginSettingsConfig struct {
 // below; it is the same struct so there is exactly one JSON shape.
 type pluginTranslationConfig = pluginSettingsConfig
 
+// GetPluginTranslationInfo exposes the read-only translation linkage view: the
+// engine and credentials come from the native plugin settings page.
+func GetPluginTranslationInfo() map[string]any {
+	return pluginTranslationInfo()
+}
+
+
 func pluginConfigPath() string {
 	c := getConfig()
 	if c == nil || c.EmbyPluginDir == "" {
