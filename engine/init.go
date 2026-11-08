@@ -17,6 +17,11 @@ func (e *Engine) init() *Engine {
 }
 
 func (e *Engine) initLogger() {
+	if e.logger != nil {
+		// WithLogger already installed a logger (e.g. one mirroring into the
+		// console log ring), so keep it.
+		return
+	}
 	e.logger = log.New(os.Stdout, "[ENGINE]\u0020", log.LstdFlags|log.Llongfile)
 }
 

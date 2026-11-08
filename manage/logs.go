@@ -206,13 +206,14 @@ func InstallLogCapture() *log.Logger {
 
 // parseStructured turns a key=value log line into a readable Chinese message.
 // The raw line may arrive as "[ENGINE] 2026/11/01 13:44:16 [FALLBACK] number=...",
-// so bracket prefixes and the date are stripped first.
+// and engine lines carry a caller prefix ("/src/engine/movie.go:260:") between
+// the timestamp and the bracket, so all of them are stripped first.
 func parseStructured(line string) (LogEntry, bool) {
 	s := strings.TrimSpace(line)
 	kind := ""
-	// The date may precede or follow the source bracket, so strip both
+	// Bracket, date and caller prefix may come in any order, so strip them
 	// repeatedly.
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 6; i++ {
 		if m := srcBracketRe.FindStringSubmatch(s); m != nil {
 			if m[1] == "SCRAPE" || m[1] == "FALLBACK" || m[1] == "TRANSLATE" {
 				kind = m[1]
@@ -222,6 +223,10 @@ func parseStructured(line string) (LogEntry, bool) {
 		}
 		if structuredDateRe.MatchString(s) {
 			s = strings.TrimSpace(structuredDateRe.ReplaceAllString(s, ""))
+			continue
+		}
+		if goFileRe.MatchString(s) {
+			s = strings.TrimSpace(goFileRe.ReplaceAllString(s, ""))
 			continue
 		}
 		break
