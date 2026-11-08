@@ -25,9 +25,15 @@ import (
 // plugin page and the backend picks it up without a restart.
 
 // pluginSettingsConfig is the complete subset of MetaTube.json that the
-// backend mirrors: translation engine/credentials PLUS the four runtime
-// toggles. All of them are configured in the native plugin settings page.
+// backend mirrors: connection info, translation engine/credentials and the
+// four runtime toggles. All of them are configured in the native plugin
+// settings page, which makes that page the single source of truth.
 type pluginSettingsConfig struct {
+	// Connection.
+	Server string `json:"Server"`
+	Token  string `json:"Token"`
+
+	// Translation.
 	TranslationMode   string `json:"TranslationMode"`
 	TranslationEngine string `json:"TranslationEngine"`
 	BaiduAppId        string `json:"BaiduAppId"`
@@ -47,8 +53,8 @@ type pluginSettingsConfig struct {
 	JavdbRateLimit      string `json:"JavdbRateLimit"`
 }
 
-// pluginTranslationConfig aliases the translation portion for callers that
-// only care about engines/credentials.
+// pluginTranslationConfig is the alias used by the translation-only helpers
+// below; it is the same struct so there is exactly one JSON shape.
 type pluginTranslationConfig = pluginSettingsConfig
 
 func pluginConfigPath() string {

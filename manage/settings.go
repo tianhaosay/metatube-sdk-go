@@ -51,10 +51,4 @@ func initSettings() {
 	settingsMu.Unlock()
 }
 
-// UpdateSettings is kept for API compatibility but no longer persists: the
-// console is read-only and the plugin page is the only place to change these.
-// It re-applies the plugin config so a stray POST can never desync them.
-func UpdateSettings(_ Settings) Settings {
-	applyPluginSettings()
-	return GetSettings()
-}
+

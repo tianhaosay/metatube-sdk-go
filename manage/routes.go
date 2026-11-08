@@ -39,7 +39,6 @@ func RegisterRoutes(r gin.IRouter, apiMiddleware ...gin.HandlerFunc) {
 		api.GET("/settings", getSettings)
 		api.POST("/settings", postSettings)
 		api.GET("/consistency", getConsistency)
-		api.GET("/plugin-state", getPluginState)
 		api.GET("/plugin-translation", getPluginTranslation)
 		api.POST("/translate-test", postTranslateTest)
 	}
@@ -134,13 +133,15 @@ func getSettings(c *gin.Context) {
 	jsonOK(c, GetSettings())
 }
 
+// postSettings is a read-only guard: the runtime toggles live in the native
+// MetaTube plugin settings page, so the console cannot change them. It replies
+// with the current (plugin-mirrored) values and explains where to edit.
 func postSettings(c *gin.Context) {
-	var s Settings
-	if err := c.ShouldBindJSON(&s); err != nil {
-		jsonErr(c, err)
-		return
-	}
-	jsonOK(c, UpdateSettings(s))
+	jsonOK(c, gin.H{
+		"read_only": true,
+		"message":   "这些设置只能在 Emby → 插件 → MetaTube 里修改，后端会自动跟随",
+		"settings":  GetSettings(),
+	})
 }
 
 func uiHandler(c *gin.Context) {
@@ -206,11 +207,7 @@ func HealthHandler(c *gin.Context) {
 	})
 }
 
-// getPluginState reports the Emby plugin configuration (read from a mounted
-// file) so the console can show conflicts like "plugin translates too".
-func getPluginState(c *gin.Context) {
-	jsonOK(c, GetPluginState())
-}
+
 
 // getPluginTranslation exposes the read-only translation linkage view: the
 // engine/key come from the native plugin settings page.
@@ -332,4 +329,3 @@ func postRefreshReset(c *gin.Context) {
 	_ = c.ShouldBindJSON(&body)
 	jsonOK(c, ResetRefreshProgress(body.Scope, body.PathPrefix))
 }
-
