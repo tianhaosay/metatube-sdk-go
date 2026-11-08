@@ -153,15 +153,18 @@ healthcheck:
 
 ## 数据源
 
-- **JavDB**：默认关闭（Cloudflare 限速）。作为长尾兜底启用：
+- **JavDB**：默认关闭（代码里 `Priority=0`，域名被 Cloudflare 限速）。作为长尾兜底启用时，只需要给一个正数优先级：
 
   ```yaml
-  MT_PROVIDER_JAVDB__PRIORITY=900
-  MT_PROVIDER_JAVDB__RATE_LIMIT=10s
+  MT_PROVIDER_JAVDB__PRIORITY=900   # 任意正数即可，数字越大越优先
   ```
 
-- **FANZA**：既接受 DMM content id，也接受普通番号（含 `START-015`、`T-38027` 这类带工作室前缀的 cid，走搜索回退）。
-- **限速**：所有 provider 共用一张冷却表，冷却时间由插件页的 `FanzaRateLimit` / `JavdbRateLimit` 控制。
+  - **冷却不用跟着写**：代码内建默认 10s，一般情况够用。确需调整时二选一：
+    `MT_PROVIDER_JAVDB__RATE_LIMIT=10s`（启动值）或插件页的「JavDB 冷却间隔」（默认 5s，运行期生效并覆盖启动值）。
+  - 也就是说冷却有两层：代码默认 10s → 环境变量启动值 → 插件页运行期值（最后生效）。只改一处就行，别两处各写一个数。
+  - **禁用 ≠ 兜底失效**：即使 JavDB 处于禁用状态，`EnableActorFallback`（默认开）仍会直接调用它查演员；`Priority` 只决定它是否作为候选刮削源参与搜索。
+- **FANZA**：既接受 DMM content id，也接受普通番号（含 `START-015`、`T-38027` 这类带工作室前缀的 cid，走搜索回退）。冷却默认 0（不限制），可在插件页调。
+- **限速**：所有 provider 共用一张冷却表；运行期以插件页的 `FanzaRateLimit` / `JavdbRateLimit` 为准。
 
 ## 开发
 

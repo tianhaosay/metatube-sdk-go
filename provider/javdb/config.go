@@ -11,8 +11,11 @@ import (
 //
 // Keys (env: MT_PROVIDER_JAVDB__<KEY>):
 //
-//	rate_limit - minimum interval between two javdb requests (default 10s;
-//	             <=0 disables). Cloudflare throttles this domain hard.
+//	rate_limit - minimum interval between two javdb requests (built-in default
+//	             10s; <=0 disables). Cloudflare throttles this domain hard.
+//
+// The built-in 10s is only a fallback: a rate_limit key here, or the console's
+// JavDB cooldown setting (read from MetaTube.json at runtime), both override it.
 //
 // JavDB ships disabled (Priority 0); enable it as a long-tail fallback with:
 //
