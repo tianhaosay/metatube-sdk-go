@@ -313,10 +313,11 @@ func Router(names ...string) *gin.Engine {
 // of staying off until the next restart.
 func buildEnrichPipeline() *enrich.Pipeline {
 	cfg := enrich.Config{
-		TranslateLang:        Config.TranslateLang,
-		DisableSummary:       Config.DisableSummary,
-		CleanSummary:         true,
-		ActorFallbackEnabled: true, // console switch default on; settings may turn it off
+		TranslateLang:  Config.TranslateLang,
+		DisableSummary: Config.DisableSummary,
+		CleanSummary:   true,
+		// ActorFallbackDisabled keeps its zero value (fallback on); the plugin
+		// settings page can turn it off and the backend follows at runtime.
 	}
 	if Config.MappingActorFile != "" {
 		cfg.Actors = enrich.NewLazyActor(Config.MappingActorFile)

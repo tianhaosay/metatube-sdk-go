@@ -234,7 +234,7 @@ func (e *Engine) getMovieInfoWithCallback(provider mt.MovieProvider, id string, 
 				// own (no scrape happens), so a library refresh could not repair
 				// it. Try the fallback once here as well; it keeps its own
 				// negative cache, so unfixable numbers are not retried.
-				if cfg.ActorFallbackEnabled && len(info.Actors) == 0 && cfg.ActorFallback != nil {
+				if !cfg.ActorFallbackDisabled && len(info.Actors) == 0 && cfg.ActorFallback != nil {
 					if actors := cfg.ActorFallback(info.Number); len(actors) > 0 {
 						info.Actors = actors
 						e.enrich.Apply(info)
