@@ -46,7 +46,7 @@
     "DisableSummary": false,
     "EnableActorFallback": true,
     "FanzaRateLimit": "0",
-    "JavdbRateLimit": "5s",
+    "JavdbRateLimit": "10s",
 
     "FeatureRequiresPremiere": false,
     "IsNewItem": false
