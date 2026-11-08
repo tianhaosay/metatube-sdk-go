@@ -9,6 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/metatube-community/metatube-sdk-go/common/throttle"
+	"github.com/metatube-community/metatube-sdk-go/provider/fanza"
+	"github.com/metatube-community/metatube-sdk-go/provider/javdb"
 	"github.com/metatube-community/metatube-sdk-go/translate"
 )
 
@@ -21,8 +24,10 @@ import (
 // This is the "one place to configure" linkage: change the engine/key in the
 // plugin page and the backend picks it up without a restart.
 
-// pluginTranslationConfig is the translation-related subset of MetaTube.json.
-type pluginTranslationConfig struct {
+// pluginSettingsConfig is the complete subset of MetaTube.json that the
+// backend mirrors: translation engine/credentials PLUS the four runtime
+// toggles. All of them are configured in the native plugin settings page.
+type pluginSettingsConfig struct {
 	TranslationMode   string `json:"TranslationMode"`
 	TranslationEngine string `json:"TranslationEngine"`
 	BaiduAppId        string `json:"BaiduAppId"`
@@ -34,7 +39,17 @@ type pluginTranslationConfig struct {
 	OpenAiApiKey      string `json:"OpenAiApiKey"`
 	OpenAiApiUrl      string `json:"OpenAiApiUrl"`
 	OpenAiModel       string `json:"OpenAiModel"`
+
+	// Runtime toggles (rendered as checkboxes / inputs in the plugin page).
+	DisableSummary      bool   `json:"DisableSummary"`
+	EnableActorFallback bool   `json:"EnableActorFallback"`
+	FanzaRateLimit      string `json:"FanzaRateLimit"`
+	JavdbRateLimit      string `json:"JavdbRateLimit"`
 }
+
+// pluginTranslationConfig aliases the translation portion for callers that
+// only care about engines/credentials.
+type pluginTranslationConfig = pluginSettingsConfig
 
 func pluginConfigPath() string {
 	c := getConfig()
@@ -44,18 +59,18 @@ func pluginConfigPath() string {
 	return filepath.Join(c.EmbyPluginDir, "MetaTube.json")
 }
 
-func readPluginTranslationConfig() (pluginTranslationConfig, bool) {
+func readPluginTranslationConfig() (pluginSettingsConfig, bool) {
 	path := pluginConfigPath()
 	if path == "" {
-		return pluginTranslationConfig{}, false
+		return pluginSettingsConfig{}, false
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return pluginTranslationConfig{}, false
+		return pluginSettingsConfig{}, false
 	}
-	var pc pluginTranslationConfig
+	var pc pluginSettingsConfig
 	if json.Unmarshal(data, &pc) != nil {
-		return pluginTranslationConfig{}, false
+		return pluginSettingsConfig{}, false
 	}
 	return pc, true
 }
@@ -208,11 +223,44 @@ func applyPluginTranslation() {
 	}
 }
 
-// StartPluginTranslationWatch applies the plugin translation config once
-// immediately and then keeps hot-reloading it. Called from cmd.Router after
-// the pipeline has been attached.
+// applyPluginSettings applies the four runtime toggles from MetaTube.json to
+// the live pipeline/providers. Combined with applyPluginTranslation this makes
+// the native plugin settings page the single source of truth.
+func applyPluginSettings() {
+	app := getPipeline()
+	if app == nil {
+		return
+	}
+	pc, ok := readPluginTranslationConfig()
+	if !ok {
+		return
+	}
+	app.SetDisableSummary(pc.DisableSummary)
+	app.SetActorFallbackEnabled(pc.EnableActorFallback)
+	if d, ok := parseDurationOr(pc.FanzaRateLimit); ok {
+		throttle.Set(fanza.Name, d)
+	}
+	if d, ok := parseDurationOr(pc.JavdbRateLimit); ok {
+		throttle.Set(javdb.Name, d)
+	}
+	// Keep GetSettings() in sync so the console's read-only view is truthful.
+	settingsMu.Lock()
+	settings = Settings{
+		DisableSummary: pc.DisableSummary,
+		ActorFallback:  pc.EnableActorFallback,
+		FanzaRateLimit: pc.FanzaRateLimit,
+		JavdbRateLimit: pc.JavdbRateLimit,
+	}
+	settingsMu.Unlock()
+	log.Printf("[manage] plugin settings: summary_off=%v actor_fallback=%v fanza=%q javdb=%q",
+		pc.DisableSummary, pc.EnableActorFallback, pc.FanzaRateLimit, pc.JavdbRateLimit)
+}
+
+// StartPluginTranslationWatch applies all plugin-driven settings once
+// immediately and then keeps hot-reloading them. Called from cmd.Router.
 func StartPluginTranslationWatch() {
 	applyPluginTranslation()
+	applyPluginSettings()
 	watchPluginTranslation()
 }
 
@@ -224,6 +272,7 @@ func watchPluginTranslation() {
 		defer ticker.Stop()
 		for range ticker.C {
 			applyPluginTranslation()
+			applyPluginSettings()
 		}
 	}()
 }

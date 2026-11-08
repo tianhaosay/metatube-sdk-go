@@ -142,31 +142,11 @@
       <!-- 数据源与映射同步 -->
       <section id="page-sources" class="hide">
         <div class="card">
-          <h2>演员兜底</h2>
-          <label class="switch">
-            <input type="checkbox" id="fbEnable" onchange="saveFallback()">
-            <span>开启 JavDB 演员兜底（默认开）</span>
-          </label>
-          <p class="muted" style="margin:2px 0 0">只在「开」时，主源（FANZA）返回 0 位演员才去 JavDB 确认一次；查不到记住 12 小时。JavBus 与 DMM 同源，无用。</p>
-          <div class="kv" style="margin-top:8px"><span>兜底数据源</span><b>JavDB</b></div>
-        </div>
-        <div class="card">
-          <h2>Emby 插件联动（只读）</h2>
-          <div id="pluginTrans" class="muted">读取中…</div>
-          <p class="muted" style="margin:6px 0 0">
-            翻译引擎 / 密钥 / 翻译模式等基础设置，请在 <b>Emby → 插件 → MetaTube</b> 里改。
-            本后端会自动读取并跟随（约 15 秒内生效）。为避免重复翻译，插件的「翻译模式」保持 <b>Disabled</b>。
-          </p>
-        </div>
-        <div class="card">
-          <h2>数据源冷却</h2>
-          <div class="grid g2">
-            <div><label class="f">FANZA(DMM) 冷却间隔</label><input id="sFanza" placeholder="0 = 关闭（默认）"></div>
-            <div><label class="f">JavDB 冷却间隔</label><input id="sJavdb" placeholder="5s"></div>
-          </div>
-          <div class="row" style="margin-top:8px">
-            <button onclick="saveRateLimits()">保存冷却</button>
-            <span class="muted" id="rateMsg"></span>
+          <h2>基础设置（在 Emby 插件页修改，此处只读）</h2>
+          <div id="pluginSettings" class="muted">读取中…</div>
+          <div class="notice" style="margin-top:10px">
+            以下设置请在 <b>Emby → 插件 → MetaTube</b> 里改；后端约 15 秒自动跟随。
+            翻译引擎 / 密钥 / 翻译模式 / 隐藏简介 / 演员兜底 / 冷却都在那一页。
           </div>
         </div>
         <div class="card">
@@ -219,7 +199,7 @@ document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>{
   document.querySelectorAll('section').forEach(s=>s.classList.add('hide'));
   $('page-'+p).classList.remove('hide');
   if(p==='logs') loadLogs();
-  if(p==='sources'){ loadSettings(); loadPluginTrans(); loadMappingInfo(); }
+  if(p==='sources'){ loadSettings(); loadMappingInfo(); }
 });
 
 // ---- 状态胶囊 ----
@@ -234,25 +214,7 @@ async function loadStatus(){
 }
 function setChip(id,text,cls){ const el=$(id); if(!el)return; el.className='chip'+(cls?' '+cls:''); el.innerHTML='<span class="dot"></span>'+esc(text); }
 
-async function refreshAll(){ await loadStatus(); if($('pluginTrans')) loadPluginTrans(); }
-
-// ---- 插件翻译联动（只读）----
-async function loadPluginTrans(){
-  try{
-    const t=await api('/manage/api/plugin-translation');
-    if(!t.found){ $('pluginTrans').innerHTML='<span class="muted">'+esc(t.reason||'未读取到插件配置')+'</span>'; return; }
-    const rows=[
-      ['翻译引擎', esc(t.engine||'-')],
-      ['后端引擎', esc(t.backend_engine||'-')],
-      ['密钥', t.key_present?'已填写':'未填写'],
-      ['插件翻译模式', esc(t.mode||'-')],
-      ['后端翻译', t.enabled?'已启用':'未启用'],
-    ];
-    $('pluginTrans').innerHTML=rows.map(r=>'<div class="kv"><span>'+r[0]+'</span><b>'+r[1]+'</b></div>').join('')
-      + (t.enabled?'<div class="okbox">✔ 后端正按插件设置翻译；插件模式保持 Disabled 即可</div>'
-                  :'<div class="notice">⚠ 插件里没有可用引擎/密钥，后端翻译未启用</div>');
-  }catch(e){ $('pluginTrans').innerHTML='<span class="muted">读取失败：'+esc(e.message)+'</span>'; }
-}
+async function refreshAll(){ await loadStatus(); if($('pluginSettings')) loadSettings(); }
 
 // ---- 体检 ----
 const ISSUE_LABEL={title_missing:'无标题',title_japanese:'标题日文',actor_japanese:'演员日文',no_actors:'无演员',genre_japanese:'流派日文',no_image:'无封面'};
@@ -358,25 +320,21 @@ function pollRefresh(){
   },1500);
 }
 
-// ---- 设置（冷却 / 演员兜底）----
-let settings=null;
+// ---- 基础设置：只读展示（真正修改在 Emby 插件页）----
 async function loadSettings(){
-  try{ settings=await api('/manage/api/settings'); }catch(e){ return; }
-  if(!settings)return;
-  $('sFanza').value=settings.fanza_rate_limit||'';
-  $('sJavdb').value=settings.javdb_rate_limit||'';
-  if($('fbEnable'))$('fbEnable').checked=settings.actor_fallback!==false;
-  if($('tNoSummary'))$('tNoSummary').checked=!!settings.disable_summary;
-}
-async function saveRateLimits(){
-  try{ const body=Object.assign({},settings,{fanza_rate_limit:$('sFanza').value.trim(),javdb_rate_limit:$('sJavdb').value.trim()});
-    await api('/manage/api/settings',{method:'POST',body:JSON.stringify(body)}); $('rateMsg').textContent='已保存'; }
-  catch(e){ $('rateMsg').textContent='失败：'+e.message; }
-}
-async function saveFallback(){
-  try{ const body=Object.assign({},settings,{actor_fallback:$('fbEnable').checked});
-    await api('/manage/api/settings',{method:'POST',body:JSON.stringify(body)}); toast($('fbEnable').checked?'演员兜底已开启':'演员兜底已关闭'); }
-  catch(e){ toast('失败：'+e.message); }
+  try{
+    const t=await api('/manage/api/plugin-translation');
+    const s=await api('/manage/api/settings');
+    const rows=[
+      ['翻译引擎', esc(t.engine||'-') + (t.enabled?'（已启用）':'（未启用）')],
+      ['翻译模式', esc(t.mode||'-')],
+      ['隐藏作品简介', s.disable_summary?'开启':'关闭'],
+      ['演员兜底 (JavDB)', s.actor_fallback!==false?'开启':'关闭'],
+      ['FANZA 冷却', esc(s.fanza_rate_limit||'0')],
+      ['JavDB 冷却', esc(s.javdb_rate_limit||'5s')],
+    ];
+    $('pluginSettings').innerHTML=rows.map(r=>'<div class="kv"><span>'+r[0]+'</span><b>'+r[1]+'</b></div>').join('');
+  }catch(e){ $('pluginSettings').innerHTML='<span class="muted">读取失败：'+esc(e.message)+'</span>'; }
 }
 
 // ---- 路径 / 映射 ----
