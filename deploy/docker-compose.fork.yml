@@ -36,7 +36,7 @@ services:
       # ---- 控制台 ----
       - MT_MANAGE=true
       # TODO: 改成你的 Emby 地址
-      - MT_MANAGE_EMBY_URL=http://192.168.1.100:8098
+      - MT_MANAGE_EMBY_URL=http://localhost:8098
       # TODO: 填 Emby API Key（Emby → 设置 → 高级 → API 密钥）
       - MT_MANAGE_EMBY_API_KEY=
       # TODO: 填要管理的媒体库 ID，多个用逗号分隔（留空=不限定）
