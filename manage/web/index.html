@@ -280,10 +280,9 @@ function renderIssues(){
   const items=auditData.issues||[], total=auditData.issue_count||0;
   $('auditCount').textContent='共 '+total+' 条'+(items.length?('，当前显示 '+(auditData.offset||0)+'–'+((auditData.offset||0)+items.length)):'');
   $('auditIssues').innerHTML=items.length
-    ?'<table><tr><th></th><th>名称 / 所在库</th><th>问题</th></tr>'+items.map(i=>{
-        const p=i.path||''; let lib='';
-        if(p.indexOf('/litepan-strm/')>=0)lib='JAV 库'; else if(p.indexOf('/strm-quark/')>=0)lib='夸克库';
-        return '<tr><td><input type="checkbox" class="auditPick" value="'+esc(i.id)+'" style="width:auto"></td><td>'+esc(i.name)+'<div class="muted">'+esc(i.number||'')+(lib?(' · <b>'+lib+'</b>'):'')+(p?(' · '+esc(p.slice(-46))):'')+'</div></td><td>'+(i.problems||[]).map(x=>'<span class="pill bad" style="margin-right:4px">'+esc(ISSUE_LABEL[x]||x)+'</span>').join('')+(i.notes||[]).map(x=>'<span class="pill gray" style="margin-right:4px">'+esc(NOTE_LABEL[x]||x)+'</span>').join('')+'</td></tr>';
+    ?'<table><tr><th></th><th>名称 / 路径</th><th>问题</th></tr>'+items.map(i=>{
+        const p=i.path||'';
+        return '<tr><td><input type="checkbox" class="auditPick" value="'+esc(i.id)+'" style="width:auto"></td><td>'+esc(i.name)+'<div class="muted">'+esc(i.number||'')+(p?(' · '+esc(p.slice(-46))):'')+'</div></td><td>'+(i.problems||[]).map(x=>'<span class="pill bad" style="margin-right:4px">'+esc(ISSUE_LABEL[x]||x)+'</span>').join('')+(i.notes||[]).map(x=>'<span class="pill gray" style="margin-right:4px">'+esc(NOTE_LABEL[x]||x)+'</span>').join('')+'</td></tr>';
       }).join('')+'</table>'
     :'<p class="muted">没有符合条件的问题</p>';
 }
