@@ -11,16 +11,24 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// RegisterRoutes mounts the manage UI and its JSON API on the given router.
+// uiBasePath is where the console is mounted. It is a variable (not a constant)
+// so a future release can change the mount point in one place.
+const uiBasePath = "/ui"
+
+// RegisterRoutes mounts the console UI and its JSON API on the given router.
+//
+// The UI lives at /ui (and /ui/), the JSON API at /ui/api/*. The previous
+// /manage paths are gone on purpose: one canonical URL keeps bookmarks and
+// documentation from drifting.
+//
 // apiMiddleware is applied to the JSON API only (the HTML shell stays public
 // so the UI can prompt for a token); pass route.RequireToken(token) to make
 // the console respect the server token.
 func RegisterRoutes(r gin.IRouter, apiMiddleware ...gin.HandlerFunc) {
-	// /healthz is the container healthcheck: no auth, no Emby calls.
-	r.GET("/manage/", uiHandler)
-	r.GET("/manage", uiHandler)
+	r.GET(uiBasePath, uiHandler)
+	r.GET(uiBasePath+"/", uiHandler)
 
-	api := r.Group("/manage/api")
+	api := r.Group(uiBasePath + "/api")
 	api.Use(corsMiddleware)
 	if len(apiMiddleware) > 0 {
 		api.Use(apiMiddleware...)

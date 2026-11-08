@@ -181,8 +181,15 @@
 
 <script>
 const $ = id => document.getElementById(id);
+// The console is mounted at /ui (optionally /ui/). Relative URLs would break
+// on the slash-less form, so derive the API root from the current location.
+const API_BASE = (function(){
+  const p = location.pathname.replace(/\/+$/, '');
+  return (p.endsWith('/ui') ? p : p + '/ui') + '/api';
+})();
 const api = async (path, opts={}) => {
-  const r = await fetch(path, Object.assign({headers:{'Content-Type':'application/json'}}, opts));
+  const url = path.startsWith('http') ? path : API_BASE + path;
+  const r = await fetch(url, Object.assign({headers:{'Content-Type':'application/json'}}, opts));
   const txt = await r.text();
   let data = {};
   try { data = txt ? JSON.parse(txt) : {}; } catch(e) { data = {raw: txt}; }
@@ -204,11 +211,11 @@ document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>{
 
 // ---- 状态胶囊 ----
 async function loadStatus(){
-  let st=null; try{ st=await api('/manage/api/status'); }catch(e){}
+  let st=null; try{ st=await api('/status'); }catch(e){}
   const emby=(st&&st.emby)||{}, map=(st&&st.mapping)||{};
   setChip('chipEmby', emby.connected?'Emby 已连接':'Emby 未连接', emby.connected?'ok':'bad');
   setChip('chipMapping', '映射 '+(map.entries||0)+' 条', map.entries>0?'ok':'warn');
-  let ti={}; try{ ti=await api('/manage/api/plugin-translation'); }catch(e){}
+  let ti={}; try{ ti=await api('/plugin-translation'); }catch(e){}
   const on=ti.enabled;
   setChip('chipTranslate', on?('翻译 '+esc(ti.engine||'')):'翻译未启用', on?'ok':'warn');
 }
@@ -226,7 +233,7 @@ async function runAudit(filter,keepOffset){
   $('auditMsg').textContent='扫描中…';
   try{
     const pp=$('pathSel')?$('pathSel').value:'';
-    auditData=await api('/manage/api/audit?offset='+auditOffset+'&limit='+auditLimit
+    auditData=await api('/audit?offset='+auditOffset+'&limit='+auditLimit
       +(pp?('&path_prefix='+encodeURIComponent(pp)):'')
       +(auditFilter?('&problem='+encodeURIComponent(auditFilter)):''));
     $('auditMsg').textContent='扫描完成：共 '+auditData.total+' 部，合格 '+auditData.ok+'，有问题 '+auditData.problem_count
@@ -265,13 +272,13 @@ function auditPrev(){ auditOffset=Math.max(0,auditOffset-auditLimit); runAudit(u
 async function refreshSelected(){
   const ids=[].slice.call(document.querySelectorAll('.auditPick:checked')).map(c=>c.value);
   if(!ids.length)return toast('先选择要重刮的条目');
-  try{ const r=await api('/manage/api/fix',{method:'POST',body:JSON.stringify({action:'refresh',ids:ids,limit:ids.length,replace_all:!!($('rfReplace')&&$('rfReplace').checked)})}); toast('已触发重刮：成功 '+r.ok+'，失败 '+r.failed); }
+  try{ const r=await api('/fix',{method:'POST',body:JSON.stringify({action:'refresh',ids:ids,limit:ids.length,replace_all:!!($('rfReplace')&&$('rfReplace').checked)})}); toast('已触发重刮：成功 '+r.ok+'，失败 '+r.failed); }
   catch(e){ toast('失败：'+e.message); }
 }
 async function retitleSelected(){
   const ids=[].slice.call(document.querySelectorAll('.auditPick:checked')).map(c=>c.value);
   if(!ids.length)return toast('先选择要修正标题的条目');
-  try{ const r=await api('/manage/api/fix',{method:'POST',body:JSON.stringify({action:'retitle',ids:ids,limit:ids.length})}); toast('标题修正：成功 '+r.ok+'，失败 '+r.failed); }
+  try{ const r=await api('/fix',{method:'POST',body:JSON.stringify({action:'retitle',ids:ids,limit:ids.length})}); toast('标题修正：成功 '+r.ok+'，失败 '+r.failed); }
   catch(e){ toast('失败：'+e.message); }
 }
 
@@ -281,25 +288,25 @@ async function startRefresh(){
     path_prefix:$('pathSel')?$('pathSel').value:'',limit:parseInt($('rfLimit').value||'0',10)||0,
     item_delay_ms:parseInt($('rfDelay').value||'200',10)||200,batch_size:parseInt($('rfBatch').value||'200',10)||200,
     batch_pause_sec:parseInt($('rfPause').value||'5',10)||0};
-  try{ const r=await api('/manage/api/refresh/start',{method:'POST',body:JSON.stringify(body)});
+  try{ const r=await api('/refresh/start',{method:'POST',body:JSON.stringify(body)});
     $('rfMsg').textContent=r.started?('已开始，共 '+r.total+' 部'+(r.skipped?('（跳过已刷 '+r.skipped+'）'):'')):(r.message||'没有需要刷新的条目'); pollRefresh(); }
   catch(e){ $('rfMsg').textContent='失败：'+e.message; }
 }
-async function stopRefresh(){ try{ await api('/manage/api/refresh/stop',{method:'POST'}); $('rfMsg').textContent='正在暂停…'; }catch(e){ $('rfMsg').textContent='失败：'+e.message; } }
+async function stopRefresh(){ try{ await api('/refresh/stop',{method:'POST'}); $('rfMsg').textContent='正在暂停…'; }catch(e){ $('rfMsg').textContent='失败：'+e.message; } }
 async function wipeMetadata(){
   const scope=$('rfScope').value,pp=$('pathSel')?$('pathSel').value:'';
   if(!confirm('清空所选范围的元数据（标题留空回落文件名，简介/流派/演员/标签清空），图片与字幕保留。继续？'))return;
   const body={mode:'wipe',scope:scope,path_prefix:pp,limit:parseInt($('rfLimit').value||'0',10)||0,
     item_delay_ms:parseInt($('rfDelay').value||'200',10)||200,batch_size:parseInt($('rfBatch').value||'200',10)||200,
     batch_pause_sec:parseInt($('rfPause').value||'5',10)||0};
-  try{ const r=await api('/manage/api/refresh/start',{method:'POST',body:JSON.stringify(body)});
+  try{ const r=await api('/refresh/start',{method:'POST',body:JSON.stringify(body)});
     $('rfMsg').textContent=r.started?('开始清空，共 '+r.total+' 部（图片保留）'):(r.message||'没有需要处理的条目'); pollRefresh(); }
   catch(e){ $('rfMsg').textContent='失败：'+e.message; }
 }
 async function resetRefresh(){
   const scope=$('rfScope').value,pp=$('pathSel')?$('pathSel').value:'';
   if(!confirm('重置该范围的刷新进度？'))return;
-  try{ await api('/manage/api/refresh/reset',{method:'POST',body:JSON.stringify({scope:scope,path_prefix:pp})});
+  try{ await api('/refresh/reset',{method:'POST',body:JSON.stringify({scope:scope,path_prefix:pp})});
     $('rfMsg').textContent='进度已重置'; $('rfText').textContent='空闲'; $('rfBar').style.width='0%'; }
   catch(e){ $('rfMsg').textContent='失败：'+e.message; }
 }
@@ -308,7 +315,7 @@ function pollRefresh(){
   if(rfTimer)return;
   rfTimer=setInterval(async function(){
     try{
-      const s=await api('/manage/api/refresh/status');
+      const s=await api('/refresh/status');
       const ans=(s.answered!=null?s.answered:s.done), ansPct=s.total?Math.round(ans*100/s.total):0;
       $('rfBar').style.width=(s.percent||0)+'%'; if($('rfBar2'))$('rfBar2').style.width=ansPct+'%';
       if(!s.running&&!s.total)$('rfText').textContent='空闲';
@@ -323,8 +330,8 @@ function pollRefresh(){
 // ---- 基础设置：只读展示（真正修改在 Emby 插件页）----
 async function loadSettings(){
   try{
-    const t=await api('/manage/api/plugin-translation');
-    const s=await api('/manage/api/settings');
+    const t=await api('/plugin-translation');
+    const s=await api('/settings');
     const rows=[
       ['翻译引擎', esc(t.engine||'-') + (t.enabled?'（已启用）':'（未启用）')],
       ['翻译模式', esc(t.mode||'-')],
@@ -353,14 +360,14 @@ function loadPrefs(){
 function bindPrefs(){ ['pathSel','rfScope','rfLimit','rfDelay','rfBatch','rfPause','rfReplace','logLevel','logSource'].forEach(id=>{
   const el=$(id); if(!el)return; el.addEventListener('change',savePrefs); el.addEventListener('input',savePrefs); }); }
 async function loadPaths(){
-  try{ const groups=await api('/manage/api/paths'); const sel=$('pathSel'); if(!sel)return;
+  try{ const groups=await api('/paths'); const sel=$('pathSel'); if(!sel)return;
     groups.forEach(function(g){ (g.items||[]).forEach(function(f){ if(!f.path)return;
       const o=document.createElement('option'); o.value=f.path; o.textContent=f.path.replace('/media/',''); sel.appendChild(o); }); }); }catch(e){}
   loadPrefs();
 }
 function onPathChange(){ const v=$('pathSel').value; $('pathHint').textContent=v?('仅处理：'+v):''; auditOffset=0; }
 async function loadMappingInfo(){
-  try{ const st=await api('/manage/api/status'); const m=st.mapping||{};
+  try{ const st=await api('/status'); const m=st.mapping||{};
     $('mappingInfo').innerHTML='<div class="kv"><span>文件</span><b>'+esc(m.path||'-')+'</b></div>'
       +'<div class="kv"><span>条目</span><b>'+(m.entries||0)+'</b></div>'
       +'<div class="kv"><span>版本</span><b>'+esc(String(m.version||'-').slice(0,12))+'</b></div>'
@@ -368,7 +375,7 @@ async function loadMappingInfo(){
 }
 async function syncMapping(){
   $('syncMsg').textContent='同步中…';
-  try{ const r=await api('/manage/api/mapping/sync',{method:'POST'});
+  try{ const r=await api('/mapping/sync',{method:'POST'});
     $('syncMsg').textContent=r.updated?('已更新到 '+String(r.version||'').slice(0,8)+'（'+(r.records||0)+' 条）'):(r.message||'无更新'); loadMappingInfo(); }
   catch(e){ $('syncMsg').textContent='失败：'+e.message; }
 }
@@ -377,7 +384,7 @@ async function syncMapping(){
 let logTimer=null;
 async function loadLogs(){
   const q=new URLSearchParams({number:$('logNum').value.trim(),level:$('logLevel').value,source:$('logSource').value,limit:'300'});
-  try{ const r=await api('/manage/api/logs?'+q.toString()); $('logCount').textContent='共 '+(r.total||0)+' 条';
+  try{ const r=await api('/logs?'+q.toString()); $('logCount').textContent='共 '+(r.total||0)+' 条';
     const logs=r.logs||[];
     $('logbox').innerHTML=logs.length
       ?logs.map(function(l){return '<div class="logline"><span class="t">'+esc(l.time||'')+'</span><span class="src">'+esc(l.source||'')+'</span>'+(l.number?('<span class="num">'+esc(l.number)+'</span>'):'')+'<span class="msg">'+esc(l.message||'')+'</span></div>';}).join('')
