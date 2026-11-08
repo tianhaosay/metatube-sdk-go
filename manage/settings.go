@@ -44,7 +44,7 @@ func GetSettings() Settings {
 }
 
 // initSettings seeds the mirror with safe defaults. The real values arrive
-// from MetaTube.json via StartPluginTranslationWatch → applyPluginSettings.
+// from MetaTube.json via StartPluginSettingsWatch → applyPluginSettings.
 func initSettings() {
 	settingsMu.Lock()
 	settings = Settings{ActorFallback: true}
