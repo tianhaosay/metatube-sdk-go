@@ -20,8 +20,8 @@ services:
       - TZ=Asia/Shanghai
 
       # 映射表：对所有刮削源生效
-      # 首次部署前把 deploy/mapping/mapping_info.xml 复制到 ./mapping/（见 README「映射表种子」）。
-      # 演员表有在线同步源，会自动下载；流派词典没有在线源，必须预置。
+      # 流派词典已内置，首次启动自动写入 ./mapping/（已存在则不覆盖）；
+      # 演员表有在线同步源，会自动下载。无需手动复制任何文件。
       - MT_MAPPING_ACTOR_FILE=/data/mapping/mapping_actor.xml
       - MT_MAPPING_INFO_FILE=/data/mapping/mapping_info.xml
       - MT_GENRE_DICT=/data/mapping/genre_dict.json

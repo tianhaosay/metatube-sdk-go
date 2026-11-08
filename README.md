@@ -78,17 +78,12 @@ cp deploy/docker-compose.fork.yml docker-compose.yml
 docker compose up -d
 ```
 
-### 映射表种子（首次部署必做一次）
+### 流派词典：内置，开箱即用
 
-流派词典 `mapping_info.xml` **没有在线同步源**，必须预置，否则流派只能靠引擎逐词直译，会出现「高视力」「细长的」这类结果：
+流派词典 `mapping_info.xml` **已内置在镜像里**：首次启动时若运行目录没有该文件，后端会自动写入一份词库（435 条），**不需要手动复制**。
 
-```bash
-mkdir -p ./mapping
-cp deploy/mapping/mapping_info.xml ./mapping/
-```
-
-- 演员表（`mapping_actor.xml`）有在线源，首次启动会自动下载，不用预置。
-- `genre_dict.json` 是「引擎翻过的词」的缓存，**不要预置**；如果运行中存下了低质量译名（`ハイビジョン→高视力` 之类），删掉它会重新按词典映射。
+- 想自定义：直接编辑运行目录里的 `mapping_info.xml`（服务按 mtime 热重载，已有文件不会被覆盖）。
+- `genre_dict.json` 是「引擎翻过的词」的缓存，**不要预置**；若运行中存下低质量译名，删掉它会重新按词典映射。
 - 词典格式、更新方式与缓存清理细节见 [deploy/mapping/README.md](deploy/mapping/README.md)。
 
 **最小配置**分两部分，只跑刮削时其实不需要控制台：

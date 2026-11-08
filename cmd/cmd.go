@@ -19,6 +19,7 @@ import (
 	"github.com/metatube-community/metatube-sdk-go/database"
 	"github.com/metatube-community/metatube-sdk-go/engine"
 	"github.com/metatube-community/metatube-sdk-go/internal/envconfig"
+	"github.com/metatube-community/metatube-sdk-go/internal/seed"
 	"github.com/metatube-community/metatube-sdk-go/manage"
 	"github.com/metatube-community/metatube-sdk-go/provider"
 	"github.com/metatube-community/metatube-sdk-go/route"
@@ -180,6 +181,14 @@ func applyMetaTubeEnvOverrides() {
 }
 
 func Router(names ...string) *gin.Engine {
+	// Install the built-in genre mapping table on first start; an existing file
+	// (user-edited) is never overwritten.
+	if written, seedErr := seed.EnsureMappingInfo(Config.MappingInfoFile); seedErr != nil {
+		log.Printf("[seed] install genre mapping table: %v", seedErr)
+	} else if written {
+		log.Printf("[seed] installed built-in genre mapping table: %s", Config.MappingInfoFile)
+	}
+
 	db, err := database.Open(&database.Config{
 		DSN:                  Config.DSN,
 		PreparedStmt:         Config.DBPreparedStmt,
