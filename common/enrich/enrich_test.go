@@ -63,7 +63,10 @@ func TestApply_MapsActorsAndGenres(t *testing.T) {
 	}
 }
 
-func TestApply_TranslationAndSummary(t *testing.T) {
+func TestApply_KeepsTitleAndSummaryUntranslated(t *testing.T) {
+	// A1: the backend no longer translates title/summary. The Emby plugin owns
+	// that, calling /v1/translate itself. Here we assert the backend leaves the
+	// text alone even when a translator is configured (it only serves genres).
 	tr := &fakeTranslator{out: "中文"}
 	p := New(Config{Translator: tr, CleanSummary: true})
 	info := &model.MovieInfo{
@@ -72,19 +75,16 @@ func TestApply_TranslationAndSummary(t *testing.T) {
 		Summary: "line1\n\n\n\nline2",
 	}
 	p.Apply(info)
-	if info.Title != "中文" || info.Summary != "中文" {
-		t.Fatalf("translated fields = %q / %q", info.Title, info.Summary)
+	if info.Title != "日本語タイトル" {
+		t.Fatalf("title must stay untranslated, got %q", info.Title)
 	}
-	if len(tr.calls) != 2 {
-		t.Fatalf("expected 2 translate calls, got %d", len(tr.calls))
+	if info.Summary != "line1\nline2" {
+		t.Fatalf("summary should only be newline-collapsed, got %q", info.Summary)
 	}
-
-	// translation failure keeps the original text.
-	p2 := New(Config{Translator: &fakeTranslator{err: errTest}})
-	info2 := &model.MovieInfo{Title: "日本語", Summary: "本文"}
-	p2.Apply(info2)
-	if info2.Title != "日本語" || info2.Summary != "本文" {
-		t.Fatalf("failed translation must keep originals, got %q / %q", info2.Title, info2.Summary)
+	for _, c := range tr.calls {
+		if c == "日本語タイトル" || strings.Contains(c, "line1") {
+			t.Fatalf("translator must not receive title/summary, got call %q", c)
+		}
 	}
 }
 

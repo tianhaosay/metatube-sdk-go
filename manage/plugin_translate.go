@@ -170,7 +170,6 @@ func pluginTranslationInfo() map[string]any {
 	}
 }
 
-
 // genreTranslator builds a translator used ONLY for Japanese genre/tag
 // normalization, backed by the persistent genre dictionary.
 //
