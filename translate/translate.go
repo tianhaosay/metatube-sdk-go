@@ -1,6 +1,7 @@
 package translate
 
 import (
+	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
@@ -74,4 +75,52 @@ func New(name string, unmarshal func(any) error) Translator {
 		return &errorTranslator{err}
 	}
 	return t
+}
+
+// Exists reports whether an engine with the given name is registered.
+func Exists(name string) bool {
+	return match(name).new != nil
+}
+
+// Build creates a Translator by engine name with the given params.
+//
+// Param keys are matched case-insensitively (ignoring '-' and '_') against the
+// engine's JSON-tagged fields, so environment-variable-friendly keys like
+// "DEEPL_API_KEY" map onto the "deepl-api-key" field.
+func Build(name string, params map[string]string) Translator {
+	if !Exists(name) {
+		return ErrTranslator
+	}
+	return New(name, func(v any) error {
+		alias := map[string]string{} // normalized key -> json tag
+		rv := reflect.TypeOf(v).Elem()
+		for i := 0; i < rv.NumField(); i++ {
+			tag := rv.Field(i).Tag.Get("json")
+			if tag == "" {
+				tag = rv.Field(i).Name
+			}
+			tag = strings.Split(tag, ",")[0]
+			alias[normalizeParamKey(tag)] = tag
+		}
+		m := make(map[string]string, len(params))
+		for k, val := range params {
+			if tag, ok := alias[normalizeParamKey(k)]; ok {
+				m[tag] = val
+			}
+		}
+		data, err := json.Marshal(m)
+		if err != nil {
+			return err
+		}
+		return json.Unmarshal(data, v)
+	})
+}
+
+// normalizeParamKey lower-cases a key and drops '-' and '_' so that
+// "deepl-api-key", "DEEPL_API_KEY" and "DeeplApiKey" all compare equal.
+func normalizeParamKey(s string) string {
+	s = strings.ToLower(s)
+	s = strings.ReplaceAll(s, "-", "")
+	s = strings.ReplaceAll(s, "_", "")
+	return s
 }
