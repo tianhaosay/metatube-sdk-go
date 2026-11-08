@@ -291,7 +291,7 @@ func Router(names ...string) *gin.Engine {
 			MappingSyncInterval: Config.MappingSyncInterval,
 		})
 		manage.SetBackendURL("http://127.0.0.1:" + Config.Port)
-		manage.StartPluginTranslationWatch()
+		manage.StartPluginSettingsWatch()
 		manage.RegisterRoutes(ginApp, route.RequireToken(token))
 	} else if Config.MappingOnline && Config.MappingActorFile != "" {
 		// Mapping sync without the manage UI still runs in the background.

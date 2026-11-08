@@ -217,7 +217,9 @@ func (p *Pipeline) Apply(info *model.MovieInfo) {
 		info.Genres = dedupe(genres)
 	}
 
-	// 3. Summary housekeeping.
+	// 3. Summary housekeeping. This is a plain field operation, independent of
+	// any translator: when DisableSummary is on the summary is dropped here and
+	// the plugin receives an empty value, so nothing downstream can re-add it.
 	switch {
 	case cfg.DisableSummary:
 		info.Summary = ""
@@ -225,29 +227,14 @@ func (p *Pipeline) Apply(info *model.MovieInfo) {
 		info.Summary = collapseNewlines(info.Summary)
 	}
 
-	// 4. Translation (title first: it is the field users notice).
-	if cfg.Translator == nil {
-		if kanaRe.MatchString(info.Title) {
-			log.Printf("[enrich] %s: no translator configured, keeping original title", info.Number)
-		}
-		return
-	}
-	target := cfg.TranslateLang
-	if target == "" {
-		target = "zh-CN"
-	}
-	if info.Title != "" {
-		if t := translateField(cfg.Translator, info.Title, target, info.Number); t != "" {
-			info.Title = t
-			log.Printf("[TRANSLATE] number=%s field=title engine=%s result=ok text=%q", info.Number, engineName(cfg.Translator), preview(t))
-		}
-	}
-	if info.Summary != "" {
-		if t := translateField(cfg.Translator, info.Summary, target, info.Number); t != "" {
-			info.Summary = t
-			log.Printf("[TRANSLATE] number=%s field=summary engine=%s result=ok text=%q", info.Number, engineName(cfg.Translator), preview(t))
-		}
-	}
+	// Title and summary translation are intentionally NOT done here.
+	//
+	// Upstream metatube never translates metadata: it only exposes
+	// /v1/translate, and the Emby plugin calls it with its own engine and
+	// settings. Keeping that split means one translator, one place to configure
+	// (the plugin page) and no chance of a title being translated twice.
+	// Genre translation above is different: it is tag normalization backed by
+	// the persistent dictionary, not free-text translation.
 }
 
 // hanRe matches Chinese characters. A zh-CN translation that contains none is
@@ -255,14 +242,14 @@ func (p *Pipeline) Apply(info *model.MovieInfo) {
 // romanization or an empty-ish fragment instead of Chinese).
 var hanRe = regexp.MustCompile(`[\x{4e00}-\x{9fff}]`)
 
-// engineName reports which translator answered last (used only for logging).
+// engineName reports a short label for logging. The concrete engine name is
+// not exposed by the Translator interface, so the caller logs the configured
+// primary separately; this keeps the log line readable without reflection.
 func engineName(t translate.Translator) string {
-	if e, ok := t.(interface{ LastEngine() string }); ok {
-		if n := e.LastEngine(); n != "" {
-			return n
-		}
+	if t == nil {
+		return "none"
 	}
-	return "default"
+	return "engine"
 }
 
 // preview shortens a translated string for the console log.
@@ -274,11 +261,10 @@ func preview(s string) string {
 	return string(r[:26]) + "…"
 }
 
+// translateField translates one genre/tag and validates the result is usable
+// Chinese. An empty return means "keep the original".
 func translateField(t translate.Translator, text, target, ref string) string {
-	if rt, ok := t.(translate.RefTranslator); ok {
-		if out, err := rt.TranslateWithRef(text, "auto", target, ref); err == nil && acceptableTranslation(text, out, target) {
-			return out
-		}
+	if t == nil {
 		return ""
 	}
 	if out, err := t.Translate(text, "auto", target); err == nil && acceptableTranslation(text, out, target) {
