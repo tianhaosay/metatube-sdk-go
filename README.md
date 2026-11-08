@@ -1,64 +1,184 @@
-# MetaTube SDK Go
+# metatube-plus
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/metatube-community/metatube-sdk-go/docker.yml?branch=main&style=flat-square&logo=github-actions)](https://github.com/metatube-community/metatube-sdk-go/actions/workflows/release.yml)
-[![Go Linter](https://img.shields.io/github/actions/workflow/status/metatube-community/metatube-sdk-go/linter.yml?style=flat-square&branch=main&logo=githubactions&label=golangci-lint)](https://github.com/metatube-community/metatube-sdk-go/actions/workflows/linter.yml)
-[![Require Go Version](https://img.shields.io/badge/go-%3E%3D1.25-30dff3?style=flat-square&logo=go)](https://github.com/metatube-community/metatube-sdk-go/blob/main/go.mod)
-[![GitHub License](https://img.shields.io/github/license/metatube-community/metatube-sdk-go?color=e4682a&logo=apache&style=flat-square)](https://github.com/metatube-community/metatube-sdk-go/blob/main/LICENSE)
-[![Tag](https://img.shields.io/github/v/tag/metatube-community/metatube-sdk-go?color=%23ff8936&logo=fitbit&style=flat-square)](https://github.com/metatube-community/metatube-sdk-go/tags)
+在 [metatube-community/metatube-sdk-go](https://github.com/metatube-community/metatube-sdk-go) 基础上增强的元数据中文化后端，自带运维控制台；与 Emby 的 MetaTube 插件配套使用，面向「Emby + NAS + 国内网络」的单人/小规模部署。
 
-Metadata Tube SDK in Golang.
+> A fork of `metatube-sdk-go` that adds metadata Sinicization (Chinese actor and genre normalization), an operator console, JavDB actor fallback and batch library repair, built for Emby on a NAS.
 
-## Contents
+[![Go Linter](https://img.shields.io/github/actions/workflow/status/tianhaosay/metatube-sdk-go/linter.yml?branch=main&style=flat-square&logo=githubactions&label=golangci-lint)](https://github.com/tianhaosay/metatube-sdk-go/actions/workflows/linter.yml)
+[![Test](https://img.shields.io/github/actions/workflow/status/tianhaosay/metatube-sdk-go/test.yml?branch=main&style=flat-square&logo=github-actions&label=test)](https://github.com/tianhaosay/metatube-sdk-go/actions/workflows/test.yml)
+[![Go Version](https://img.shields.io/badge/go-1.26-30dff3?style=flat-square&logo=go)](go.mod)
+[![License](https://img.shields.io/badge/license-Apache--2.0-e4682a?style=flat-square)](LICENSE)
 
-- [MetaTube SDK Go](#metatube-sdk-go)
-    - [Contents](#contents)
-    - [Features](#features)
-    - [Installation](#installation)
-    - [Credits](#credits)
-    - [License](#license)
+## 与上游的关系
 
-## Features
+- 这是**功能增强分支**，不是替代品：刮削逻辑、数据源实现、数据库层都沿用上游，新增能力以独立包「外挂」在关键位置挂钩子。
+- 规模：新增 34 个文件（约 5.6k 行），修改上游 14 个文件（约 +0.5k 行）。
+- 上游仍是权威来源；同步方式见[升级上游](#升级上游)。
 
-- Supported platforms
-    - Linux
-    - Darwin
-    - Windows
-    - BSD(s)
-- Supported Databases
-    - [SQLite](https://gitlab.com/cznic/sqlite)
-    - [PostgreSQL](https://github.com/jackc/pgx)
-- Image processing
-    - Auto cropping
-    - Badge support
-    - Face detection
-    - Image hashing
-- RESTful API
-- 20+ providers
-- Text translation
+## 三个部件，别搞混
 
-## Installation
+| 部件 | 在哪 | 谁维护 | 负责什么 |
+|---|---|---|---|
+| MetaTube 插件 | Emby 内（`MetaTube.dll`） | 上游原版 | 取数通道、标题/简介翻译、插件设置页 |
+| 后端（本仓库） | 容器 `metatube`，默认 `:8080` | 本 fork | 演员/流派中文化、简介处理、体检、批量修复、日志 |
+| 控制台（本仓库） | `http://<host>:8080/ui` | 本 fork | 库体检、数据源与映射同步、日志 |
 
-To install this package, you first need [Go](https://golang.org/) installed (**go1.25+ is required**), then you can use
-the below Go command to install SDK.
+## 功能
 
-```sh
-go get -u github.com/metatube-community/metatube-sdk-go
+| 能力 | 说明 |
+|---|---|
+| 中文化管线 | 演员名按映射表归一、流派先查词典再翻（结果写回词典）、简介折叠空行或清空；对所有刮削源生效 |
+| 演员映射表 | 从 GitHub 定时同步（约 2.6 万条），文件变动后热加载，无需重启 |
+| 演员兜底 | 主源没有演员时向 JavDB 查询一次；失败结果缓存 12 小时，避免全库刷新反复打空 |
+| 全库体检 | 6 类问题（无标题 / 标题日文 / 演员日文 / 无演员 / 流派日文 / 无封面）+ 「演员未收录（需人工）」提示 |
+| 批量修复 | 重刮、标题修正、清空元数据；分批、可暂停、进度存盘可续跑，双进度条区分「已派发」与「后台已完成」 |
+| 无码破解标签 | 文件名带 `-LTX` / `-U` / `-UC` 的影片追加「无码破解」类型，支持预览模式 |
+| 运维控制台 | `/ui` 三个页签；基础设置只读镜像，真正修改入口在插件页 |
+| 日志检索 | 按番号 / 级别 / 来源（抓取、兜底、翻译、引擎、接口）过滤 |
+| JavDB 数据源 | 内置但默认关闭（优先级 0），需要时显式开启 |
+
+## 翻译与配置的分工
+
+**只有一个配置入口：Emby → 插件 → MetaTube 设置页。** 后端通过只读挂载读取同一份 `MetaTube.json`，约 15 秒热加载，不需要重启。
+
+| 内容 | 负责方 | 备注 |
+|---|---|---|
+| 标题 / 简介 | Emby 插件 | 插件的 `TranslationMode` **必须非 `Disabled`**，否则没人翻 |
+| 流派 / 标签 | 后端 | 词典优先，未命中时调用插件配置的引擎，结果写回词典 |
+| 演员名 | 后端 | 映射表归一 |
+| 简介隐藏 | 后端 | 单纯清空字段，与翻译无关 |
+
+引擎、密钥、翻译模式、隐藏简介、演员兜底、数据源冷却都在插件页；控制台「数据源与映射同步」只做只读展示。
+
+## 部署
+
+镜像 `metatube-plus:latest`，模板 [`deploy/docker-compose.fork.yml`](deploy/docker-compose.fork.yml)。
+
+```bash
+cp deploy/docker-compose.fork.yml docker-compose.yml
+# 修改三个 TODO：Emby 地址、API Key、媒体库 ID
+docker compose up -d
 ```
 
-## Credits
+必需的环境变量：
 
-| Library														                                           | Description																						                                                                    |
-|-----------------------------------------------------------------|------------------------------------------------------------------------------------------------------|
-| [gocolly/colly](https://github.com/gocolly/colly)			            | Elegant Scraper and Crawler Framework for Golang													                                        |
-| [gin-gonic/gin](https://github.com/gin-gonic/gin)			            | Gin is a HTTP web framework written in Go															                                             |
-| [gorm.io/gorm](https://gorm.io/)								                        | The fantastic ORM library for Golang																                                                 |
-| [esimov/pigo](https://github.com/esimov/pigo)				               | Fast face detection, pupil/eyes localization and facial landmark points detection library in pure Go |
-| [robertkrimen/otto](https://github.com/robertkrimen/otto)       | A JavaScript interpreter in Go (golang)                                                              |
-| [modernc.org/sqlite](https://gitlab.com/cznic/sqlite)		         | Package sqlite is a CGo-free port of SQLite/SQLite3												                                      |
-| [corona10/goimagehash](https://github.com/corona10/goimagehash) | Go Perceptual image hashing package																                                                  |
-| [antchfx/xpath](https://github.com/antchfx/xpath)			            | XPath package for Golang, supports HTML, XML, JSON document query									                           |
-| [gen2brain/jpegli](https://github.com/gen2brain/jpegli)         | Go encoder/decoder for JPEG based on jpegli                                                          |
+```yaml
+MT_MAPPING_ACTOR_FILE=/data/mapping/mapping_actor.xml
+MT_MAPPING_INFO_FILE=/data/mapping/mapping_info.xml
+MT_GENRE_DICT=/data/mapping/genre_dict.json
+MT_MANAGE=true
+MT_MANAGE_EMBY_URL=http://<emby>:8098
+MT_MANAGE_EMBY_API_KEY=<emby api key>
+MT_MANAGE_EMBY_LIBRARIES=<library id>
+```
 
-## License
+- `MT_TOKEN` 留空表示不鉴权，插件 Token 也留空即可（仅限内网）。
+- 映射表目录**必须可写**：流派词典、刷新进度、负缓存都写在这里。
+- `MT_EMBY_PLUGIN_DIR` 指向 Emby 插件配置目录（只读挂载），后端据此读取翻译设置与运行开关。
+- `MT_DISABLE_SUMMARY`、`MT_ACTOR_FALLBACK`、`MT_MAPPING_SYNC_INTERVAL` 等是启动默认值，运行期以插件设置页为准。
 
-[Apache-2.0 License](https://github.com/metatube-community/metatube-sdk-go/blob/main/LICENSE)
+健康检查：
+
+```yaml
+healthcheck:
+  test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+  interval: 30s
+  timeout: 5s
+  retries: 3
+```
+
+构建镜像（需要 Docker）：`make image`。
+
+## 控制台
+
+`http://<host>:8080/ui`
+
+| 页签 | 用途 |
+|---|---|
+| 库体检 | 全库扫描、按文件夹筛选、问题清单分页与勾选重刮、批量刷新、清空元数据 |
+| 数据源与映射同步 | 基础设置只读展示、演员映射表手动同步 |
+| 日志 | 按番号 / 级别 / 来源过滤处理时间线 |
+
+## HTTP API
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/healthz` | 存活探针（无鉴权） |
+| GET | `/ui`、`/ui/` | 控制台页面 |
+| GET | `/ui/api/status` | Emby 连接与映射表状态 |
+| GET | `/ui/api/audit` | 全库体检 |
+| POST | `/ui/api/fix` | `{"action":"refresh"\|"retitle","ids":[...],"replace_all":bool}` |
+| POST | `/ui/api/refresh/start` | 批量刷新或清空（`mode=wipe`） |
+| POST | `/ui/api/refresh/stop` | 停止当前批次 |
+| GET | `/ui/api/refresh/status` | 派发与后台完成进度 |
+| POST | `/ui/api/refresh/reset` | 重置某范围的续跑进度 |
+| GET | `/ui/api/paths` | 可选文件夹列表 |
+| POST | `/ui/api/mapping/sync` | 立即同步在线映射表 |
+| GET | `/ui/api/logs` | 处理日志 |
+| GET | `/ui/api/settings` | 插件设置镜像（只读） |
+| GET | `/ui/api/plugin-translation` | 翻译联动状态 |
+| POST | `/ui/api/uncensored-badge` | `{"exclude":[...],"dry_run":bool}` 无码破解标签 |
+
+刮削接口与上游一致：`/v1/movies/{provider}/{id}`、`/v1/search`、`/v1/actors/...`、`/v1/translate` 等，见上游文档。
+
+## Emby 插件侧
+
+1. `Server` 指向 `http://<host>:8080`。
+2. `Token` 留空（后端未启用鉴权时）。
+3. `TranslationMode` 必须非 `Disabled`：标题与简介由插件翻译。
+4. 数据源过滤器保持 `fanza,javbus,fc2` 即可，与映射/翻译无关。
+
+## 数据源
+
+- **JavDB**：默认关闭（Cloudflare 限速）。作为长尾兜底启用：
+
+  ```yaml
+  MT_PROVIDER_JAVDB__PRIORITY=900
+  MT_PROVIDER_JAVDB__RATE_LIMIT=10s
+  ```
+
+- **FANZA**：既接受 DMM content id，也接受普通番号（含 `START-015`、`T-38027` 这类带工作室前缀的 cid，走搜索回退）。
+- **限速**：所有 provider 共用一张冷却表，冷却时间由插件页的 `FanzaRateLimit` / `JavdbRateLimit` 控制。
+
+## 开发
+
+```bash
+make check     # gofmt + go vet + 离线单元测试
+make server    # 编译二进制到 build/
+make image     # 构建 metatube-plus:latest
+```
+
+- Go 1.26+；CI 会跑 `go test` 与 `golangci-lint`（配置见 `.golangci.yaml`）。
+- 单元测试覆盖 `common/enrich`（映射、词典、兜底）、`common/throttle`、`common/number` 等离线逻辑。
+- 新增或修改代码时保持：注释英文、`gofmt`/`gofumpt` 干净、`go vet` 通过。
+
+## 目录结构
+
+| 路径 | 内容 |
+|---|---|
+| `cmd/` | 进程入口、启动参数与装配 |
+| `engine/` | 刮削编排、缓存、图片处理 |
+| `provider/` | 各数据源实现（含 `javdb`、`fanza`） |
+| `common/enrich/` | 中文化管线（映射、流派词典、简介处理） |
+| `common/mapping/` | XML 映射表加载与在线同步 |
+| `manage/` | 运维控制台后端与内嵌前端（`manage/web/index.html`） |
+| `deploy/` | 部署模板与插件配置示例 |
+| `translate/` | 翻译引擎与流派兜底 |
+
+## 升级上游
+
+```bash
+git fetch upstream
+git merge upstream/main
+# 确认 engine/register.go 保留了 provider/javdb 的 import
+make check
+```
+
+上游在 #389 删除了 `provider/javdb`，本 fork 恢复了它。**同步时务必保留 `engine/register.go` 中那一行 import**，否则演员兜底和 JavDB 源会消失。
+
+## Credits 与许可
+
+- 上游项目：[metatube-community/metatube-sdk-go](https://github.com/metatube-community/metatube-sdk-go)（Apache-2.0），本仓库基于其代码。
+- 在线演员映射源：[li-peifeng/Jav-Actors-Mapping](https://github.com/li-peifeng/Jav-Actors-Mapping)。
+- 依赖清单见 `go.mod`；主要框架为 colly、gin、gorm。
+- 许可证：[Apache-2.0](LICENSE)。
