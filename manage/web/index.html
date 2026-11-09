@@ -110,16 +110,6 @@
           <div id="auditIssues" style="margin-top:10px"></div>
         </div>
         <div class="card">
-          <h2>无码破解标签</h2>
-          <p class="muted" style="margin:0 0 8px">给文件名带 <code>-LTX</code> / <code>-U</code> / <code>-UC</code> 的影片，在 Emby【类型】里追加「无码破解」。</p>
-          <div class="row">
-            <button onclick="runUncensoredBadge(false)">扫描并打标签</button>
-            <button class="sec" onclick="runUncensoredBadge(true)">仅预览（不改动）</button>
-            <span class="muted" id="ubMsg"></span>
-          </div>
-          <div id="ubResult" style="margin-top:10px"></div>
-        </div>
-        <div class="card">
           <h2>批量刷新（带进度）</h2>
           <div class="grid g2">
             <div><label class="f">范围</label>
@@ -237,24 +227,6 @@ async function refreshAll(){ await loadStatus(); if($('pluginSettings')) loadSet
 const ISSUE_LABEL={title_missing:'无标题',title_japanese:'标题日文',actor_japanese:'演员日文',no_actors:'无演员',genre_japanese:'流派日文',no_image:'无封面'};
 const NOTE_LABEL={actor_unmapped:'演员未收录（需人工）'};
 let auditOffset=0,auditLimit=50,auditData=null,auditFilter='';
-async function runUncensoredBadge(dry){
-  $('ubMsg').textContent = dry ? '预览中…' : '处理中（可能需要一两分钟）…';
-  try{
-    const r = await api('/uncensored-badge',{method:'POST',body:JSON.stringify({dry_run:!!dry})});
-    $('ubMsg').textContent = '扫描 '+r.scanned+' 部，命中 '+r.matched+' 部，'
-      + (dry ? ('将新增 '+r.updated+' 部') : ('已新增 '+r.updated+' 部'))
-      + '，已有标签 '+r.skipped+' 部'
-      + ((r.excluded&&r.excluded.length)? ('，排除 '+r.excluded.join('/') ) : '');
-    const rows=(r.changed||[]).map(function(x){
-      return '<tr><td>'+esc(x.number)+'</td><td>'+esc(x.name)+'</td><td>'
-        + (x.added ? '<span class="pill ok">已加</span>' : '<span class="pill gray">已有</span>')
-        + '</td></tr>';
-    }).join('');
-    $('ubResult').innerHTML = rows
-      ? '<table><tr><th>番号</th><th>名称</th><th>结果</th></tr>'+rows+'</table>'
-      : '<p class="muted">没有命中</p>';
-  }catch(e){ $('ubMsg').textContent='失败：'+e.message; }
-}
 async function runAudit(filter,keepOffset){
   if(filter!==undefined){ auditFilter=filter||''; }
   if(!keepOffset){ auditOffset=0; }
