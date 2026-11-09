@@ -266,7 +266,7 @@ async function runAudit(filter,keepOffset){
       +(auditFilter?('&problem='+encodeURIComponent(auditFilter)):''));
     $('auditMsg').textContent='扫描完成：共 '+auditData.total+' 部，合格 '+auditData.ok+'，有问题 '+auditData.problem_count
       +((auditData.note_count||0)?('，另有需人工 '+auditData.note_count+' 部'):'')
-      +((auditData.duplicate_count||0)?('（同番号跨库副本 '+auditData.duplicate_count+'）':''));
+      +((auditData.duplicate_count||0)?('（同番号跨库副本 '+auditData.duplicate_count+'）'):'');
     const g=auditData.groups||{}, ng=auditData.note_groups||{};
     $('auditSummary').innerHTML=Object.keys(ISSUE_LABEL).map(k=>
       '<span class="pill '+(auditFilter===k?'ok':'gray')+'" style="cursor:pointer;margin:4px 6px 0 0" onclick="runAudit(\''+k+'\')">'+ISSUE_LABEL[k]+' '+(g[k]||0)+'</span>').join('')

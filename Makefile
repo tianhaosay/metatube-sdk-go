@@ -144,9 +144,17 @@ image:
 fmt:
 	gofmt -l -w .
 
-# Local quality gate: formatting, vet and the offline unit tests.
+# Local quality gate: formatting, vet, unit tests and the console's inline JS.
 .PHONY: check
 check:
 	@files=$$(gofmt -l .); test -z "$$files" || { echo "gofmt required:"; echo "$$files"; exit 1; }
 	go vet ./common/... ./engine ./manage/... ./cmd/... ./translate/...
 	go test ./common/... -count=1
+	@if command -v node >/dev/null 2>&1; then \
+		node tools/check_inline_js.js manage/web/index.html | node --check; \
+	else echo "node not found, skipping inline JS check"; fi
+
+# Print only the inline console script (useful for manual inspection).
+.PHONY: ui-js
+ui-js:
+	node tools/check_inline_js.js manage/web/index.html
