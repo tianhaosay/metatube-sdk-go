@@ -108,7 +108,11 @@ func (fz *FANZA) SetProxy(proxyURL string) error {
 	if err != nil {
 		return err
 	}
-	fz.httpClient.Transport = &http.Transport{Proxy: http.ProxyURL(u)}
+	// Clone the default transport so connection pooling, HTTP/2 and timeouts
+	// survive; a bare http.Transport would drop all of them.
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = http.ProxyURL(u)
+	fz.httpClient.Transport = transport
 	return fz.Scraper.SetProxy(proxyURL)
 }
 
@@ -973,8 +977,7 @@ func (fz *FANZA) updateWithAWSImgSrc(info *model.MovieInfo) {
 	c.Wait()
 }
 
-// getImageSizeByURL retrieves the image size from the Content-Length header of
-// the given URL.
+// getImageSizeByURL retrieves the image size from the Content-Length header of a given URL.
 func (fz *FANZA) getImageSizeByURL(imgURL string) (size int) {
 	c := fz.ClonedCollector()
 	c.OnResponseHeaders(func(r *colly.Response) {

@@ -126,7 +126,7 @@ func SyncOnlineActorMapping(localPath string) (*SyncResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query latest commit: %w", err)
 	}
-	version := parseFirstCommitSHA(commitBody)
+	version := firstSHA(commitBody)
 	if version == "" {
 		return nil, errors.New("mapping: no valid commit SHA in commits response")
 	}
@@ -141,7 +141,7 @@ func SyncOnlineActorMapping(localPath string) (*SyncResult, error) {
 	// Blob SHA of the file at that commit, used as the integrity reference.
 	var blobSHA string
 	if body, err := onlineHTTPGet(onlineContentsAPIURL(version), 20*time.Second); err == nil {
-		blobSHA = parseContentsBlobSHA(body)
+		blobSHA = firstSHA(body)
 	} else {
 		log.Printf("[mapping-sync] contents API failed (continuing without blob check): %v", err)
 	}
@@ -202,19 +202,10 @@ func SyncOnlineActorMapping(localPath string) (*SyncResult, error) {
 // commitSHARe extracts the first "sha" field from a GitHub API JSON response.
 var commitSHARe = regexp.MustCompile(`"sha"\s*:\s*"([0-9a-f]{40})"`)
 
-// parseFirstCommitSHA returns the first 40-hex commit SHA in a commits API
-// response (a JSON array; only its first element is relevant).
-func parseFirstCommitSHA(body []byte) string {
-	m := commitSHARe.FindSubmatch(body)
-	if m == nil {
-		return ""
-	}
-	return strings.ToLower(string(m[1]))
-}
-
-// parseContentsBlobSHA returns the blob SHA reported by the contents API (its
-// first "sha" field).
-func parseContentsBlobSHA(body []byte) string {
+// firstSHA returns the first 40-hex "sha" field of a GitHub API response. Both
+// endpoints used here report the relevant SHA first: the commits API lists the
+// latest commit, and the contents API describes the single requested file.
+func firstSHA(body []byte) string {
 	m := commitSHARe.FindSubmatch(body)
 	if m == nil {
 		return ""

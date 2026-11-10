@@ -32,7 +32,7 @@ type factory struct {
 	new  func() Translator
 }
 
-// translatorsMu guards the registry held in atomicTranslators.
+// Translators is the list of registered translators.
 var (
 	translatorsMu     sync.Mutex
 	atomicTranslators atomic.Value
@@ -44,7 +44,7 @@ type translator[T any] interface {
 	Translator
 }
 
-// Register adds a translator implementation to the package registry.
+// Register registers a translator to package.
 func Register[T any, P translator[T]](translator P) {
 	translatorsMu.Lock()
 	translators, _ := atomicTranslators.Load().([]factory)

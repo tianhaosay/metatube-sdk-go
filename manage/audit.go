@@ -2,17 +2,10 @@ package manage
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
-)
 
-// kanaRe matches real hiragana/katakana letters. Japanese punctuation that also
-// appears in Chinese titles (・ ー ヽヾ ゛゜ 、。「」) is excluded, so a title
-// like "续・出道" is not counted as Japanese.
-var (
-	kanaRe = regexp.MustCompile(`[\x{3041}-\x{3096}\x{30A1}-\x{30FA}]`)
-	hanRe  = regexp.MustCompile(`[\x{4e00}-\x{9fff}]`)
+	"github.com/metatube-community/metatube-sdk-go/common/lang"
 )
 
 // Issue types reported by the audit. The values are part of the JSON API, so
@@ -187,25 +180,6 @@ func Audit(req AuditRequest) (*AuditResult, error) {
 	return res, nil
 }
 
-// looksJapanese reports whether the text is Japanese rather than a translated
-// title with a few leftover kana (typically an actress name). A title counts as
-// Japanese when there is no Han at all, or when kana are at least 20% of the
-// characters.
-func looksJapanese(s string) bool {
-	if !kanaRe.MatchString(s) {
-		return false
-	}
-	if !hanRe.MatchString(s) {
-		return true
-	}
-	runes := []rune(s)
-	if len(runes) == 0 {
-		return false
-	}
-	kana := len(kanaRe.FindAllString(s, -1))
-	return float64(kana)/float64(len(runes)) >= 0.2
-}
-
 // matchesProblem reports whether an issue belongs to the requested filter.
 func matchesProblem(problems []string, filter string) bool {
 	if filter == "" {
@@ -256,7 +230,7 @@ func titleMissing(name, number string) bool {
 		return true
 	}
 	// Any Han means a real title exists, so it cannot be reported as missing.
-	if hanRe.MatchString(name) {
+	if lang.Han.MatchString(name) {
 		return false
 	}
 	if !hasText(name) {
@@ -293,7 +267,7 @@ func auditItem(it embyItem) (problems, notes []string) {
 	}
 	if titleMissing(name, number) {
 		problems = append(problems, IssueTitleMissing)
-	} else if looksJapanese(titleForTest) {
+	} else if lang.LooksJapanese(titleForTest) {
 		problems = append(problems, IssueTitleJapanese)
 	}
 	if len(actors) == 0 {
@@ -304,7 +278,7 @@ func auditItem(it embyItem) (problems, notes []string) {
 		am := ActorMapping()
 		flagged, unmapped := false, false
 		for _, a := range actors {
-			if !kanaRe.MatchString(a) {
+			if !lang.Kana.MatchString(a) {
 				continue
 			}
 			if am == nil {
@@ -312,7 +286,7 @@ func auditItem(it embyItem) (problems, notes []string) {
 				continue
 			}
 			entry, ok := am.Lookup(a)
-			if !ok || entry == nil || entry.Name == "" || kanaRe.MatchString(entry.Name) || !hanRe.MatchString(entry.Name) {
+			if !ok || entry == nil || entry.Name == "" || lang.Kana.MatchString(entry.Name) || !lang.Han.MatchString(entry.Name) {
 				unmapped = true
 				continue
 			}
@@ -326,7 +300,7 @@ func auditItem(it embyItem) (problems, notes []string) {
 	}
 
 	for _, g := range it.GenresForAudit() {
-		if !kanaRe.MatchString(g) {
+		if !lang.Kana.MatchString(g) {
 			continue
 		}
 		// Providers may put performer names in the genre list; those belong to
@@ -349,7 +323,7 @@ func auditItem(it embyItem) (problems, notes []string) {
 // hasText reports whether the name carries any letters (Latin/CJK), i.e. is
 // not just a number or punctuation.
 func hasText(s string) bool {
-	if kanaRe.MatchString(s) || hanRe.MatchString(s) {
+	if lang.Kana.MatchString(s) || lang.Han.MatchString(s) {
 		return true
 	}
 	for _, r := range s {

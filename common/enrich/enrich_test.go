@@ -124,6 +124,62 @@ func TestApply_ActorFallback(t *testing.T) {
 	}
 }
 
+func TestEnsureOnlyReportsRealChanges(t *testing.T) {
+	fallbackCalls := 0
+	p := New(Config{
+		Actors: fakeActors{"夏目あいか": "夏目响"},
+		ActorFallback: func(number string) []string {
+			fallbackCalls++
+			if number == "ABC-001" {
+				return []string{"夏目あいか"}
+			}
+			return nil
+		},
+	})
+
+	// Nothing to improve: no change, so a cached row is not written back.
+	clean := &model.MovieInfo{
+		Number: "ABC-000", Title: "中文标题",
+		Actors: []string{"夏目响"}, Genres: []string{"剧情"},
+	}
+	if p.Ensure(clean) {
+		t.Fatal("clean metadata must report no change")
+	}
+
+	// Japanese actor name (with kana): rewritten and reported as a change.
+	info := &model.MovieInfo{Number: "ABC-000", Title: "中文标题", Actors: []string{"夏目あいか"}}
+	if !p.Ensure(info) || info.Actors[0] != "夏目响" {
+		t.Fatalf("japanese actor should be rewritten: actors=%v", info.Actors)
+	}
+
+	// Missing actors, fallback finds nothing: still nothing changed.
+	empty := &model.MovieInfo{Number: "ABC-002", Title: "中文标题"}
+	if p.Ensure(empty) {
+		t.Fatal("an empty fallback result must not count as a change")
+	}
+	if fallbackCalls != 1 {
+		t.Fatalf("fallback consulted %d times, want 1", fallbackCalls)
+	}
+
+	// Missing actors the fallback can fill: reported as a change.
+	filled := &model.MovieInfo{Number: "ABC-001", Title: "中文标题"}
+	if !p.Ensure(filled) || len(dedupe(filled.Actors)) != 1 || filled.Actors[0] != "夏目响" {
+		t.Fatalf("fallback actors should be applied: %v", filled.Actors)
+	}
+}
+
+func TestSetActorFallback(t *testing.T) {
+	p := New(Config{})
+	info := &model.MovieInfo{Number: "ABC-009"}
+	if p.Ensure(info) {
+		t.Fatal("no fallback configured, nothing to do")
+	}
+	p.SetActorFallback(func(string) []string { return []string{"新演员"} })
+	if !p.Ensure(info) || len(info.Actors) != 1 || info.Actors[0] != "新演员" {
+		t.Fatalf("runtime fallback should apply: %v", info.Actors)
+	}
+}
+
 func TestCollapseNewlines(t *testing.T) {
 	got := collapseNewlines("\n\na\n\n\n\nb\n\n")
 	if got != "a\nb" {

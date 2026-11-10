@@ -12,7 +12,6 @@ import (
 	"github.com/metatube-community/metatube-sdk-go/collection/sets"
 	"github.com/metatube-community/metatube-sdk-go/collection/slices"
 	"github.com/metatube-community/metatube-sdk-go/common/comparer"
-	"github.com/metatube-community/metatube-sdk-go/common/enrich"
 	"github.com/metatube-community/metatube-sdk-go/common/number"
 	"github.com/metatube-community/metatube-sdk-go/engine/providerid"
 	"github.com/metatube-community/metatube-sdk-go/model"
@@ -218,28 +217,11 @@ func (e *Engine) getMovieInfoWithCallback(provider mt.MovieProvider, id string, 
 	// Query DB first (by id).
 	if lazy {
 		if info, err = e.getMovieInfoFromDB(provider, id); err == nil && info.IsValid() {
-			// Cached rows may still hold untranslated metadata; enrich once and
-			// persist, so a refresh fixes them without re-scraping.
-			if e.enrich != nil {
-				cfg := e.enrich.Snapshot()
-				// Also re-run when summaries are hidden: an old row keeps its
-				// summary until the pipeline clears it once.
-				if enrich.NeedsWork(info) || (cfg.DisableSummary && strings.TrimSpace(info.Summary) != "") {
-					e.enrich.Apply(info)
-					e.db.Clauses(clause.OnConflict{UpdateAll: true}).Create(info)
-					e.logger.Printf("enriched cached entry %s/%s on read", provider.Name(), id)
-				}
-				// A cached row with no actors never triggers the fallback on its
-				// own (no scrape happens), so a refresh could not repair it. Try
-				// once here; the fallback keeps its own negative cache.
-				if !cfg.ActorFallbackDisabled && len(info.Actors) == 0 && cfg.ActorFallback != nil {
-					if actors := cfg.ActorFallback(info.Number); len(actors) > 0 {
-						info.Actors = actors
-						e.enrich.Apply(info)
-						e.db.Clauses(clause.OnConflict{UpdateAll: true}).Create(info)
-						e.logger.Printf("actors filled from fallback for cached %s/%s", provider.Name(), id)
-					}
-				}
+			// Cached rows may still hold untranslated metadata or lack actors;
+			// the pipeline repairs them once here and the result is persisted,
+			// so a library refresh fixes old entries without re-scraping.
+			if e.enrichCached(info) {
+				e.logger.Printf("enriched cached entry %s/%s on read", provider.Name(), id)
 			}
 			return // ignore DB query error.
 		}
@@ -258,10 +240,8 @@ func (e *Engine) getMovieInfoWithCallback(provider mt.MovieProvider, id string, 
 	if err != nil || info == nil || !info.IsValid() {
 		e.logger.Printf("[SCRAPE] number=%s provider=%s result=fail ms=%d", id, provider.Name(), elapsed)
 	} else {
-		if e.enrich != nil {
-			// Enrich before caching, so later reads never re-translate.
-			e.enrich.Apply(info)
-		}
+		// Enrich before caching, so later reads never re-translate.
+		e.enrichInfo(info)
 		e.logger.Printf("[SCRAPE] number=%s provider=%s result=ok ms=%d actors=%d genres=%d title=%s",
 			info.Number, provider.Name(), elapsed, len(info.Actors), len(info.Genres), info.Title)
 	}

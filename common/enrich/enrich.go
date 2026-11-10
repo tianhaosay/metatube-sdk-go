@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/metatube-community/metatube-sdk-go/common/lang"
 	"github.com/metatube-community/metatube-sdk-go/common/mapping"
 	"github.com/metatube-community/metatube-sdk-go/model"
 	"github.com/metatube-community/metatube-sdk-go/translate"
@@ -112,6 +113,39 @@ func (p *Pipeline) SetActorFallbackEnabled(v bool) {
 	p.Configure(func(c *Config) { c.ActorFallbackDisabled = !v })
 }
 
+// SetActorFallback installs the fallback that fills missing actors. It is set
+// after construction because it needs real provider instances.
+func (p *Pipeline) SetActorFallback(fn func(number string) []string) {
+	p.Configure(func(c *Config) { c.ActorFallback = fn })
+}
+
+// Ensure applies the pipeline only when it can still change something, and
+// reports whether the metadata did change. Cached rows use this on read, so an
+// old entry is repaired once and persisted instead of being re-scraped.
+func (p *Pipeline) Ensure(info *model.MovieInfo) bool {
+	if info == nil {
+		return false
+	}
+	cfg := p.Snapshot()
+	needsActors := !cfg.ActorFallbackDisabled && len(info.Actors) == 0 &&
+		info.Number != "" && cfg.ActorFallback != nil
+	if !needsActors && !NeedsWork(info) &&
+		!(cfg.DisableSummary && strings.TrimSpace(info.Summary) != "") {
+		return false // nothing the pipeline could improve.
+	}
+	before := fingerprint(info)
+	p.Apply(info)
+	return fingerprint(info) != before
+}
+
+// fingerprint summarises the fields the pipeline may rewrite, so Ensure can tell
+// a real change from a run that found nothing (e.g. an empty fallback result).
+func fingerprint(info *model.MovieInfo) string {
+	return strings.Join(info.Actors, "\x00") + "\x01" +
+		strings.Join(info.Genres, "\x00") + "\x01" +
+		info.Summary + "\x01" + info.Title
+}
+
 // Apply rewrites the metadata in place. It never returns an error: a failing
 // translator or a missing mapping table leaves the original text untouched.
 // Title and summary are left as-is and are translated by the Emby plugin.
@@ -179,7 +213,7 @@ func (p *Pipeline) Apply(info *model.MovieInfo) {
 			if g == "" {
 				continue
 			}
-			if kanaRe.MatchString(g) {
+			if lang.Kana.MatchString(g) {
 				translated := ""
 				if cfg.Genres != nil {
 					if v, ok := cfg.Genres.Lookup(g); ok {
@@ -187,7 +221,7 @@ func (p *Pipeline) Apply(info *model.MovieInfo) {
 					}
 				}
 				if translated == "" && cfg.Translator != nil {
-					if t := translateField(cfg.Translator, g, target); t != "" && !kanaRe.MatchString(t) {
+					if t := translateField(cfg.Translator, g, target); t != "" && !lang.Kana.MatchString(t) {
 						engine := cfg.TranslatorName
 						if engine == "" {
 							engine = "unknown"
@@ -218,10 +252,6 @@ func (p *Pipeline) Apply(info *model.MovieInfo) {
 	}
 }
 
-// hanRe matches Chinese characters. A zh-CN translation containing none is
-// treated as failed (free engines occasionally return a romanization).
-var hanRe = regexp.MustCompile(`[\x{4e00}-\x{9fff}]`)
-
 // translateField translates one genre/tag and validates the result is usable
 // Chinese. An empty return means "keep the original".
 func translateField(t translate.Translator, text, target string) string {
@@ -241,10 +271,10 @@ func acceptableTranslation(src, out, target string) bool {
 		return false
 	}
 	if strings.HasPrefix(strings.ToLower(target), "zh") {
-		if !hanRe.MatchString(out) {
+		if !lang.Han.MatchString(out) {
 			return false
 		}
-		if kanaRe.MatchString(out) && !kanaRe.MatchString(src) {
+		if lang.Kana.MatchString(out) && !lang.Kana.MatchString(src) {
 			return false
 		}
 	}
@@ -252,9 +282,6 @@ func acceptableTranslation(src, out, target string) bool {
 }
 
 var newlinePattern = regexp.MustCompile(`\r?\n(\r?\n)+`)
-
-// kanaRe matches hiragana/katakana, i.e. "this text is still Japanese".
-var kanaRe = regexp.MustCompile(`[\x{3040}-\x{30ff}]`)
 
 func collapseNewlines(s string) string {
 	if s == "" {
@@ -286,16 +313,16 @@ func NeedsWork(info *model.MovieInfo) bool {
 	if info == nil {
 		return false
 	}
-	if kanaRe.MatchString(info.Title) || kanaRe.MatchString(info.Summary) {
+	if lang.Kana.MatchString(info.Title) || lang.Kana.MatchString(info.Summary) {
 		return true
 	}
 	for _, g := range info.Genres {
-		if kanaRe.MatchString(g) {
+		if lang.Kana.MatchString(g) {
 			return true
 		}
 	}
 	for _, a := range info.Actors {
-		if kanaRe.MatchString(a) {
+		if lang.Kana.MatchString(a) {
 			return true
 		}
 	}

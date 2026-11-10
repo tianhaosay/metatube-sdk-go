@@ -210,7 +210,7 @@ git merge upstream/main
 make check
 ```
 
-上游在 #389 删除了 `provider/javdb`，本 fork 恢复了它。**同步时务必保留 `engine/register.go` 中那一行 import**，否则演员兜底和 JavDB 源会消失。
+`provider/javdb` 是本 fork 新增的数据源，上游从未有过（上游 PR #389 加的是 `FC2DB`）。**同步时务必保留 `engine/register.go` 中那一行 import**，否则演员兜底和 JavDB 源会消失。
 
 ## Credits 与许可
 

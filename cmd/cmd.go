@@ -218,7 +218,7 @@ func Router(names ...string) *gin.Engine {
 		opts = append(opts, engine.WithEngineName(name))
 	}
 
-	// set actor provider configs if any
+	// // set actor provider configs if any
 	for provider, config := range envconfig.ActorProviderConfigs.Iterator() {
 		opts = append(opts, engine.WithActorProviderConfig(provider, config))
 	}
@@ -234,6 +234,10 @@ func Router(names ...string) *gin.Engine {
 	opts = append(opts, engine.WithEnrich(pipe))
 
 	app := engine.New(db, opts...)
+
+	// The actor fallback needs real provider instances, so it is installed once
+	// the engine exists; the pipeline itself is assembled before that.
+	pipe.SetActorFallback(buildActorFallback())
 
 	// always enable auto migrate for sqlite DB
 	if app.DBDriver() == database.Sqlite {
@@ -309,7 +313,6 @@ func buildEnrichPipeline() *enrich.Pipeline {
 		cfg.Info = enrich.NewLazyInfo(Config.MappingInfoFile)
 	}
 	cfg.Genres = enrich.LoadGenreDict(genreDictPath())
-	cfg.ActorFallback = buildActorFallback()
 	return enrich.New(cfg)
 }
 
@@ -435,6 +438,7 @@ func buildActorFallback() func(number string) []string {
 			log.Printf("[enrich] actor fallback %q unavailable: %v", name, err)
 			continue
 		}
+		configureFallbackProvider(p, name)
 		providers = append(providers, p)
 	}
 	if len(providers) == 0 {
@@ -457,5 +461,31 @@ func buildActorFallback() func(number string) []string {
 		}
 		negativeMark(n)
 		return nil
+	}
+}
+
+// configureFallbackProvider applies the same request timeout, proxy and provider
+// config the engine applies to its own instances. The fallback builds its own
+// instance through the provider factory, because the engine drops disabled
+// providers (JavDB ships disabled); without this it would run on defaults only.
+func configureFallbackProvider(p provider.MovieProvider, name string) {
+	if s, ok := p.(provider.RequestTimeoutSetter); ok && Config.RequestTimeout >= time.Second {
+		s.SetRequestTimeout(Config.RequestTimeout)
+	}
+	cfg, ok := envconfig.MovieProviderConfigs.Get(name)
+	if !ok {
+		return
+	}
+	if s, ok := p.(provider.ProxySetter); ok && cfg.Has("proxy") {
+		if v, err := cfg.GetString("proxy"); err == nil {
+			if err := s.SetProxy(v); err != nil {
+				log.Printf("[enrich] actor fallback %q proxy: %v", name, err)
+			}
+		}
+	}
+	if s, ok := p.(provider.ConfigSetter); ok {
+		if err := s.SetConfig(cfg); err != nil {
+			log.Printf("[enrich] actor fallback %q config: %v", name, err)
+		}
 	}
 }

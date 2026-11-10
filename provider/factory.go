@@ -12,9 +12,9 @@ type (
 )
 
 var (
-	// factoryMu guards the factory maps below.
+	// Factory RW Mutex
 	factoryMu sync.RWMutex
-
+	// Actor/Movie Factories
 	movieFactories = make(map[string]MovieFactory)
 	actorFactories = make(map[string]ActorFactory)
 )
