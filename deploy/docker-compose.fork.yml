@@ -10,7 +10,9 @@
 
 services:
   metatube:
-    image: metatube-plus:latest
+    # 用发布版镜像（Docker Hub 公开，免登录直接拉取）
+    # 自行构建时改为：image: metatube-plus:latest
+    image: tianhaosay/metatube-plus:stable-1
     container_name: metatube
     ports:
       - "8080:8080"

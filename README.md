@@ -10,6 +10,35 @@
 [![Go Version](https://img.shields.io/badge/go-1.26-30dff3?style=flat-square&logo=go)](go.mod)
 [![License](https://img.shields.io/badge/license-Apache--2.0-e4682a?style=flat-square)](LICENSE)
 
+## 直接用现成镜像（最快上手）
+
+已构建好的镜像公开发布在 Docker Hub，**无需登录、无需自己构建**：
+
+```bash
+docker pull tianhaosay/metatube-plus:stable-1
+```
+
+或者直接在 compose 里用（把 `deploy/docker-compose.fork.yml` 的 `image` 换成下面这行即可）：
+
+```yaml
+services:
+  metatube:
+    image: tianhaosay/metatube-plus:stable-1
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+```
+
+| 标签 | 含义 | 什么时候用 |
+|---|---|---|
+| `stable-1` | 稳定基准，固定不变 | **推荐**：日常使用、出问题时回退到这里 |
+| `latest` | 最新推送，随每次发布会移动 | 想始终拿到最新版本 |
+| `<提交号>` | 精确对应某次代码提交 | 排查问题、锁定特定版本 |
+
+不想用标签时，`docker pull tianhaosay/metatube-plus` 等价于 `:latest`。
+
+需要自己改代码、重新编译时，再走下面的[部署](#部署)章节。
+
 ## 与上游的关系
 
 - 这是**功能增强分支**，不是替代品：刮削逻辑、数据源实现、数据库层都沿用上游，新增能力以独立包「外挂」在关键位置挂钩子。
@@ -65,11 +94,11 @@
 
 - 版本与变更记录：[Releases](https://github.com/tianhaosay/metatube-sdk-go/releases)
 - 源码：`git clone` 或下载 Release 的源码包
-- 镜像：克隆后 `make image`（需要 Docker），或按下面的 compose 模板自行构建
+- 镜像：已发布在 Docker Hub（`tianhaosay/metatube-plus:stable-1`，**免登录直接拉取**）；自行构建用 `make image`（需要 Docker），或按下面的 compose 模板
 
 ## 部署
 
-镜像 `metatube-plus:latest`，模板 [`deploy/docker-compose.fork.yml`](deploy/docker-compose.fork.yml)。
+镜像用发布版 `tianhaosay/metatube-plus:stable-1`（免登录），也可自行构建为本地 `metatube-plus:latest`。模板 [`deploy/docker-compose.fork.yml`](deploy/docker-compose.fork.yml)。
 模板里的地址、密钥、库 ID 都是占位值，按自己的环境替换：
 
 ```bash
