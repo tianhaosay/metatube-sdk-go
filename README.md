@@ -15,7 +15,7 @@
 已构建好的镜像公开发布在 Docker Hub，**无需登录、无需自己构建**：
 
 ```bash
-docker pull tianhaosay/metatube-plus:stable-1
+docker pull tianhaosay/metatube-plus
 ```
 
 或者直接在 compose 里用（把 `deploy/docker-compose.fork.yml` 的 `image` 换成下面这行即可）：
@@ -23,19 +23,15 @@ docker pull tianhaosay/metatube-plus:stable-1
 ```yaml
 services:
   metatube:
-    image: tianhaosay/metatube-plus:stable-1
+    image: tianhaosay/metatube-plus
     ports:
       - "8080:8080"
     restart: unless-stopped
 ```
 
-| 标签 | 含义 | 什么时候用 |
-|---|---|---|
-| `stable-1` | 稳定基准，固定不变 | **推荐**：日常使用、出问题时回退到这里 |
-| `latest` | 最新推送，随每次发布会移动 | 想始终拿到最新版本 |
-| `<提交号>` | 精确对应某次代码提交 | 排查问题、锁定特定版本 |
+不写标签时默认拉取 `latest`，也就是**当前最新版本**。当前版本为 `v1.0.0`，首个正式稳定版。
 
-不想用标签时，`docker pull tianhaosay/metatube-plus` 等价于 `:latest`。
+需要锁定到某个具体版本（比如排查问题）时，可以用提交号作为标签，例如 `tianhaosay/metatube-plus:0063974`。
 
 需要自己改代码、重新编译时，再走下面的[部署](#部署)章节。
 
@@ -94,11 +90,11 @@ services:
 
 - 版本与变更记录：[Releases](https://github.com/tianhaosay/metatube-sdk-go/releases)
 - 源码：`git clone` 或下载 Release 的源码包
-- 镜像：已发布在 Docker Hub（`tianhaosay/metatube-plus:stable-1`，**免登录直接拉取**）；自行构建用 `make image`（需要 Docker），或按下面的 compose 模板
+- 镜像：已发布在 Docker Hub（`tianhaosay/metatube-plus`，**免登录直接拉取**，默认最新版）；自行构建用 `make image`（需要 Docker），或按下面的 compose 模板
 
 ## 部署
 
-镜像用发布版 `tianhaosay/metatube-plus:stable-1`（免登录），也可自行构建为本地 `metatube-plus:latest`。模板 [`deploy/docker-compose.fork.yml`](deploy/docker-compose.fork.yml)。
+镜像用发布版 `tianhaosay/metatube-plus`（免登录，默认最新版），也可自行构建为本地 `metatube-plus:latest`。模板 [`deploy/docker-compose.fork.yml`](deploy/docker-compose.fork.yml)。
 模板里的地址、密钥、库 ID 都是占位值，按自己的环境替换：
 
 ```bash
